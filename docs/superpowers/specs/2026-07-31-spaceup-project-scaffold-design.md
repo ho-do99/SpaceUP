@@ -2,114 +2,135 @@
 
 ## 목표
 
-AI 평면도 분석 기반 인테리어 리포트 및 시공 중개 플랫폼 SpaceUP의 로컬·개발 환경에서 실행 가능한 모노레포 골격을 구성한다.
+`SpaceUP`을 React/Vite/TypeScript 프런트엔드, Spring Boot/Gradle 백엔드,
+FastAPI AI 분석 서버로 나눈 모노레포로 초기화한다. 저장소를 받은 팀원이 각
+서비스를 독립적으로 확장할 수 있도록 요청된 디렉터리와 최소 실행 가능한
+설정 파일을 제공한다.
 
-## 범위
+## Git 브랜치 전략
 
-- React, Vite, TypeScript, Tailwind CSS 3 기반 프런트엔드
-- Spring Boot, Gradle 기반 백엔드
-- FastAPI 기반 AI 분석 서버
-- Nginx 기반 단일 진입점과 리버스 프록시
-- MySQL 데이터베이스
-- Docker 및 Docker Compose 기반 실행 환경
-- 환경 변수 예시와 실행 문서
+- `main`: 배포 및 안정 버전 기준 브랜치
+- `develop`: 기능 통합 브랜치이며 `main`에서 분기
+- `ai`, `backend`, `frontend`: 담당 영역 개발 브랜치이며 모두 `develop`에서 분기
+- 최초 스캐폴딩 커밋은 모든 브랜치가 공유한다.
+- 원격 저장소는 `https://github.com/ho-do99/SpaceUP.git`을 `origin`으로 사용한다.
+- 원격에 기존 커밋이 있다면 강제 푸시하지 않고 이력을 확인한 뒤 안전하게 통합한다.
 
-현재 범위에서는 실제 OCR·세그멘테이션 모델, 인증, 도메인 기능, Redis, 메시지 큐, 오브젝트 스토리지, GitHub Actions를 구현하지 않는다.
-
-## 디렉터리 구조
+## 저장소 구조
 
 ```text
 SpaceUP/
-├─ frontend/
-├─ backend/
-├─ ai-server/
-├─ nginx/
-├─ docker-compose.local.yml
-├─ docker-compose.dev.yml
-├─ .env.example
-└─ README.md
+├── frontend/
+│   ├── public/images/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── api/
+│   │   ├── types/
+│   │   ├── router/
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── index.css
+│   ├── .env.local
+│   ├── .env.dev
+│   ├── Dockerfile.local
+│   ├── Dockerfile.dev
+│   ├── package.json
+│   ├── tailwind.config.js
+│   ├── tsconfig.json
+│   └── vite.config.ts
+├── backend/
+│   ├── src/main/java/com/spaceup/
+│   │   ├── SpaceUpApplication.java
+│   │   ├── config/
+│   │   ├── member/
+│   │   ├── housing/
+│   │   ├── floorplan/
+│   │   ├── analysis/
+│   │   ├── estimate/
+│   │   ├── report/
+│   │   ├── contractor/
+│   │   └── quotation/
+│   ├── src/main/resources/
+│   ├── src/test/
+│   ├── Dockerfile.local
+│   ├── Dockerfile.dev
+│   ├── build.gradle
+│   ├── settings.gradle
+│   ├── gradlew
+│   └── gradlew.bat
+├── ai/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── routes/
+│   │   ├── services/
+│   │   └── models/
+│   ├── Dockerfile.local
+│   ├── Dockerfile.dev
+│   └── requirements.txt
+├── database/init.sql
+├── nginx/
+│   ├── local.conf
+│   └── dev.conf
+├── storage/
+│   ├── floorplans/
+│   ├── reports/
+│   └── images/
+├── docker-compose.local.yml
+├── docker-compose.dev.yml
+├── .env.local
+├── .env.dev
+├── .env.example
+├── .gitignore
+└── README.md
 ```
 
-서비스별 내부 파일은 각 런타임의 표준 구조를 따른다. 프런트엔드는 Vite의 `src` 구조, 백엔드는 Gradle의 `src/main`·`src/test` 구조, AI 서버는 FastAPI의 `app`·`tests` 구조를 사용한다.
+Git이 빈 디렉터리를 추적하지 않으므로 코드가 아직 없는 도메인 패키지와 저장소
+디렉터리에는 `.gitkeep`을 둔다. 사용자가 이미 보유한 루트 `Docs/`와 `tmp/`
+내용은 삭제하지 않고 초기 원격 커밋 대상에서도 제외한다.
 
-## 서비스 구성
+## 서비스별 초기 범위
 
 ### Frontend
 
-- React와 TypeScript로 기본 화면을 제공한다.
-- Vite 개발 서버를 사용한다.
-- Tailwind CSS 3을 PostCSS 플러그인으로 구성한다.
-- `/api`와 `/ai` 요청은 동일 출처의 Nginx 경로를 사용한다.
-- 상태 확인용 기본 화면에서 백엔드 및 AI 서버 연결 상태를 확인할 수 있다.
+- 기존 React/Vite/TypeScript 설정과 공통 컴포넌트를 보존한다.
+- 요청된 페이지, API 모듈, 타입 파일을 추가한다.
+- 라우터가 모든 초기 페이지를 연결하며, 구현 전 화면은 명확한 자리표시자로 표시한다.
+- Axios 기본 URL은 Vite 환경 변수에서 읽는다.
 
 ### Backend
 
-- Java 21과 Spring Boot 3 계열을 사용한다.
-- Gradle Wrapper로 빌드 도구 버전을 고정한다.
-- Spring Web, Validation, Spring Data JPA, MySQL Driver, Actuator를 포함한다.
-- `/api/health`에서 서비스 상태를 반환한다.
-- 데이터베이스 연결 정보와 AI 서버 주소는 환경 변수로 주입한다.
+- Spring Boot 애플리케이션과 CORS/보안 기본 설정을 제공한다.
+- 각 업무 도메인은 독립 패키지로 생성한다.
+- 초기 상태에서는 인증이나 실제 데이터 모델을 임의로 구현하지 않는다.
+- 환경별 YAML은 데이터베이스와 AI 서버 주소를 환경 변수로 받는다.
 
-### AI Server
+### AI
 
-- Python과 FastAPI를 사용한다.
-- `/health`에서 서비스 상태를 반환한다.
-- 향후 OCR, 전처리, 공간 세그멘테이션 기능을 분리할 수 있도록 `api`, `core`, `schemas`, `services` 경계를 둔다.
-- 현재는 실제 모델을 내려받거나 가중치를 포함하지 않는다.
+- FastAPI 앱이 상태 확인 및 분석 요청 라우트를 제공한다.
+- OCR과 세그멘테이션 서비스는 확장 가능한 인터페이스와 안전한 자리표시자 응답만 제공한다.
+- 모델 바이너리는 커밋하지 않고 `models/.gitkeep`만 추적한다.
 
-### Nginx
+### 인프라
 
-- `/` 요청은 프런트엔드로 전달한다.
-- `/api/` 요청은 Spring Boot로 전달하며 `/api` 경로를 유지한다.
-- `/ai/` 요청은 FastAPI로 전달하며 FastAPI에는 `/` 이하 경로로 전달한다.
-- 업로드될 평면도 PDF와 이미지에 대비해 요청 본문 크기 제한을 설정한다.
+- 로컬과 개발 환경을 분리한 Dockerfile, Compose, Nginx 설정을 제공한다.
+- MySQL 초기화 스크립트는 기본 데이터베이스 생성에 필요한 최소 내용만 둔다.
+- `.env` 파일에는 비밀값을 넣지 않고 개발용 예시값만 사용한다.
+- 업로드 및 생성 결과 디렉터리는 구조만 추적하고 실제 산출물은 무시한다.
 
-### MySQL
+## 오류 처리
 
-- MySQL 8.4 계열을 사용한다.
-- 데이터베이스명, 사용자명, 비밀번호는 환경 변수로 설정한다.
-- 로컬 데이터는 Docker 볼륨으로 유지한다.
-- 초기 프로젝트에서는 JPA가 스키마를 갱신하도록 하되 운영 환경 설정으로 간주하지 않는다.
-
-## 실행 환경
-
-### `docker-compose.local.yml`
-
-개발자의 소스 수정이 즉시 반영되는 환경이다. 프런트엔드는 Vite 개발 서버, AI 서버는 Uvicorn reload 모드, 백엔드는 Gradle `bootRun`을 사용하며 소스와 Gradle 캐시를 볼륨으로 연결한다.
-
-### `docker-compose.dev.yml`
-
-통합 개발 서버와 유사한 환경이다. 각 서비스의 Dockerfile로 이미지를 빌드하며 소스 볼륨과 핫 리로드를 사용하지 않는다. Nginx를 외부 진입점으로 사용하고 각 내부 서비스는 Docker 네트워크에서만 통신한다.
-
-## 요청 흐름
-
-```text
-Browser
-  └─ Nginx :80
-      ├─ /      → Frontend
-      ├─ /api/* → Spring Boot :8080
-      └─ /ai/*  → FastAPI :8000
-
-Spring Boot
-  ├─ MySQL :3306
-  └─ FastAPI :8000
-```
-
-## 오류 처리와 상태 확인
-
-- 모든 컨테이너에는 가능한 범위에서 헬스 체크를 둔다.
-- Nginx는 시작 순서가 아니라 서비스 이름 기반 네트워크 연결을 사용한다.
-- 백엔드와 AI 서버의 기본 API는 구조화된 JSON을 반환한다.
-- 비밀 값은 저장소에 포함하지 않고 `.env.example`에 개발용 예시만 제공한다.
+- 프런트엔드 API 모듈은 Axios 오류를 호출자가 처리할 수 있도록 그대로 전달한다.
+- 백엔드와 AI 서버는 상태 확인 엔드포인트를 제공한다.
+- 분석 기능은 아직 실제 모델이 없음을 응답에 명확히 나타낸다.
+- 환경 변수가 누락돼도 로컬 개발용 기본값으로 시작할 수 있게 구성한다.
 
 ## 검증 기준
 
-- Gradle 테스트가 통과한다.
-- FastAPI 테스트가 통과한다.
-- 프런트엔드 타입 검사와 프로덕션 빌드가 통과한다.
-- 두 Compose 파일 모두 `docker compose config` 검증을 통과한다.
-- 통합 실행 시 Nginx를 통해 프런트엔드, `/api/health`, `/ai/health`에 접근할 수 있다.
-
-## 향후 확장
-
-GitHub Actions는 이번 작업에서 생성하지 않는다. 추후 프런트엔드 빌드·테스트, 백엔드 Gradle 테스트, AI 서버 테스트, Docker 이미지 빌드와 배포 단계를 추가할 수 있도록 각 서비스를 독립적으로 빌드 가능한 구조로 유지한다.
+- 요청된 모든 경로가 존재하고 Git에 필요한 빈 디렉터리가 추적된다.
+- 프런트엔드 TypeScript 빌드가 성공한다.
+- 백엔드 Gradle 테스트가 성공한다.
+- AI Python 모듈을 컴파일할 수 있고 FastAPI 라우트 테스트가 성공한다.
+- 두 Compose 파일이 `docker compose config` 검증을 통과한다.
+- `main`, `develop`, `ai`, `backend`, `frontend`가 원격에 존재한다.
+- 최종 `git status`에는 의도하지 않은 추적 변경이 없다.
