@@ -1,0 +1,42 @@
+# Local source documents and scratch space
+/Docs/*.hwp
+/Docs/*.pdf
+/Docs/*.png
+/tmp/
+
+# Frontend dependencies and output
+**/node_modules/
+frontend/dist/
+
+# Backend output
+backend/.gradle/
+backend/build/
+*.class
+
+# Python output and virtual environments
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.venv/
+
+# IDE and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local-only secrets
+.env
+.env.*.local
+
+# AI model binaries
+/ai/app/models/*
+!/ai/app/models/.gitkeep
+
+# Runtime storage
+/storage/floorplans/*
+!/storage/floorplans/.gitkeep
+/storage/reports/*
+!/storage/reports/.gitkeep
+/storage/images/*
+!/storage/images/.gitkeep

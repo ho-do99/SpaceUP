@@ -1,0 +1,1 @@
+"""SpaceUP AI service package."""

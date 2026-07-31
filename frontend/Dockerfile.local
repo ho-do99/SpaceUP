@@ -1,0 +1,14 @@
+# ─── Local 개발 Dockerfile ───────────────────────────────────────────────────
+# Hot-reload(HMR)을 위해 Node 이미지를 사용하고 소스를 마운트합니다.
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm install
+
+COPY . .
+
+EXPOSE 5173
+
+CMD ["npm", "run", "dev"]

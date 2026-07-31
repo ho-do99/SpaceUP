@@ -1,0 +1,10 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.spaceup: DEBUG
