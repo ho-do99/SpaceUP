@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+    <header>
+        <resultCode>000</resultCode>
+        <resultMsg>OK</resultMsg>
+    </header>
+    <body>
+        <items>
+            <item>
+                <aptNm>테스트아파트</aptNm>
+                <aptSeq>11110-1</aptSeq>
+                <buildYear>2001</buildYear>
+                <contractTerm>26.07~28.07</contractTerm>
+                <contractType>신규</contractType>
+                <dealDay>15</dealDay>
+                <dealMonth>7</dealMonth>
+                <dealYear>2026</dealYear>
+                <deposit> 12,000 </deposit>
+                <excluUseAr>84.95</excluUseAr>
+                <floor>10</floor>
+                <jibun>1-1</jibun>
+                <monthlyRent>50</monthlyRent>
+                <preDeposit></preDeposit>
+                <preMonthlyRent></preMonthlyRent>
+                <roadnm>테스트로</roadnm>
+                <roadnmbcd>0</roadnmbcd>
+                <roadnmbonbun>00100</roadnmbonbun>
+                <roadnmbubun>00000</roadnmbubun>
+                <roadnmcd>1234567</roadnmcd>
+                <roadnmseq>01</roadnmseq>
+                <roadnmsggcd>11110</roadnmsggcd>
+                <sggCd>11110</sggCd>
+                <umdNm>테스트동</umdNm>
+                <useRRRight>사용</useRRRight>
+                <futureField>preserved</futureField>
+            </item>
+            <item>
+                <aptNm>두번째아파트</aptNm>
+                <sggCd>11110</sggCd>
+            </item>
+        </items>
+        <numOfRows>2</numOfRows>
+        <pageNo>1</pageNo>
+        <totalCount>3</totalCount>
+    </body>
+</response>
