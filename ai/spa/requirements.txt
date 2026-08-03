@@ -1,0 +1,9 @@
+fastapi==0.103.2
+uvicorn[standard]==0.22.0
+python-multipart==0.0.8
+numpy==1.21.6
+Pillow==9.4.0
+opencv-python-headless==4.7.0.68
+segmentation-models-pytorch==0.2.1
+requests==2.31.0
+pytesseract==0.3.10

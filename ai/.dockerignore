@@ -1,5 +1,11 @@
 .venv
 __pycache__
+**/__pycache__
+*.pyc
+**/*.pyc
 .pytest_cache
 .git
 tests
+aihub-ocr/datasets
+aihub-ocr/*.log
+docker-images
