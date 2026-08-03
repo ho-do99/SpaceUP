@@ -20,6 +20,9 @@ jobs:
           script: |
             cd ~/SpaceUP
             git pull
+            # Ensure non-target services are NOT running on the private server
+            docker compose -f docker-compose.dev.yml rm -s -f frontend nginx 2>/dev/null || true
+            # Recreate target services
             docker compose -f docker-compose.dev.yml rm -s -f backend ai 2>/dev/null || true
             docker compose -f docker-compose.dev.yml up -d --build backend ai
 
@@ -41,6 +44,9 @@ jobs:
             export AI_HOST="${{ secrets.AI_HOST }}"
             export SSL_CERT_PATH="/etc/nginx/certs/live/${{ secrets.DOMAIN }}/fullchain.pem"
             export SSL_KEY_PATH="/etc/nginx/certs/live/${{ secrets.DOMAIN }}/privkey.pem"
+            # Ensure non-target services are NOT running on the public server
+            docker compose -f docker-compose.dev.yml rm -s -f backend ai db 2>/dev/null || true
+            # Recreate target services
             docker compose -f docker-compose.dev.yml rm -s -f frontend nginx 2>/dev/null || true
             docker compose -f docker-compose.dev.yml up -d --build frontend nginx
             docker ps
