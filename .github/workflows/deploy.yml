@@ -1,0 +1,46 @@
+name: Deploy SpaceUP project
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH into Private server via Public server (bastion) and redeploy backend/ai/db
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRIVATE_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          proxy_host: ${{ secrets.PUBLIC_HOST }}
+          proxy_username: ${{ secrets.SSH_USER }}
+          proxy_key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/SpaceUP
+            git pull
+            docker compose -f docker-compose.dev.yml down backend ai db 2>/dev/null || true
+            docker compose -f docker-compose.dev.yml up -d --build backend ai db
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH into Public server and redeploy frontend/nginx
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PUBLIC_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/SpaceUP
+            git pull
+            export LETSENCRYPT_DIR="/etc/letsencrypt"
+            export DOMAIN="${{ secrets.DOMAIN }}"
+            export BACKEND_HOST="${{ secrets.BACKEND_HOST }}"
+            export AI_HOST="${{ secrets.AI_HOST }}"
+            export SSL_CERT_PATH="/etc/nginx/certs/live/${{ secrets.DOMAIN }}/fullchain.pem"
+            export SSL_KEY_PATH="/etc/nginx/certs/live/${{ secrets.DOMAIN }}/privkey.pem"
+            docker compose -f docker-compose.dev.yml down frontend nginx 2>/dev/null || true
+            docker compose -f docker-compose.dev.yml up -d --build frontend nginx
+            docker ps
