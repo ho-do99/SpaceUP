@@ -51,6 +51,7 @@ export default function SimulationResultPage() {
           <Button
             type="button"
             className="h-12 w-full !rounded-[5px] !border !border-[#2563eb] !bg-[#2563eb] !px-2 !py-0 !text-[12px] !font-semibold !shadow-none hover:!translate-y-0 hover:!bg-[#2563eb] hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
+            onClick={() => navigate('/estimate/summary')}
           >
             이 스타일로 결정하기
           </Button>

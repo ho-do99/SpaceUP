@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Outlet, Routes, Route } from 'react-router-dom'
+import EstimateFlowProvider from '@/contexts/EstimateFlowProvider'
 import HomePage from '@/pages/HomePage'
 import LoginPage from '@/pages/LoginPage'
 import FloorPlanUploadPage from '@/pages/FloorPlanUploadPage'
@@ -8,6 +9,9 @@ import StyleSelectionPage from '@/pages/StyleSelectionPage'
 import SimulationPhotoUploadPage from '@/pages/SimulationPhotoUploadPage'
 import SimulationGeneratingPage from '@/pages/SimulationGeneratingPage'
 import SimulationResultPage from '@/pages/SimulationResultPage'
+import EstimateSummaryPage from '@/pages/EstimateSummaryPage'
+import FloorMaterialSelectionPage from '@/pages/FloorMaterialSelectionPage'
+import WallpaperMaterialSelectionPage from '@/pages/WallpaperMaterialSelectionPage'
 import AnalysisResultPage from '@/pages/AnalysisResultPage'
 import EstimatePage from '@/pages/EstimatePage'
 import ReportPage from '@/pages/ReportPage'
@@ -29,6 +33,17 @@ export default function AppRouter() {
         <Route path="/analysis/simulation/generating" element={<SimulationGeneratingPage />} />
         <Route path="/analysis/simulation/result" element={<SimulationResultPage />} />
         <Route path="/analysis/:id"   element={<AnalysisResultPage />} />
+        <Route
+          element={(
+            <EstimateFlowProvider>
+              <Outlet />
+            </EstimateFlowProvider>
+          )}
+        >
+          <Route path="/estimate/summary" element={<EstimateSummaryPage />} />
+          <Route path="/estimate/materials/floor" element={<FloorMaterialSelectionPage />} />
+          <Route path="/estimate/materials/wallpaper" element={<WallpaperMaterialSelectionPage />} />
+        </Route>
         <Route path="/estimate/:id"   element={<EstimatePage />} />
         <Route path="/report/:id"     element={<ReportPage />} />
         <Route path="/contractors"    element={<ContractorPage />} />
