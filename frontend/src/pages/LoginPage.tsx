@@ -1,61 +1,145 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ApiClientError } from '@/api/axiosInstance'
+import { login } from '@/api/authApi'
 import Button from '@/components/Button'
-import type { MemberRole } from '@/types/member'
+import { saveAuthSession } from '@/utils/authSession'
 
-type LoginRole = Extract<MemberRole, 'MEMBER' | 'CONTRACTOR'>
+type LoginRole = 'LANDLORD' | 'CONTRACTOR'
 
 interface LoginFormErrors {
-  email?: string
+  username?: string
   password?: string
 }
 
 const loginRoleOptions: Array<{ label: string; value: LoginRole }> = [
-  { label: '사용자', value: 'MEMBER' },
+  { label: '사용자', value: 'LANDLORD' },
   { label: '시공사', value: 'CONTRACTOR' },
 ]
 
+const httpStatusMessages: Readonly<Record<number, string>> = {
+  400: '입력 정보를 다시 확인해 주세요.',
+  401: '아이디 또는 비밀번호를 확인해 주세요.',
+  403: '현재 계정으로 로그인할 수 없습니다.',
+  404: '로그인 요청 경로를 확인할 수 없습니다.',
+  500: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+}
+
+function getLoginErrorMessage(error: unknown) {
+  if (!(error instanceof ApiClientError)) {
+    return '로그인 처리 중 오류가 발생했습니다. 다시 시도해 주세요.'
+  }
+
+  if (error.kind === 'business') return error.message
+  if (error.kind === 'network') return '서버에 연결할 수 없습니다.'
+  if (error.kind === 'invalid-response') return '서버 응답을 확인할 수 없습니다.'
+  if (error.kind === 'http' && error.status) {
+    return httpStatusMessages[error.status] ?? '로그인 요청을 처리할 수 없습니다.'
+  }
+
+  return ''
+}
+
 export default function LoginPage() {
-  const [loginRole, setLoginRole] = useState<LoginRole>('MEMBER')
-  const [email, setEmail] = useState('')
+  const navigate = useNavigate()
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const [loginRole, setLoginRole] = useState<LoginRole>('LANDLORD')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<LoginFormErrors>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [roleNotice, setRoleNotice] = useState('')
 
-  const handleEmailChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setEmail(event.target.value)
-    if (errors.email) {
-      setErrors((currentErrors) => ({ ...currentErrors, email: undefined }))
+  useEffect(
+    () => () => {
+      abortControllerRef.current?.abort()
+    },
+    [],
+  )
+
+  const canSubmit = Boolean(username.trim()) && Boolean(password) && !isSubmitting
+
+  const handleUsernameChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setUsername(event.target.value)
+    setErrorMessage('')
+    setRoleNotice('')
+    if (errors.username) {
+      setErrors((currentErrors) => ({ ...currentErrors, username: undefined }))
     }
   }
 
   const handlePasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
     setPassword(event.target.value)
+    setErrorMessage('')
+    setRoleNotice('')
     if (errors.password) {
       setErrors((currentErrors) => ({ ...currentErrors, password: undefined }))
     }
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    const trimmedEmail = email.trim()
+    if (isSubmitting) return
+
+    const trimmedUsername = username.trim()
     const nextErrors: LoginFormErrors = {}
 
-    if (!trimmedEmail) {
-      nextErrors.email = '이메일을 입력해주세요.'
+    if (!trimmedUsername) {
+      nextErrors.username = '이메일을 입력해주세요.'
     }
 
     if (!password) {
       nextErrors.password = '비밀번호를 입력해주세요.'
     }
 
-    setEmail(trimmedEmail)
+    setUsername(trimmedUsername)
     setErrors(nextErrors)
+    setErrorMessage('')
+    setRoleNotice('')
 
     if (Object.keys(nextErrors).length > 0) {
       return
     }
 
-    // 로그인 API와 성공 후 이동은 백엔드 인증 명세 확정 후 연결합니다.
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+    setIsSubmitting(true)
+
+    try {
+      const loginResponse = await login(
+        { username: trimmedUsername, password },
+        abortController.signal,
+      )
+
+      saveAuthSession(loginResponse)
+
+      if (loginResponse.role === 'LANDLORD') {
+        navigate('/', { replace: true })
+        return
+      }
+
+      if (loginResponse.role === 'CONTRACTOR') {
+        setRoleNotice('시공사 화면은 아직 준비 중입니다.')
+      } else if (loginResponse.role === 'ADMIN') {
+        setRoleNotice('관리자 화면은 아직 준비 중입니다.')
+      } else {
+        setRoleNotice('현재 지원하지 않는 계정 유형입니다.')
+      }
+    } catch (error: unknown) {
+      if (!abortController.signal.aborted) {
+        setErrorMessage(getLoginErrorMessage(error))
+      }
+    } finally {
+      if (!abortController.signal.aborted) {
+        setIsSubmitting(false)
+      }
+
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null
+      }
+    }
   }
 
   return (
@@ -120,30 +204,30 @@ export default function LoginPage() {
             <div className="relative mt-5">
               <label
                 className="block h-[22px] text-[14px] font-medium leading-[22px] tracking-[-0.14px] text-[#475569]"
-                htmlFor="login-email"
+                htmlFor="login-username"
               >
                 이메일
               </label>
               <input
-                id="login-email"
-                name="email"
-                type="email"
+                id="login-username"
+                name="username"
+                type="text"
                 inputMode="email"
-                autoComplete="email"
-                value={email}
+                autoComplete="username"
+                value={username}
                 placeholder="example@email.com"
-                aria-invalid={Boolean(errors.email)}
-                aria-describedby={errors.email ? 'login-email-error' : undefined}
+                aria-invalid={Boolean(errors.username)}
+                aria-describedby={errors.username ? 'login-username-error' : undefined}
                 className="mt-[6px] h-[52px] w-full rounded-[12px] border border-[#cbd5e1] bg-[#f8fafc] px-4 text-[15px] leading-[22px] tracking-[-0.15px] text-[#0f172a] outline-none placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/15"
-                onChange={handleEmailChange}
+                onChange={handleUsernameChange}
               />
-              {errors.email && (
+              {errors.username && (
                 <p
-                  id="login-email-error"
+                  id="login-username-error"
                   className="absolute left-0 top-[82px] text-[12px] leading-4 text-red-600"
                   role="alert"
                 >
-                  {errors.email}
+                  {errors.username}
                 </p>
               )}
             </div>
@@ -180,10 +264,24 @@ export default function LoginPage() {
 
             <Button
               type="submit"
+              disabled={!canSubmit}
+              isLoading={isSubmitting}
               className="mt-[23px] h-[52px] w-full !rounded-[12px] !bg-[#2563eb] !px-4 !py-0 !text-[16px] !font-semibold !leading-[22px] !shadow-none hover:!translate-y-0 hover:!bg-[#2563eb] hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
             >
               로그인
             </Button>
+
+            <div className="mt-3 min-h-5 text-center text-[12px] leading-5">
+              {errorMessage ? (
+                <p role="alert" className="break-keep text-red-600">
+                  {errorMessage}
+                </p>
+              ) : roleNotice ? (
+                <p role="status" className="break-keep text-[#64748b]">
+                  {roleNotice}
+                </p>
+              ) : null}
+            </div>
           </form>
 
           <p className="mt-8 flex h-5 items-center justify-center gap-2 text-[14px] leading-5 text-[#64748b]">
