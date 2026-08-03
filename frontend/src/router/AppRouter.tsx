@@ -24,6 +24,8 @@ import EstimateRequestCompletePage from '@/pages/EstimateRequestCompletePage'
 import EstimateRequestHistoryPage from '@/pages/EstimateRequestHistoryPage'
 import EstimateRequestDetailPage from '@/pages/EstimateRequestDetailPage'
 import MyPage from '@/pages/MyPage'
+import NotificationCenterPage from '@/pages/NotificationCenterPage'
+import SettingsPage from '@/pages/SettingsPage'
 import PropertyInformationPage from '@/pages/PropertyInformationPage'
 
 export default function AppRouter() {
@@ -62,6 +64,8 @@ export default function AppRouter() {
         <Route path="/mypage/requests" element={<EstimateRequestHistoryPage />} />
         <Route path="/mypage/requests/:requestId" element={<EstimateRequestDetailPage />} />
         <Route path="/mypage"         element={<MyPage />} />
+        <Route path="/notifications"  element={<NotificationCenterPage />} />
+        <Route path="/settings"       element={<SettingsPage />} />
         <Route path="/analysis/new/property" element={<PropertyInformationPage />} />
       </Routes>
     </BrowserRouter>

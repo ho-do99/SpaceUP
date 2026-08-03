@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import backIcon from '@/assets/user/icons/back.svg'
 import bellIcon from '@/assets/user/icons/bell.svg'
 import menuIcon from '@/assets/user/icons/menu.svg'
@@ -16,6 +16,7 @@ const unavailableIconButtonClass =
 
 export default function UserHeader({ variant, title = 'SpaceUP', onBack }: UserHeaderProps) {
   const isMain = variant === 'main'
+  const { pathname } = useLocation()
 
   return (
     <header className="sticky top-0 z-20 shrink-0 border-b border-[#e2e8f0] bg-white pt-[env(safe-area-inset-top)]">
@@ -62,20 +63,21 @@ export default function UserHeader({ variant, title = 'SpaceUP', onBack }: UserH
           >
             <img src={userRoundIcon} alt="" className="size-3.5" />
           </Link>
-          <button
-            type="button"
-            disabled
+          <Link
+            to="/notifications"
             aria-label="알림"
-            className={`relative ${unavailableIconButtonClass}`}
+            className="relative flex h-8 w-6 items-center justify-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
           >
             <img src={bellIcon} alt="" className="size-3.5" />
-            <span
-              aria-label="읽지 않은 알림 3개"
-              className="absolute left-3.5 top-[3px] flex size-2.5 items-center justify-center rounded-full bg-[#ef4444] text-[6px] font-bold leading-2 text-white"
-            >
-              3
-            </span>
-          </button>
+            {pathname !== '/notifications' ? (
+              <span
+                aria-label="읽지 않은 알림 3개"
+                className="absolute left-3.5 top-[3px] flex size-2.5 items-center justify-center rounded-full bg-[#ef4444] text-[6px] font-bold leading-2 text-white"
+              >
+                3
+              </span>
+            ) : null}
+          </Link>
         </nav>
       </div>
     </header>
