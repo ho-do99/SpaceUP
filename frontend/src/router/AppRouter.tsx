@@ -18,6 +18,8 @@ import AnalysisResultPage from '@/pages/AnalysisResultPage'
 import EstimatePage from '@/pages/EstimatePage'
 import ReportPage from '@/pages/ReportPage'
 import ContractorPage from '@/pages/ContractorPage'
+import ContractorDetailPage from '@/pages/ContractorDetailPage'
+import EstimateRequestPage from '@/pages/EstimateRequestPage'
 import MyPage from '@/pages/MyPage'
 import PropertyInformationPage from '@/pages/PropertyInformationPage'
 
@@ -48,9 +50,11 @@ export default function AppRouter() {
           <Route path="/estimate/materials/lighting" element={<LightingMaterialSelectionPage />} />
           <Route path="/report/value-increase" element={<HomeValueIncreaseReportPage />} />
         </Route>
+        <Route path="/estimate/request" element={<EstimateRequestPage />} />
         <Route path="/estimate/:id"   element={<EstimatePage />} />
         <Route path="/report/:id"     element={<ReportPage />} />
         <Route path="/contractors"    element={<ContractorPage />} />
+        <Route path="/contractors/:contractorId" element={<ContractorDetailPage />} />
         <Route path="/mypage"         element={<MyPage />} />
         <Route path="/analysis/new/property" element={<PropertyInformationPage />} />
       </Routes>
