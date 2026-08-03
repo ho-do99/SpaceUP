@@ -1,0 +1,54 @@
+upstream frontend_dev {
+    server frontend:80;
+}
+
+upstream backend_dev {
+    server ${BACKEND_HOST}:8080;
+}
+
+upstream ai_dev {
+    server ${AI_HOST}:8000;
+}
+
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN};
+
+    ssl_certificate ${SSL_CERT_PATH};
+    ssl_certificate_key ${SSL_KEY_PATH};
+
+    client_max_body_size 25m;
+
+    location /api/ {
+        proxy_pass http://backend_dev;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /ai/ {
+        proxy_pass http://ai_dev/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://frontend_dev;
+        proxy_intercept_errors on;
+        error_page 404 = @frontend_index;
+    }
+
+    location @frontend_index {
+        rewrite ^ /index.html break;
+        proxy_pass http://frontend_dev;
+    }
+}
