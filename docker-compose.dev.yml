@@ -57,9 +57,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_started
 
   nginx:
     image: nginx:1.27-alpine
