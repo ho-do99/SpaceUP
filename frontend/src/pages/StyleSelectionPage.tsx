@@ -18,7 +18,7 @@ export default function StyleSelectionPage() {
       return
     }
 
-    // Figma 목적지인 시뮬레이션 사진 업로드 화면은 아직 구현되지 않았습니다.
+    navigate('/analysis/simulation/photo', { state: { styleId: selectedStyle } })
   }
 
   return (

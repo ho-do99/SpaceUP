@@ -5,6 +5,9 @@ import FloorPlanUploadPage from '@/pages/FloorPlanUploadPage'
 import FloorPlanAnalysisLoadingPage from '@/pages/FloorPlanAnalysisLoadingPage'
 import SpaceInformationPage from '@/pages/SpaceInformationPage'
 import StyleSelectionPage from '@/pages/StyleSelectionPage'
+import SimulationPhotoUploadPage from '@/pages/SimulationPhotoUploadPage'
+import SimulationGeneratingPage from '@/pages/SimulationGeneratingPage'
+import SimulationResultPage from '@/pages/SimulationResultPage'
 import AnalysisResultPage from '@/pages/AnalysisResultPage'
 import EstimatePage from '@/pages/EstimatePage'
 import ReportPage from '@/pages/ReportPage'
@@ -22,6 +25,9 @@ export default function AppRouter() {
         <Route path="/analysis/loading" element={<FloorPlanAnalysisLoadingPage />} />
         <Route path="/analysis/spaces" element={<SpaceInformationPage />} />
         <Route path="/analysis/style" element={<StyleSelectionPage />} />
+        <Route path="/analysis/simulation/photo" element={<SimulationPhotoUploadPage />} />
+        <Route path="/analysis/simulation/generating" element={<SimulationGeneratingPage />} />
+        <Route path="/analysis/simulation/result" element={<SimulationResultPage />} />
         <Route path="/analysis/:id"   element={<AnalysisResultPage />} />
         <Route path="/estimate/:id"   element={<EstimatePage />} />
         <Route path="/report/:id"     element={<ReportPage />} />
