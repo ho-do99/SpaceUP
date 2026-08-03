@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import requestCompleteIcon from '@/assets/user/icons/request-complete.svg'
 import UserHeader from '@/components/user/UserHeader'
@@ -34,13 +35,60 @@ function getCompleteNavigationState(state: unknown): RequestCompleteNavigationSt
 export default function EstimateRequestCompletePage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const submittedRequest = getCompleteNavigationState(location.state as unknown)
+  const [submittedRequest] = useState(() =>
+    getCompleteNavigationState(location.state as unknown),
+  )
+
+  useEffect(() => {
+    if (submittedRequest && location.state) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location.pathname, location.state, navigate, submittedRequest])
+
+  if (!submittedRequest) {
+    return (
+      <UserScreenShell className="h-dvh">
+        <UserHeader variant="detail" title="견적 요청 완료" onBack={() => navigate('/contractors')} />
+
+        <div className="flex min-h-0 flex-1 flex-col">
+          <main className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-[30px] py-10 text-center">
+            <section aria-labelledby="request-information-unavailable-title">
+              <h1
+                id="request-information-unavailable-title"
+                className="break-keep text-[18px] font-bold leading-[26px] text-[#15284c]"
+              >
+                견적 요청 정보를 확인할 수 없습니다
+              </h1>
+              <p className="mt-3 break-keep text-[12px] leading-5 text-[#657187]">
+                시공사를 선택해 견적을 요청하거나 기존 요청 내역을 확인해주세요.
+              </p>
+            </section>
+          </main>
+
+          <footer className="grid shrink-0 grid-cols-2 gap-3 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
+            <Link
+              to="/contractors"
+              className="flex h-[45px] items-center justify-center rounded-[5px] border border-[#2563eb] bg-white px-2 text-center text-[12px] font-bold text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
+            >
+              시공사 목록으로 이동
+            </Link>
+            <Link
+              to="/mypage/requests"
+              className="flex h-[45px] items-center justify-center rounded-[5px] border border-[#2563eb] bg-[#2563eb] px-2 text-center text-[12px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
+            >
+              요청 내역 보기
+            </Link>
+          </footer>
+        </div>
+      </UserScreenShell>
+    )
+  }
 
   const details = [
-    ['시공사', submittedRequest?.contractorName ?? '공간디자인 인테리어'],
+    ['시공사', submittedRequest.contractorName],
     ['요청 항목', '10 견적 요청 완료'],
-    ['예산', submittedRequest?.budget ?? '1,500만원'],
-    ['희망 일정', submittedRequest?.preferredDate || '2025-07-15'],
+    ['예산', submittedRequest.budget],
+    ['희망 일정', submittedRequest.preferredDate || '미정'],
     ['요청 일시', '2025-05-20 14:30'],
   ] as const
 

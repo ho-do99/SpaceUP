@@ -31,8 +31,9 @@ export default function MyPage() {
             </div>
             <button
               type="button"
+              disabled
               aria-disabled="true"
-              className="absolute right-4 top-4 h-7 cursor-default rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 text-[11px] text-[#2563eb]"
+              className="absolute right-4 top-4 h-7 cursor-default rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 text-[11px] text-[#2563eb] disabled:opacity-100"
             >
               개인정보 수정
             </button>

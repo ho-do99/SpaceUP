@@ -42,7 +42,12 @@ export default function MyPageMenuItem({
   }
 
   return (
-    <button type="button" className={`${classes} cursor-default`} aria-disabled="true">
+    <button
+      type="button"
+      disabled
+      className={`${classes} cursor-default disabled:opacity-100`}
+      aria-disabled="true"
+    >
       {content}
     </button>
   )

@@ -27,6 +27,7 @@ import MyPage from '@/pages/MyPage'
 import NotificationCenterPage from '@/pages/NotificationCenterPage'
 import SettingsPage from '@/pages/SettingsPage'
 import PropertyInformationPage from '@/pages/PropertyInformationPage'
+import ApartmentAddressSearchPage from '@/pages/ApartmentAddressSearchPage'
 
 export default function AppRouter() {
   return (
@@ -41,6 +42,7 @@ export default function AppRouter() {
         <Route path="/analysis/simulation/photo" element={<SimulationPhotoUploadPage />} />
         <Route path="/analysis/simulation/generating" element={<SimulationGeneratingPage />} />
         <Route path="/analysis/simulation/result" element={<SimulationResultPage />} />
+        <Route path="/analysis/new/address" element={<ApartmentAddressSearchPage />} />
         <Route path="/analysis/:id"   element={<AnalysisResultPage />} />
         <Route
           element={(

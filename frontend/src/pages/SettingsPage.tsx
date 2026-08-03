@@ -60,7 +60,7 @@ export default function SettingsPage() {
         <section className="mt-6" aria-labelledby="security-settings-heading">
           <h2 id="security-settings-heading" className="text-[15px] font-bold leading-6 text-[#1e293b]">보안 설정</h2>
           <div className="mt-[5px] overflow-hidden rounded-xl border border-[#e2e8f0] bg-white">
-            <button type="button" aria-disabled="true" className="flex h-16 w-full cursor-default items-center gap-3 px-4 text-left">
+            <button type="button" disabled aria-disabled="true" className="flex h-16 w-full cursor-default items-center gap-3 px-4 text-left disabled:opacity-100">
               <SettingsIcon src={passwordIcon} />
               <span className="min-w-0 flex-1">
                 <span className="block text-[14px] font-bold leading-[23px] text-[#1e293b]">비밀번호 변경</span>
@@ -92,13 +92,13 @@ export default function SettingsPage() {
         <section className="mt-6" aria-labelledby="account-management-heading">
           <h2 id="account-management-heading" className="text-[15px] font-bold leading-6 text-[#1e293b]">계정 관리</h2>
           <div className="mt-[5px] overflow-hidden rounded-xl border border-[#e2e8f0] bg-white">
-            <button type="button" aria-disabled="true" className="flex h-16 w-full cursor-default items-center gap-3 px-4 text-left">
+            <button type="button" disabled aria-disabled="true" className="flex h-16 w-full cursor-default items-center gap-3 px-4 text-left disabled:opacity-100">
               <SettingsIcon src={logoutIcon} />
               <span className="min-w-0 flex-1 text-[14px] font-bold text-[#1e293b]">로그아웃</span>
               <img src={chevronIcon} alt="" className="size-[18px] shrink-0" />
             </button>
             <div className="ml-16 border-t border-[#e2e8f0]" />
-            <button type="button" aria-disabled="true" className="flex h-16 w-full cursor-default items-center gap-3 px-4 text-left">
+            <button type="button" disabled aria-disabled="true" className="flex h-16 w-full cursor-default items-center gap-3 px-4 text-left disabled:opacity-100">
               <SettingsIcon src={withdrawalIcon} danger />
               <span className="min-w-0 flex-1 text-[14px] font-bold text-[#ef4444]">회원탈퇴</span>
               <img src={chevronIcon} alt="" className="size-[18px] shrink-0" />

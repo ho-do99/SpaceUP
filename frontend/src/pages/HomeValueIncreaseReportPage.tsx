@@ -141,8 +141,8 @@ export default function HomeValueIncreaseReportPage() {
           </Button>
           <Button
             type="button"
-            disabled
-            className="h-12 w-full !cursor-default !rounded-[5px] !border !border-[#2563eb] !bg-[#2563eb] !px-2 !py-0 !text-[12px] !font-semibold !opacity-100 !shadow-none"
+            className="h-12 w-full !rounded-[5px] !border !border-[#2563eb] !bg-[#2563eb] !px-2 !py-0 !text-[12px] !font-semibold !shadow-none hover:!translate-y-0 hover:!bg-[#2563eb] hover:!shadow-none active:!translate-y-0"
+            onClick={() => navigate('/contractors')}
           >
             다음
           </Button>
