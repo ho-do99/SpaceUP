@@ -58,7 +58,16 @@ export default function EstimateRequestPage() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!canSubmit) return
+    if (!canSubmit || !contractor) return
+
+    navigate('/estimate/request/complete', {
+      state: {
+        contractorId: contractor.id,
+        contractorName: contractor.companyName,
+        budget: form.budget,
+        preferredDate: form.preferredDate,
+      },
+    })
   }
 
   if (!contractor) {
