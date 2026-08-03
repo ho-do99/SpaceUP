@@ -7,6 +7,8 @@ interface MaterialSummaryCardProps {
 }
 
 export default function MaterialSummaryCard({ title, product, onSelect }: MaterialSummaryCardProps) {
+  const displayTotal = product.totalLabel.replace(/^(항목 )?예상 합계\s*/, '')
+
   return (
     <article className="rounded-[7px] border border-[#d5dfed] bg-white px-3 py-3">
       <h2 className="text-[13px] font-bold leading-5 text-[#1e293b]">{title}</h2>
@@ -28,7 +30,7 @@ export default function MaterialSummaryCard({ title, product, onSelect }: Materi
       </div>
       <div className="mt-2 flex items-center justify-between border-t border-[#e2e8f0] pt-2 text-[10px]">
         <span className="text-[#64748b]">항목 예상 합계</span>
-        <strong className="text-[#2563eb]">{product.totalLabel.replace('항목 예상 합계 ', '')}</strong>
+        <strong className="text-[#2563eb]">{displayTotal}</strong>
       </div>
       <p className="mt-2 break-keep text-[9px] leading-4 text-[#64748b]">
         {product.summaryDescription}

@@ -11,7 +11,9 @@ import SimulationGeneratingPage from '@/pages/SimulationGeneratingPage'
 import SimulationResultPage from '@/pages/SimulationResultPage'
 import EstimateSummaryPage from '@/pages/EstimateSummaryPage'
 import FloorMaterialSelectionPage from '@/pages/FloorMaterialSelectionPage'
+import LightingMaterialSelectionPage from '@/pages/LightingMaterialSelectionPage'
 import WallpaperMaterialSelectionPage from '@/pages/WallpaperMaterialSelectionPage'
+import HomeValueIncreaseReportPage from '@/pages/HomeValueIncreaseReportPage'
 import AnalysisResultPage from '@/pages/AnalysisResultPage'
 import EstimatePage from '@/pages/EstimatePage'
 import ReportPage from '@/pages/ReportPage'
@@ -43,6 +45,8 @@ export default function AppRouter() {
           <Route path="/estimate/summary" element={<EstimateSummaryPage />} />
           <Route path="/estimate/materials/floor" element={<FloorMaterialSelectionPage />} />
           <Route path="/estimate/materials/wallpaper" element={<WallpaperMaterialSelectionPage />} />
+          <Route path="/estimate/materials/lighting" element={<LightingMaterialSelectionPage />} />
+          <Route path="/report/value-increase" element={<HomeValueIncreaseReportPage />} />
         </Route>
         <Route path="/estimate/:id"   element={<EstimatePage />} />
         <Route path="/report/:id"     element={<ReportPage />} />
