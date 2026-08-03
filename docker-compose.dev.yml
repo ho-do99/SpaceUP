@@ -39,8 +39,8 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      DB_HOST: db
-      DB_PORT: 3306
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${MYSQL_DATABASE}
       DB_USER: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
@@ -49,8 +49,6 @@ services:
     volumes:
       - ./storage:/app/storage
     depends_on:
-      db:
-        condition: service_healthy
       ai:
         condition: service_started
 
