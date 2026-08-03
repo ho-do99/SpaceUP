@@ -20,8 +20,8 @@ jobs:
           script: |
             cd ~/SpaceUP
             git pull
-            docker compose -f docker-compose.dev.yml down backend ai db 2>/dev/null || true
-            docker compose -f docker-compose.dev.yml up -d --build backend ai db
+            docker compose -f docker-compose.dev.yml down backend ai 2>/dev/null || true
+            docker compose -f docker-compose.dev.yml up -d --build backend ai
 
   deploy-frontend:
     runs-on: ubuntu-latest
