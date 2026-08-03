@@ -1,0 +1,12 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Icon_CircleUserRound" clip-path="url(#clip0_0_26)">
+<path id="Vector" d="M7 12.8333C10.2217 12.8333 12.8333 10.2217 12.8333 7C12.8333 3.77834 10.2217 1.16667 7 1.16667C3.77834 1.16667 1.16667 3.77834 1.16667 7C1.16667 10.2217 3.77834 12.8333 7 12.8333Z" stroke="#2563EB" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_2" d="M7 7.58333C7.9665 7.58333 8.75 6.79983 8.75 5.83333C8.75 4.86684 7.9665 4.08333 7 4.08333C6.0335 4.08333 5.25 4.86684 5.25 5.83333C5.25 6.79983 6.0335 7.58333 7 7.58333Z" stroke="#2563EB" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_3" d="M10.5 11.6667C10.5 10.7384 10.1313 9.84817 9.47487 9.19179C8.8185 8.53542 7.92826 8.16667 7 8.16667C6.07174 8.16667 5.1815 8.53542 4.52513 9.19179C3.86875 9.84817 3.5 10.7384 3.5 11.6667" stroke="#2563EB" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_0_26">
+<rect width="14" height="14" fill="white"/>
+</clipPath>
+</defs>
+</svg>
