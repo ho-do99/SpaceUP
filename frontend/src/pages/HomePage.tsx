@@ -17,7 +17,7 @@ export default function HomePage() {
             SpaceUP이 평면도를 분석해 예상 견적, 주택 가치 리포트, 맞춤 시공사를 연결합니다.
           </p>
           <Link to="/upload" className="btn-primary">
-            평면도 분석 시작하기
+            평면도 분석 시작하기!
           </Link>
         </section>
       </main>
