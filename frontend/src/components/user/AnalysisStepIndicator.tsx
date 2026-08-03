@@ -2,17 +2,23 @@ type AnalysisStep = 1 | 2 | 3 | 4 | 5 | 6
 
 interface AnalysisStepIndicatorProps {
   currentStep: AnalysisStep
+  completedContent?: 'check' | 'number'
+  showDivider?: boolean
 }
 
 const analysisSteps: AnalysisStep[] = [1, 2, 3, 4, 5, 6]
 
 export default function AnalysisStepIndicator({
   currentStep,
+  completedContent = 'check',
+  showDivider = false,
 }: AnalysisStepIndicatorProps) {
   return (
     <ol
       aria-label="분석 진행 단계"
-      className="mx-auto mt-4 flex h-[50px] w-[min(295px,100%)] items-center justify-between"
+      className={`mx-auto mt-4 flex h-[50px] w-[min(295px,100%)] items-center justify-between ${
+        showDivider ? 'border-b border-[#e4e9f0]' : ''
+      }`}
     >
       {analysisSteps.map((step) => {
         const isComplete = step < currentStep
@@ -31,7 +37,7 @@ export default function AnalysisStepIndicator({
                   : 'bg-[#e2e8f0] text-[#64748b]'
             }`}
           >
-            {isComplete ? '✓' : step}
+            {isComplete && completedContent === 'check' ? '✓' : step}
           </li>
         )
       })}

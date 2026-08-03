@@ -3,6 +3,8 @@ import HomePage from '@/pages/HomePage'
 import LoginPage from '@/pages/LoginPage'
 import FloorPlanUploadPage from '@/pages/FloorPlanUploadPage'
 import FloorPlanAnalysisLoadingPage from '@/pages/FloorPlanAnalysisLoadingPage'
+import SpaceInformationPage from '@/pages/SpaceInformationPage'
+import StyleSelectionPage from '@/pages/StyleSelectionPage'
 import AnalysisResultPage from '@/pages/AnalysisResultPage'
 import EstimatePage from '@/pages/EstimatePage'
 import ReportPage from '@/pages/ReportPage'
@@ -18,6 +20,8 @@ export default function AppRouter() {
         <Route path="/login"          element={<LoginPage />} />
         <Route path="/upload"         element={<FloorPlanUploadPage />} />
         <Route path="/analysis/loading" element={<FloorPlanAnalysisLoadingPage />} />
+        <Route path="/analysis/spaces" element={<SpaceInformationPage />} />
+        <Route path="/analysis/style" element={<StyleSelectionPage />} />
         <Route path="/analysis/:id"   element={<AnalysisResultPage />} />
         <Route path="/estimate/:id"   element={<EstimatePage />} />
         <Route path="/report/:id"     element={<ReportPage />} />
