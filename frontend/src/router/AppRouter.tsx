@@ -28,6 +28,13 @@ import NotificationCenterPage from '@/pages/NotificationCenterPage'
 import SettingsPage from '@/pages/SettingsPage'
 import PropertyInformationPage from '@/pages/PropertyInformationPage'
 import ApartmentAddressSearchPage from '@/pages/ApartmentAddressSearchPage'
+import ContractorDashboardPage from '@/pages/contractor/ContractorDashboardPage'
+import ContractorRequestAnalysisPage from '@/pages/contractor/ContractorRequestAnalysisPage'
+import ContractorRequestApprovedPage from '@/pages/contractor/ContractorRequestApprovedPage'
+import ContractorRequestDetailPage from '@/pages/contractor/ContractorRequestDetailPage'
+import ContractorRequestFloorPlanPage from '@/pages/contractor/ContractorRequestFloorPlanPage'
+import ContractorRequestListPage from '@/pages/contractor/ContractorRequestListPage'
+import ContractorRequestPhotosPage from '@/pages/contractor/ContractorRequestPhotosPage'
 
 export default function AppRouter() {
   return (
@@ -63,6 +70,13 @@ export default function AppRouter() {
         <Route path="/report/:id"     element={<ReportPage />} />
         <Route path="/contractors"    element={<ContractorPage />} />
         <Route path="/contractors/:contractorId" element={<ContractorDetailPage />} />
+        <Route path="/contractor" element={<ContractorDashboardPage />} />
+        <Route path="/contractor/requests" element={<ContractorRequestListPage />} />
+        <Route path="/contractor/requests/:requestId/floor-plan" element={<ContractorRequestFloorPlanPage />} />
+        <Route path="/contractor/requests/:requestId/photos" element={<ContractorRequestPhotosPage />} />
+        <Route path="/contractor/requests/:requestId/analysis" element={<ContractorRequestAnalysisPage />} />
+        <Route path="/contractor/requests/:requestId/approved" element={<ContractorRequestApprovedPage />} />
+        <Route path="/contractor/requests/:requestId" element={<ContractorRequestDetailPage />} />
         <Route path="/mypage/requests" element={<EstimateRequestHistoryPage />} />
         <Route path="/mypage/requests/:requestId" element={<EstimateRequestDetailPage />} />
         <Route path="/mypage"         element={<MyPage />} />
