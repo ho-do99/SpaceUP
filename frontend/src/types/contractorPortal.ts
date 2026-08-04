@@ -44,6 +44,79 @@ export interface ContractorVisitChangeRequest {
   reason: string
 }
 
+export type ContractorEstimateStatus =
+  | 'NOT_STARTED'
+  | 'DRAFT'
+  | 'READY_TO_PREVIEW'
+  | 'SUBMITTED'
+
+export type ContractorEstimateCategoryId = 'floor' | 'wallpaper'
+
+export interface ContractorEstimateMeasurement {
+  floorArea: number
+  wallpaperArea: number
+  ceilingHeight: number
+  rooms: number
+  bathrooms: number
+  siteCondition: string
+}
+
+export interface ContractorEstimateCostItem {
+  id: 'material' | 'labor' | 'demolition' | 'waste' | 'supplies' | 'other'
+  label: string
+  amount: number
+}
+
+export interface ContractorEstimateCategory {
+  id: ContractorEstimateCategoryId
+  label: string
+  productName: string
+  area: number
+  unitPrice: number
+  costs: readonly ContractorEstimateCostItem[]
+  sectionTotal: number
+}
+
+export interface ContractorEstimateAdditionalCost {
+  id: string
+  label: string
+  amount: number
+}
+
+export interface ContractorEstimatePaymentTerms {
+  depositPercent: number
+  interimPercent: number
+  balancePercent: number
+}
+
+export interface ContractorEstimateCondition {
+  startDate: string
+  durationDays: number
+  completionDate: string
+  validityDays: number
+  paymentTerms: ContractorEstimatePaymentTerms
+  warrantyLabel: string
+}
+
+export interface ContractorEstimateDraft {
+  requestId: string
+  measurement: ContractorEstimateMeasurement
+  categories: readonly ContractorEstimateCategory[]
+  additionalCosts: readonly ContractorEstimateAdditionalCost[]
+  discountAmount: number
+  vatIncluded: boolean
+  supplyAmount: number
+  vatAmount: number
+  condition: ContractorEstimateCondition
+  notes: string
+}
+
+export interface ContractorEstimateSubmission {
+  estimateNumber: string
+  submittedDate: string
+  validUntil: string
+}
+
 export interface PropertySummary {
   region: string
   address: string

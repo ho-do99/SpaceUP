@@ -41,7 +41,7 @@ export default function ContractorEstimateReadyPage() {
           <p className="mt-1 text-xs leading-5 text-[#64748b]">{schedule.note}</p>
         </ContractorSectionCard>
         <p className="mt-4 rounded-lg bg-[#eff6ff] p-3 text-xs leading-5 text-[#2563eb]">견적 항목과 금액을 확인한 뒤 견적 작성 단계에서 제안서를 준비할 수 있습니다.</p>
-        <button type="button" disabled aria-disabled="true" className="mt-4 h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">견적서 작성</button>
+        <Link to={`/contractor/requests/${request.requestId}/estimate`} className="mt-4 flex h-12 w-full items-center justify-center rounded-lg bg-[#2563eb] text-sm font-bold text-white">견적서 작성</Link>
         <Link to={`/contractor/requests/${request.requestId}/chat/completed`} className="mt-2 flex h-11 items-center justify-center rounded-lg border border-[#2563eb] text-sm font-bold text-[#2563eb]">방문 완료 채팅으로 돌아가기</Link>
       </main>
     </ContractorMobileShell>

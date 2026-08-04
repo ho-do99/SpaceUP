@@ -1,22 +1,36 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   contractorChatMessages,
+  contractorDefaultEstimateDraft,
   contractorDefaultVisitSchedule,
   contractorVisitChangeRequest,
 } from '@/mocks/contractorPortalMockData'
-import type { ContractorChatMessage, ContractorVisitSchedule, ContractorVisitStatus } from '@/types/contractorPortal'
+import type {
+  ContractorChatMessage,
+  ContractorEstimateDraft,
+  ContractorEstimateStatus,
+  ContractorEstimateSubmission,
+  ContractorVisitSchedule,
+  ContractorVisitStatus,
+} from '@/types/contractorPortal'
 import { ContractorPortalFlowContext, type ContractorPortalFlowContextValue } from './contractorPortalFlowContext'
 
 export default function ContractorPortalFlowProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<readonly ContractorChatMessage[]>(contractorChatMessages)
   const [visitStatus, setVisitStatus] = useState<ContractorVisitStatus>('UNSCHEDULED')
   const [visitSchedule, setVisitSchedule] = useState<ContractorVisitSchedule | null>(null)
+  const [estimateDraft, setEstimateDraft] = useState<ContractorEstimateDraft | null>(null)
+  const [estimateStatus, setEstimateStatus] = useState<ContractorEstimateStatus>('NOT_STARTED')
+  const [estimateSubmission, setEstimateSubmission] = useState<ContractorEstimateSubmission | null>(null)
   const messageSequence = useRef(0)
 
   const value = useMemo<ContractorPortalFlowContextValue>(() => ({
     messages,
     visitStatus,
     visitSchedule,
+    estimateDraft,
+    estimateStatus,
+    estimateSubmission,
     changeRequest: contractorVisitChangeRequest,
     addMessage: (text) => {
       const normalizedText = text.trim()
@@ -63,7 +77,24 @@ export default function ContractorPortalFlowProvider({ children }: { children: R
       })
       setVisitStatus('COMPLETED')
     },
-  }), [messages, visitSchedule, visitStatus])
+    saveEstimateDraft: (draft) => {
+      setEstimateDraft(draft)
+      setEstimateStatus('DRAFT')
+    },
+    prepareEstimatePreview: (draft) => {
+      setEstimateDraft(draft)
+      setEstimateStatus('READY_TO_PREVIEW')
+    },
+    submitEstimate: () => {
+      setEstimateDraft((current) => current ?? contractorDefaultEstimateDraft)
+      setEstimateStatus('SUBMITTED')
+      setEstimateSubmission({
+        estimateNumber: 'SP-20260724-001',
+        submittedDate: '2026-07-24',
+        validUntil: '2026-08-07',
+      })
+    },
+  }), [estimateDraft, estimateStatus, estimateSubmission, messages, visitSchedule, visitStatus])
 
   return <ContractorPortalFlowContext.Provider value={value}>{children}</ContractorPortalFlowContext.Provider>
 }

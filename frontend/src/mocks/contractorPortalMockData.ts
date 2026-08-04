@@ -5,6 +5,7 @@ import bathroomImage from '@/assets/user/images/style-marble.png'
 import entranceImage from '@/assets/user/images/style-modern.png'
 import type {
   ContractorChatMessage,
+  ContractorEstimateDraft,
   ContractorRequest,
   ContractorRequestDetail,
   ContractorVisitChangeRequest,
@@ -127,6 +128,73 @@ export const contractorVisitChangeRequest: ContractorVisitChangeRequest = {
   requestedDate: '2026-07-25',
   requestedTime: '14:00',
   reason: '사용자 일정으로 방문 날짜 변경을 요청했습니다.',
+}
+
+export const contractorDefaultEstimateDraft: ContractorEstimateDraft = {
+  requestId: 'REQ-260715-012',
+  measurement: {
+    floorArea: 59,
+    wallpaperArea: 168,
+    ceilingHeight: 2.4,
+    rooms: 3,
+    bathrooms: 2,
+    siteCondition: '기존 자재 철거 필요',
+  },
+  categories: [
+    {
+      id: 'floor',
+      label: '바닥재',
+      productName: 'KCC · 숲 소리순 · 내추럴 오크',
+      area: 59,
+      unitPrice: 32000,
+      costs: [
+        { id: 'material', label: '자재비', amount: 1888000 },
+        { id: 'labor', label: '시공비', amount: 1200000 },
+        { id: 'demolition', label: '철거비', amount: 300000 },
+        { id: 'waste', label: '폐기물 처리비', amount: 100000 },
+        { id: 'supplies', label: '접착제·부자재비', amount: 162000 },
+        { id: 'other', label: '기타 비용', amount: 50000 },
+      ],
+      sectionTotal: 3700000,
+    },
+    {
+      id: 'wallpaper',
+      label: '벽지',
+      productName: 'LX하우시스 · 베스띠 · 실크벽지 · 웜 화이트',
+      area: 168,
+      unitPrice: 9500,
+      costs: [
+        { id: 'material', label: '자재비', amount: 800000 },
+        { id: 'labor', label: '시공비', amount: 600000 },
+        { id: 'demolition', label: '철거비', amount: 150000 },
+        { id: 'waste', label: '폐기물 처리비', amount: 100000 },
+        { id: 'supplies', label: '접착제·부자재비', amount: 100000 },
+        { id: 'other', label: '기타 비용', amount: 50000 },
+      ],
+      sectionTotal: 1700000,
+    },
+  ],
+  additionalCosts: [
+    { id: 'elevator', label: '엘리베이터 사용료', amount: 100000 },
+    { id: 'parking', label: '주차비', amount: 50000 },
+  ],
+  discountAmount: 50000,
+  vatIncluded: true,
+  supplyAmount: 5000000,
+  vatAmount: 500000,
+  condition: {
+    startDate: '2026-08-05',
+    durationDays: 3,
+    completionDate: '2026-08-07',
+    validityDays: 14,
+    paymentTerms: {
+      depositPercent: 20,
+      interimPercent: 40,
+      balancePercent: 40,
+    },
+    warrantyLabel: '시공 완료 후 1년',
+  },
+  notes: '기존 바닥 철거 후 바닥 상태에 따라 일부 보수 비용이 추가될 수 있습니다.\n정확한 시공 일정은 계약 확정 후 안내드립니다.',
 }
 
 export function findContractorRequest(requestId: string | undefined) {
