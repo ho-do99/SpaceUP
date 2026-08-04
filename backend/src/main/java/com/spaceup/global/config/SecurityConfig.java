@@ -56,7 +56,6 @@ public class SecurityConfig {
 						.requestMatchers("/api/member/join", "/api/member/login",
 								"/api/member/join/phone/verify-code/send", "/api/member/join/phone/verify-code/confirm")
 						.permitAll()
-						.requestMatchers("/api/board/list/**", "/api/board/comment/list/**").permitAll()
 						// ⭐ [프론트 연동] 업로드된 이미지는 <img src="..."> 태그로 바로 렌더링되므로(Authorization
 						// 헤더를 실어 보낼 수 없음) 조회(GET)만 공개합니다. 업로드(POST)는 여전히 인증이 필요합니다.
 						.requestMatchers(HttpMethod.GET, "/api/files/images/**").permitAll()

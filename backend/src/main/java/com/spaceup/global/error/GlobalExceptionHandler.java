@@ -59,22 +59,10 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
 	}
 
-	@ExceptionHandler(BoardNotFoundException.class)
-	public ResponseEntity<ApiResponse<Void>> handleBoardNotFoundException(BoardNotFoundException e) {
-		log.warn("게시글 조회 실패: {}", e.getMessage());
-		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
-	}
-
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ApiResponse<Void>> handleAllException(Exception e) {
 		log.error("시스템 치명적 에러 발생: ", e);
 		return ResponseEntity.status(500).body(ApiResponse.fail("서버 내부 시스템 오류가 발생했습니다. 관리자에게 문의하세요."));
-	}
-
-	@ExceptionHandler(CommentNotFoundException.class)
-	public ResponseEntity<ApiResponse<Void>> handleCommentNotFoundException(CommentNotFoundException e) {
-		log.warn("댓글 조회 실패: {}", e.getMessage());
-		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
 	}
 
 	@ExceptionHandler(UnauthorizedAccessException.class)
