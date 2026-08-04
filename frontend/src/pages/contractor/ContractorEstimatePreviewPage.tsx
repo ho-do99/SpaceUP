@@ -16,18 +16,20 @@ export default function ContractorEstimatePreviewPage() {
   const { requestId } = useParams()
   const request = findContractorRequestDetail(requestId)
   const navigate = useNavigate()
-  const { visitStatus, estimateDraft, submitEstimate } = useContractorPortalFlow()
+  const { visitStatus, estimateDraft, estimateLifecycleStatus, submitEstimate, resubmitEstimate } = useContractorPortalFlow()
+  const isRevision = estimateLifecycleStatus === 'REVISION_REQUESTED'
   const [submitOpen, setSubmitOpen] = useState(false)
   const closeSubmit = useCallback(() => setSubmitOpen(false), [])
 
   if (!request) return <ContractorRequestNotFound />
-  if (visitStatus !== 'COMPLETED') return <Navigate to={`/contractor/requests/${request.requestId}/visit`} replace />
+  if (visitStatus !== 'COMPLETED' && !isRevision) return <Navigate to={`/contractor/requests/${request.requestId}/visit`} replace />
   if (!estimateDraft || !isContractorEstimateValid(estimateDraft)) return <Navigate to={`/contractor/requests/${request.requestId}/estimate`} replace />
 
   const submit = () => {
-    submitEstimate()
+    if (isRevision) resubmitEstimate(estimateDraft)
+    else submitEstimate()
     setSubmitOpen(false)
-    navigate(`/contractor/requests/${request.requestId}/estimate/sent`)
+    navigate(isRevision ? '/contractor/estimates/SP-20260724-001' : `/contractor/requests/${request.requestId}/estimate/sent`)
   }
 
   return (
@@ -92,10 +94,10 @@ export default function ContractorEstimatePreviewPage() {
         </main>
         <div className="sticky bottom-0 z-20 grid h-20 shrink-0 grid-cols-2 gap-4 border-t border-[#e2e8f0] bg-white px-4 py-4">
           <Link to={`/contractor/requests/${request.requestId}/estimate`} className="flex items-center justify-center rounded-[10px] border border-[#2563eb] text-sm font-bold text-[#2563eb]">수정하기</Link>
-          <button type="button" onClick={() => setSubmitOpen(true)} className="rounded-[10px] bg-[#2563eb] text-sm font-bold text-white">견적 제출하기</button>
+          <button type="button" onClick={() => setSubmitOpen(true)} className="rounded-[10px] bg-[#2563eb] text-sm font-bold text-white">{isRevision ? '수정 견적 재전송' : '견적 제출하기'}</button>
         </div>
       </ContractorMobileShell>
-      <ContractorEstimateSubmitDialog open={submitOpen} onClose={closeSubmit} onSubmit={submit} />
+      <ContractorEstimateSubmitDialog open={submitOpen} onClose={closeSubmit} onSubmit={submit} mode={isRevision ? 'resubmit' : 'submit'} />
     </>
   )
 }

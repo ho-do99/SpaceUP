@@ -34,6 +34,9 @@ import ContractorEstimateReadyPage from '@/pages/contractor/ContractorEstimateRe
 import ContractorEstimateEditPage from '@/pages/contractor/ContractorEstimateEditPage'
 import ContractorEstimatePreviewPage from '@/pages/contractor/ContractorEstimatePreviewPage'
 import ContractorEstimateSentPage from '@/pages/contractor/ContractorEstimateSentPage'
+import ContractorEstimateListPage from '@/pages/contractor/ContractorEstimateListPage'
+import ContractorEstimateDetailPage from '@/pages/contractor/ContractorEstimateDetailPage'
+import ContractorContractReadyPage from '@/pages/contractor/ContractorContractReadyPage'
 import ContractorRequestAnalysisPage from '@/pages/contractor/ContractorRequestAnalysisPage'
 import ContractorRequestApprovedPage from '@/pages/contractor/ContractorRequestApprovedPage'
 import ContractorRequestDetailPage from '@/pages/contractor/ContractorRequestDetailPage'
@@ -97,6 +100,9 @@ export default function AppRouter() {
           <Route path="/contractor/requests/:requestId/estimate/sent" element={<ContractorEstimateSentPage />} />
           <Route path="/contractor/requests/:requestId/estimate/preview" element={<ContractorEstimatePreviewPage />} />
           <Route path="/contractor/requests/:requestId/estimate" element={<ContractorEstimateEditPage />} />
+          <Route path="/contractor/estimates" element={<ContractorEstimateListPage />} />
+          <Route path="/contractor/estimates/:estimateId/contract-ready" element={<ContractorContractReadyPage />} />
+          <Route path="/contractor/estimates/:estimateId" element={<ContractorEstimateDetailPage />} />
           <Route path="/contractor/requests/:requestId" element={<ContractorRequestDetailPage />} />
         </Route>
         <Route path="/mypage/requests" element={<EstimateRequestHistoryPage />} />

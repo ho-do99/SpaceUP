@@ -17,7 +17,7 @@ export default function ContractorAppBar({ title, back = false }: ContractorAppB
           <img src={backIcon} alt="" className="h-4 w-4" />
         </button>
       ) : (
-        <button type="button" disabled aria-label="메뉴 — 2차 개발 예정" className="rounded-md p-1 opacity-80 disabled:cursor-not-allowed">
+        <button type="button" disabled aria-label="메뉴" className="rounded-md p-1 opacity-80 disabled:cursor-not-allowed">
           <img src={menuIcon} alt="" className="h-4 w-4" />
         </button>
       )}

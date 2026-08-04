@@ -3,13 +3,16 @@ import {
   contractorChatMessages,
   contractorDefaultEstimateDraft,
   contractorDefaultVisitSchedule,
+  contractorEstimateRevisionRequest,
   contractorVisitChangeRequest,
 } from '@/mocks/contractorPortalMockData'
 import type {
   ContractorChatMessage,
   ContractorEstimateDraft,
+  ContractorEstimateLifecycleStatus,
   ContractorEstimateStatus,
   ContractorEstimateSubmission,
+  ContractorEstimateValidityExtension,
   ContractorVisitSchedule,
   ContractorVisitStatus,
 } from '@/types/contractorPortal'
@@ -22,6 +25,12 @@ export default function ContractorPortalFlowProvider({ children }: { children: R
   const [estimateDraft, setEstimateDraft] = useState<ContractorEstimateDraft | null>(null)
   const [estimateStatus, setEstimateStatus] = useState<ContractorEstimateStatus>('NOT_STARTED')
   const [estimateSubmission, setEstimateSubmission] = useState<ContractorEstimateSubmission | null>(null)
+  const [estimateLifecycleStatus, setEstimateLifecycleStatus] = useState<ContractorEstimateLifecycleStatus>('SUBMITTED')
+  const [estimateValidUntil, setEstimateValidUntil] = useState('2026-08-07')
+  const [estimateViewedAt, setEstimateViewedAt] = useState<string | null>(null)
+  const [revisionSubmittedAt, setRevisionSubmittedAt] = useState<string | null>(null)
+  const [estimateAcceptedAt, setEstimateAcceptedAt] = useState<string | null>(null)
+  const [validityExtension, setValidityExtension] = useState<ContractorEstimateValidityExtension | null>(null)
   const messageSequence = useRef(0)
 
   const value = useMemo<ContractorPortalFlowContextValue>(() => ({
@@ -31,6 +40,13 @@ export default function ContractorPortalFlowProvider({ children }: { children: R
     estimateDraft,
     estimateStatus,
     estimateSubmission,
+    estimateLifecycleStatus,
+    estimateValidUntil,
+    estimateViewedAt,
+    revisionRequest: contractorEstimateRevisionRequest,
+    revisionSubmittedAt,
+    estimateAcceptedAt,
+    validityExtension,
     changeRequest: contractorVisitChangeRequest,
     addMessage: (text) => {
       const normalizedText = text.trim()
@@ -93,8 +109,43 @@ export default function ContractorPortalFlowProvider({ children }: { children: R
         submittedDate: '2026-07-24',
         validUntil: '2026-08-07',
       })
+      setEstimateLifecycleStatus('SUBMITTED')
+      setEstimateValidUntil('2026-08-07')
+      setEstimateViewedAt(null)
+      setRevisionSubmittedAt(null)
+      setEstimateAcceptedAt(null)
     },
-  }), [estimateDraft, estimateStatus, estimateSubmission, messages, visitSchedule, visitStatus])
+    markEstimateViewed: () => {
+      setEstimateViewedAt('2026-07-24')
+      setEstimateLifecycleStatus('VIEWING')
+    },
+    showEstimateRevisionRequest: () => setEstimateLifecycleStatus('REVISION_REQUESTED'),
+    resubmitEstimate: (draft) => {
+      setEstimateDraft(draft)
+      setEstimateStatus('SUBMITTED')
+      setEstimateSubmission({
+        estimateNumber: 'SP-20260724-001',
+        submittedDate: '2026-07-24',
+        validUntil: estimateValidUntil,
+      })
+      setRevisionSubmittedAt('2026-07-24')
+      setEstimateLifecycleStatus('RESUBMITTED')
+    },
+    acceptEstimate: () => {
+      setEstimateAcceptedAt('2026-07-24')
+      setEstimateLifecycleStatus('ACCEPTED')
+    },
+    extendEstimateValidity: (validUntil, note) => {
+      setValidityExtension({
+        previousValidUntil: estimateValidUntil,
+        extendedValidUntil: validUntil,
+        note: note.trim(),
+        extendedAt: '2026-07-24',
+      })
+      setEstimateValidUntil(validUntil)
+      setEstimateSubmission((current) => current ? { ...current, validUntil } : current)
+    },
+  }), [estimateAcceptedAt, estimateDraft, estimateLifecycleStatus, estimateStatus, estimateSubmission, estimateValidUntil, estimateViewedAt, messages, revisionSubmittedAt, validityExtension, visitSchedule, visitStatus])
 
   return <ContractorPortalFlowContext.Provider value={value}>{children}</ContractorPortalFlowContext.Provider>
 }

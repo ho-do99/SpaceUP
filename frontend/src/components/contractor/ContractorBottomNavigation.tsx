@@ -9,7 +9,7 @@ import type { ContractorNavigationItem } from '@/types/contractorPortal'
 const items: readonly ContractorNavigationItem[] = [
   { id: 'home', label: '홈', destination: '/contractor', icon: homeIcon },
   { id: 'requests', label: '의뢰', destination: '/contractor/requests', icon: requestIcon },
-  { id: 'quotes', label: '견적', icon: quoteIcon },
+  { id: 'quotes', label: '견적', destination: '/contractor/estimates', icon: quoteIcon },
   { id: 'schedule', label: '일정', icon: scheduleIcon },
   { id: 'settlement', label: '정산', icon: settlementIcon },
 ]

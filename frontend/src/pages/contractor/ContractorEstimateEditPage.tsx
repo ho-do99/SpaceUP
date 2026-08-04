@@ -35,13 +35,14 @@ export default function ContractorEstimateEditPage() {
   const { requestId } = useParams()
   const request = findContractorRequestDetail(requestId)
   const navigate = useNavigate()
-  const { visitStatus, estimateDraft, saveEstimateDraft, prepareEstimatePreview } = useContractorPortalFlow()
+  const { visitStatus, estimateDraft, estimateLifecycleStatus, revisionRequest, saveEstimateDraft, prepareEstimatePreview } = useContractorPortalFlow()
+  const isRevision = estimateLifecycleStatus === 'REVISION_REQUESTED'
   const [draft, setDraft] = useState<ContractorEstimateDraft>(estimateDraft ?? contractorDefaultEstimateDraft)
   const [errors, setErrors] = useState<ContractorEstimateErrors>({})
   const [saveNotice, setSaveNotice] = useState(false)
 
   if (!request) return <ContractorRequestNotFound />
-  if (visitStatus !== 'COMPLETED') return <Navigate to={`/contractor/requests/${request.requestId}/visit`} replace />
+  if (visitStatus !== 'COMPLETED' && !isRevision) return <Navigate to={`/contractor/requests/${request.requestId}/visit`} replace />
 
   const updateMeasurement = (field: keyof ContractorEstimateMeasurement, value: number | string) => {
     setDraft((current) => ({ ...current, measurement: { ...current.measurement, [field]: value } }))
@@ -92,9 +93,10 @@ export default function ContractorEstimateEditPage() {
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
-      <ContractorEstimateHeader title="견적서 작성" onSave={save} />
+      <ContractorEstimateHeader title={isRevision ? '수정 견적 작성' : '견적서 작성'} onSave={save} />
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-5">
-        <p className="mb-4 text-xs font-bold text-[#2563eb]">현장방문 완료 → 견적 작성 중 → 제출 완료</p>
+        <p className="mb-4 text-xs font-bold text-[#2563eb]">{isRevision ? '사용자 요청 확인 → 수정 견적 작성 → 재전송' : '현장방문 완료 → 견적 작성 중 → 제출 완료'}</p>
+        {isRevision ? <div className="mb-4 rounded-xl border border-[#e2e8f0] bg-white p-4"><p className="text-xs font-bold text-[#1e293b]">수정 요청</p><p className="mt-2 text-xs leading-5 text-[#64748b]">{revisionRequest.reason}</p></div> : null}
         {saveNotice ? (
           <div role="status" aria-live="polite" className="mb-4 flex items-center justify-between rounded-xl bg-[#0f172a] px-4 py-3 text-xs font-bold text-white">
             <span>견적서가 임시 저장 상태로 반영되었습니다.</span>

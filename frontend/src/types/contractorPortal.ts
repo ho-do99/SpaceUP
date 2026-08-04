@@ -50,6 +50,19 @@ export type ContractorEstimateStatus =
   | 'READY_TO_PREVIEW'
   | 'SUBMITTED'
 
+export type ContractorEstimateLifecycleStatus =
+  | 'SUBMITTED'
+  | 'VIEWING'
+  | 'REVISION_REQUESTED'
+  | 'RESUBMITTED'
+  | 'ACCEPTED'
+
+export type ContractorEstimateListFilter =
+  | 'all'
+  | 'submitted'
+  | 'viewing'
+  | 'accepted'
+
 export type ContractorEstimateCategoryId = 'floor' | 'wallpaper'
 
 export interface ContractorEstimateMeasurement {
@@ -115,6 +128,34 @@ export interface ContractorEstimateSubmission {
   estimateNumber: string
   submittedDate: string
   validUntil: string
+}
+
+export interface ContractorEstimateRevisionRequest {
+  requestedAt: string
+  requestedBy: string
+  reason: string
+  items: readonly string[]
+}
+
+export interface ContractorEstimateValidityExtension {
+  previousValidUntil: string
+  extendedValidUntil: string
+  note: string
+  extendedAt: string
+}
+
+export interface ContractorSentEstimate {
+  estimateId: string
+  requestId: string
+  customerName: string
+  contractorName: string
+  region: string
+  propertyType: string
+  areaLabel: string
+  address: string
+  submittedDate: string
+  initialValidUntil: string
+  finalAmount: number
 }
 
 export interface PropertySummary {

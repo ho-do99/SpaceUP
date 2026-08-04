@@ -1,4 +1,4 @@
-import { Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorEstimateInfoRow from '@/components/contractor/ContractorEstimateInfoRow'
 import { calculateEstimateTotal, formatWon } from '@/components/contractor/contractorEstimateUtils'
@@ -41,7 +41,7 @@ export default function ContractorEstimateSentPage() {
           </dl>
         </ContractorSectionCard>
 
-        <button type="button" disabled aria-disabled="true" className="mt-3 h-12 w-full rounded-xl border border-[#e2e8f0] bg-white text-xs font-bold text-[#1e293b] disabled:cursor-not-allowed disabled:opacity-55">견적 상세</button>
+        <Link to="/contractor/estimates" className="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-[#e2e8f0] bg-white text-xs font-bold text-[#1e293b]">보낸 견적 확인</Link>
       </main>
     </ContractorMobileShell>
   )

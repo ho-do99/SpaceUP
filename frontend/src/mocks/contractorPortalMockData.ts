@@ -6,6 +6,8 @@ import entranceImage from '@/assets/user/images/style-modern.png'
 import type {
   ContractorChatMessage,
   ContractorEstimateDraft,
+  ContractorEstimateRevisionRequest,
+  ContractorSentEstimate,
   ContractorRequest,
   ContractorRequestDetail,
   ContractorVisitChangeRequest,
@@ -197,9 +199,35 @@ export const contractorDefaultEstimateDraft: ContractorEstimateDraft = {
   notes: '기존 바닥 철거 후 바닥 상태에 따라 일부 보수 비용이 추가될 수 있습니다.\n정확한 시공 일정은 계약 확정 후 안내드립니다.',
 }
 
+export const contractorSentEstimates: readonly ContractorSentEstimate[] = [
+  {
+    estimateId: 'SP-20260724-001',
+    requestId: 'REQ-260715-012',
+    customerName: '김지선',
+    contractorName: '(주)스페이스 인테리어',
+    region: '광주 서구',
+    propertyType: '아파트',
+    areaLabel: '84㎡',
+    address: '광주 서구 ○○아파트 101동 1203호',
+    submittedDate: '2026-07-24',
+    initialValidUntil: '2026-08-07',
+    finalAmount: 5500000,
+  },
+]
+
+export const contractorEstimateRevisionRequest: ContractorEstimateRevisionRequest = {
+  requestedAt: '2026-07-24',
+  requestedBy: '김지선',
+  reason: '수납 공사 범위와 자재 브랜드를 확인해주세요.',
+  items: ['시공 시작 일정 조정 요청', '추가 비용 항목 확인 요청'],
+}
+
 export function findContractorRequest(requestId: string | undefined) {
   return contractorRequests.find((request) => request.requestId === requestId)
 }
 export function findContractorRequestDetail(requestId: string | undefined) {
   return contractorRequestDetails.find((request) => request.requestId === requestId)
+}
+export function findContractorSentEstimate(estimateId: string | undefined) {
+  return contractorSentEstimates.find((estimate) => estimate.estimateId === estimateId)
 }
