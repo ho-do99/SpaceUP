@@ -11,7 +11,7 @@ const items: readonly ContractorNavigationItem[] = [
   { id: 'requests', label: '의뢰', destination: '/contractor/requests', icon: requestIcon },
   { id: 'quotes', label: '견적', destination: '/contractor/estimates', icon: quoteIcon },
   { id: 'schedule', label: '일정', destination: '/contractor/projects', icon: scheduleIcon },
-  { id: 'settlement', label: '정산', icon: settlementIcon },
+  { id: 'settlement', label: '정산', destination: '/contractor/settlements', icon: settlementIcon },
 ]
 
 export default function ContractorBottomNavigation() {

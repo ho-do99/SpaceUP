@@ -8,6 +8,7 @@ import type {
   ContractorEstimateDraft,
   ContractorEstimateRevisionRequest,
   ContractorProject,
+  ContractorSettlement,
   ContractorSentEstimate,
   ContractorRequest,
   ContractorRequestDetail,
@@ -281,6 +282,58 @@ export const contractorProjectMocks: readonly ContractorProject[] = [
     ], customerRequest: '추가 요청 없음', readOnlyPaymentLabel: '결제 완료',
   },
 ]
+
+export const contractorSettlementSummary = {
+  totalContractAmount: 152000000,
+  pendingAmount: 23500000,
+  completedAmount: 68730000,
+  paidAmount: 136800000,
+} as const
+
+export const contractorSettlements: readonly ContractorSettlement[] = [
+  {
+    settlementId: 'ST-2607-011',
+    projectName: '성수동 빌라',
+    customerName: '김지선',
+    contractorName: '(주)스페이스 인테리어',
+    status: 'SCHEDULED',
+    breakdown: { customerPaymentAmount: 18000000, platformFeeRate: 10, platformFeeAmount: 1800000, settlementAmount: 16200000 },
+    scheduledDate: '2026-08-12',
+    statement: { bankName: '국민은행', maskedAccountNumber: '**-9021', taxInvoiceStatus: '발행 예정' },
+  },
+  {
+    settlementId: 'ST-2607-008',
+    projectId: 'PRJ-20260724-001',
+    estimateId: 'SP-20260724-001',
+    requestId: 'REQ-260715-012',
+    projectName: '역삼동 빌라 벽지 및 장판 시공',
+    customerName: '김지선',
+    contractorName: '(주)스페이스 인테리어',
+    status: 'PAID',
+    breakdown: { customerPaymentAmount: 30000000, platformFeeRate: 10, platformFeeAmount: 3000000, settlementAmount: 27000000 },
+    paidDate: '2026-08-05',
+    statement: {
+      settlementPeriod: '2026.07.01–2026.07.31', contractNumber: 'CT-2607-008', contractDate: '2026-07-01', constructionCompletedDate: '2026-07-28',
+      bankName: '국민은행', maskedAccountNumber: '123456-**-9021', accountHolder: '㈜스페이스 인테리어', taxInvoiceStatus: '발행 완료',
+      taxInvoiceEmail: 'tax@spaceup.co.kr', businessNumber: '123-45-67890', taxInvoiceIssuedDate: '2026-08-05',
+    },
+  },
+  {
+    settlementId: 'ST-2607-009',
+    projectName: '수완지구 원룸',
+    customerName: '정우진',
+    contractorName: '(주)스페이스 인테리어',
+    status: 'ON_HOLD',
+    breakdown: { customerPaymentAmount: 15000000, platformFeeRate: 5, platformFeeAmount: 750000, settlementAmount: 14250000 },
+    holdDate: '2026-08-07',
+    holdReason: '정산 계좌 정보가 등록 정보와 일치하지 않습니다.\n업체정보의 정산 탭에서 계좌 정보를 확인한 후 다시 요청해 주세요.',
+    statement: { bankName: '확인 필요', maskedAccountNumber: '확인 필요', taxInvoiceStatus: '발행 대기' },
+  },
+]
+
+export function findContractorSettlement(settlementId: string | undefined) {
+  return contractorSettlements.find((settlement) => settlement.settlementId === settlementId)
+}
 
 export function findContractorProject(projectId: string | undefined) {
   return contractorProjectMocks.find((project) => project.projectId === projectId)

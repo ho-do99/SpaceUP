@@ -39,6 +39,10 @@ import ContractorEstimateDetailPage from '@/pages/contractor/ContractorEstimateD
 import ContractorContractReadyPage from '@/pages/contractor/ContractorContractReadyPage'
 import ContractorProjectListPage from '@/pages/contractor/ContractorProjectListPage'
 import ContractorProjectDetailPage from '@/pages/contractor/ContractorProjectDetailPage'
+import ContractorSettlementListPage from '@/pages/contractor/ContractorSettlementListPage'
+import ContractorSettlementDetailPage from '@/pages/contractor/ContractorSettlementDetailPage'
+import ContractorSettlementStatementPage from '@/pages/contractor/ContractorSettlementStatementPage'
+import ContractorSettlementBreakdownPage from '@/pages/contractor/ContractorSettlementBreakdownPage'
 import ContractorRequestAnalysisPage from '@/pages/contractor/ContractorRequestAnalysisPage'
 import ContractorRequestApprovedPage from '@/pages/contractor/ContractorRequestApprovedPage'
 import ContractorRequestDetailPage from '@/pages/contractor/ContractorRequestDetailPage'
@@ -107,6 +111,10 @@ export default function AppRouter() {
           <Route path="/contractor/estimates/:estimateId" element={<ContractorEstimateDetailPage />} />
           <Route path="/contractor/projects" element={<ContractorProjectListPage />} />
           <Route path="/contractor/projects/:projectId" element={<ContractorProjectDetailPage />} />
+          <Route path="/contractor/settlements" element={<ContractorSettlementListPage />} />
+          <Route path="/contractor/settlements/:settlementId/statement" element={<ContractorSettlementStatementPage />} />
+          <Route path="/contractor/settlements/:settlementId/breakdown" element={<ContractorSettlementBreakdownPage />} />
+          <Route path="/contractor/settlements/:settlementId" element={<ContractorSettlementDetailPage />} />
           <Route path="/contractor/requests/:requestId" element={<ContractorRequestDetailPage />} />
         </Route>
         <Route path="/mypage/requests" element={<EstimateRequestHistoryPage />} />

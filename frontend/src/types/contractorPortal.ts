@@ -224,6 +224,48 @@ export interface ContractorProject {
   readOnlyPaymentLabel?: string
 }
 
+export type ContractorSettlementStatus = 'SCHEDULED' | 'PAID' | 'ON_HOLD'
+
+export type ContractorSettlementFilter = 'all' | 'scheduled' | 'paid' | 'on_hold'
+
+export interface ContractorSettlementBreakdown {
+  customerPaymentAmount: number
+  platformFeeRate: number
+  platformFeeAmount: number
+  settlementAmount: number
+}
+
+export interface ContractorSettlementStatement {
+  settlementPeriod?: string
+  contractNumber?: string
+  contractDate?: string
+  constructionCompletedDate?: string
+  bankName: string
+  maskedAccountNumber: string
+  accountHolder?: string
+  taxInvoiceStatus: string
+  taxInvoiceEmail?: string
+  businessNumber?: string
+  taxInvoiceIssuedDate?: string
+}
+
+export interface ContractorSettlement {
+  settlementId: string
+  projectId?: string
+  estimateId?: string
+  requestId?: string
+  projectName: string
+  customerName?: string
+  contractorName: string
+  status: ContractorSettlementStatus
+  breakdown: ContractorSettlementBreakdown
+  scheduledDate?: string
+  paidDate?: string
+  holdDate?: string
+  holdReason?: string
+  statement: ContractorSettlementStatement
+}
+
 export interface PropertySummary {
   region: string
   address: string
