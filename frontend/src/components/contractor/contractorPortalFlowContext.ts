@@ -7,6 +7,10 @@ import type {
   ContractorEstimateStatus,
   ContractorEstimateSubmission,
   ContractorEstimateValidityExtension,
+  ContractorContractConversion,
+  ContractorProject,
+  ContractorProjectChangeRequest,
+  ContractorProjectCompletionRequest,
   ContractorVisitChangeRequest,
   ContractorVisitSchedule,
   ContractorVisitStatus,
@@ -26,6 +30,10 @@ export interface ContractorPortalFlowContextValue {
   revisionSubmittedAt: string | null
   estimateAcceptedAt: string | null
   validityExtension: ContractorEstimateValidityExtension | null
+  contractConversion: ContractorContractConversion | null
+  projects: readonly ContractorProject[]
+  projectChangeRequest: ContractorProjectChangeRequest | null
+  projectCompletionRequest: ContractorProjectCompletionRequest | null
   changeRequest: ContractorVisitChangeRequest
   addMessage: (text: string) => void
   registerVisit: (schedule: ContractorVisitSchedule) => void
@@ -42,6 +50,10 @@ export interface ContractorPortalFlowContextValue {
   resubmitEstimate: (draft: ContractorEstimateDraft) => void
   acceptEstimate: () => void
   extendEstimateValidity: (validUntil: string, note: string) => void
+  completeContractConversion: () => void
+  updateProjectSchedule: (projectId: string, startDate: string, completionDate: string, reason: string) => void
+  startProject: (projectId: string) => void
+  requestProjectCompletion: (projectId: string) => void
 }
 
 export const ContractorPortalFlowContext = createContext<ContractorPortalFlowContextValue | null>(null)

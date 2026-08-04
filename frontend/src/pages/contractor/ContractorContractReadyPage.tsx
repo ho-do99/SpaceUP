@@ -1,4 +1,4 @@
-import { Navigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorEstimateInfoRow from '@/components/contractor/ContractorEstimateInfoRow'
@@ -11,8 +11,9 @@ import ContractorEstimateNotFound from './ContractorEstimateNotFound'
 
 export default function ContractorContractReadyPage() {
   const { estimateId } = useParams()
+  const navigate = useNavigate()
   const estimate = findContractorSentEstimate(estimateId)
-  const { estimateDraft, estimateLifecycleStatus, estimateValidUntil } = useContractorPortalFlow()
+  const { estimateDraft, estimateLifecycleStatus, estimateValidUntil, completeContractConversion } = useContractorPortalFlow()
   if (!estimate) return <ContractorEstimateNotFound />
   if (estimateLifecycleStatus !== 'ACCEPTED') return <Navigate to={`/contractor/estimates/${estimate.estimateId}`} replace />
   const draft = estimateDraft ?? contractorDefaultEstimateDraft
@@ -39,7 +40,7 @@ export default function ContractorContractReadyPage() {
         <ContractorSectionCard className="mt-4" title="계약 전환 체크">
           <ul className="space-y-2 text-xs leading-5 text-[#64748b]"><li>✓ 사용자 승인 견적 확인</li><li>✓ 조명 현장 실측 후 별도 협의 · 견적 금액 미포함</li><li>✓ 최종 견적 금액 확인</li><li>✓ 예상 공사 기간 확인</li></ul>
         </ContractorSectionCard>
-        <button type="button" disabled aria-disabled="true" className="mt-4 h-12 w-full rounded-xl bg-[#e2e8f0] text-sm font-bold text-[#94a3b8]">계약 전환 완료</button>
+        <button type="button" onClick={() => { completeContractConversion(); navigate('/contractor/projects') }} className="mt-4 h-12 w-full rounded-xl bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]">계약 전환 완료</button>
       </main>
       <ContractorBottomNavigation />
     </ContractorMobileShell>

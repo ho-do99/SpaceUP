@@ -7,6 +7,7 @@ import type {
   ContractorChatMessage,
   ContractorEstimateDraft,
   ContractorEstimateRevisionRequest,
+  ContractorProject,
   ContractorSentEstimate,
   ContractorRequest,
   ContractorRequestDetail,
@@ -220,6 +221,69 @@ export const contractorEstimateRevisionRequest: ContractorEstimateRevisionReques
   requestedBy: '김지선',
   reason: '수납 공사 범위와 자재 브랜드를 확인해주세요.',
   items: ['시공 시작 일정 조정 요청', '추가 비용 항목 확인 요청'],
+}
+
+export const contractorProjectMocks: readonly ContractorProject[] = [
+  {
+    projectId: 'PRJ-20260724-001',
+    estimateId: 'SP-20260724-001',
+    requestId: 'REQ-260715-012',
+    name: '광주 서구 ○○아파트 바닥재 및 벽지 시공',
+    customerName: '김지선',
+    managerName: '김현수',
+    address: '광주 서구 ○○아파트 101동 1203호',
+    contractAmount: 5500000,
+    contractDate: '2026-07-24',
+    constructionItems: ['바닥재', '벽지'],
+    lightingNotice: '조명은 현장 실측 후 별도 협의 · 현재 계약 금액 미포함',
+    status: 'START_SCHEDULED',
+    schedule: { startDate: '2026-08-05', completionDate: '2026-08-07' },
+    checklist: [
+      { id: 'materials', label: '자재 준비 완료', completed: true },
+      { id: 'schedule', label: '공사 일정 확정', completed: true },
+      { id: 'customer-check', label: '사용자 최종 확인', completed: true },
+      { id: 'site-entry', label: '현장 진입 준비', completed: true },
+    ],
+    customerRequest: '사용자 요청 없음',
+  },
+  {
+    projectId: 'PRJ-20260718-002', estimateId: 'SP-20260718-002', requestId: 'REQ-260718-002',
+    name: '수완지구 투룸', customerName: '박민지', managerName: '박지민',
+    address: '광주 광산구 수완지구', contractAmount: 26500000, contractDate: '2026-07-18',
+    constructionItems: ['바닥재', '벽지'], lightingNotice: '조명은 계약 금액 미포함', status: 'VISIT_SCHEDULED',
+    schedule: { startDate: '2026-08-12', completionDate: '2026-09-05', visitDate: '2026-07-20', visitTime: '14:00' },
+    checklist: [], customerRequest: '사용자 요청 없음',
+  },
+  {
+    projectId: 'PRJ-20260715-003', estimateId: 'SP-20260715-003', requestId: 'REQ-260715-003',
+    name: '광주 첨단 빌라', customerName: '이서연', managerName: '김도윤',
+    address: '광주 광산구 첨단지구', contractAmount: 29000000, contractDate: '2026-07-15',
+    constructionItems: ['바닥재', '벽지'], lightingNotice: '조명은 계약 금액 미포함', status: 'IN_PROGRESS',
+    schedule: { startDate: '2026-07-15', completionDate: '2026-08-10' },
+    checklist: [
+      { id: 'demolition', label: '철거 공사 완료', completed: true },
+      { id: 'floor', label: '바닥재 시공 완료', completed: true },
+      { id: 'wallpaper', label: '벽지 시공 진행 중', completed: true },
+      { id: 'inspection', label: '최종 점검 예정', completed: false },
+    ], customerRequest: '추가 요청 없음',
+  },
+  {
+    projectId: 'PRJ-20260710-004', estimateId: 'SP-20260710-004', requestId: 'REQ-260710-004',
+    name: '수완지구 빌라', customerName: '정우진', managerName: '김현수',
+    address: '광주 광산구 수완지구', contractAmount: 39500000, contractDate: '2026-07-10',
+    constructionItems: ['바닥재', '벽지'], lightingNotice: '조명은 계약 금액 미포함', status: 'COMPLETED',
+    schedule: { startDate: '2026-07-15', completionDate: '2026-07-18' },
+    checklist: [
+      { id: 'demolition', label: '철거 공사 완료', completed: true },
+      { id: 'floor', label: '바닥재 시공 완료', completed: true },
+      { id: 'wallpaper', label: '벽지 시공 완료', completed: true },
+      { id: 'inspection', label: '최종 점검 완료', completed: true },
+    ], customerRequest: '추가 요청 없음', readOnlyPaymentLabel: '결제 완료',
+  },
+]
+
+export function findContractorProject(projectId: string | undefined) {
+  return contractorProjectMocks.find((project) => project.projectId === projectId)
 }
 
 export function findContractorRequest(requestId: string | undefined) {

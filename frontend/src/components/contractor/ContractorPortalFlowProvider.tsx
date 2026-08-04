@@ -4,6 +4,7 @@ import {
   contractorDefaultEstimateDraft,
   contractorDefaultVisitSchedule,
   contractorEstimateRevisionRequest,
+  contractorProjectMocks,
   contractorVisitChangeRequest,
 } from '@/mocks/contractorPortalMockData'
 import type {
@@ -13,6 +14,10 @@ import type {
   ContractorEstimateStatus,
   ContractorEstimateSubmission,
   ContractorEstimateValidityExtension,
+  ContractorContractConversion,
+  ContractorProject,
+  ContractorProjectChangeRequest,
+  ContractorProjectCompletionRequest,
   ContractorVisitSchedule,
   ContractorVisitStatus,
 } from '@/types/contractorPortal'
@@ -31,6 +36,10 @@ export default function ContractorPortalFlowProvider({ children }: { children: R
   const [revisionSubmittedAt, setRevisionSubmittedAt] = useState<string | null>(null)
   const [estimateAcceptedAt, setEstimateAcceptedAt] = useState<string | null>(null)
   const [validityExtension, setValidityExtension] = useState<ContractorEstimateValidityExtension | null>(null)
+  const [contractConversion, setContractConversion] = useState<ContractorContractConversion | null>(null)
+  const [projects, setProjects] = useState<readonly ContractorProject[]>(contractorProjectMocks)
+  const [projectChangeRequest, setProjectChangeRequest] = useState<ContractorProjectChangeRequest | null>(null)
+  const [projectCompletionRequest, setProjectCompletionRequest] = useState<ContractorProjectCompletionRequest | null>(null)
   const messageSequence = useRef(0)
 
   const value = useMemo<ContractorPortalFlowContextValue>(() => ({
@@ -47,6 +56,10 @@ export default function ContractorPortalFlowProvider({ children }: { children: R
     revisionSubmittedAt,
     estimateAcceptedAt,
     validityExtension,
+    contractConversion,
+    projects,
+    projectChangeRequest,
+    projectCompletionRequest,
     changeRequest: contractorVisitChangeRequest,
     addMessage: (text) => {
       const normalizedText = text.trim()
@@ -145,7 +158,35 @@ export default function ContractorPortalFlowProvider({ children }: { children: R
       setEstimateValidUntil(validUntil)
       setEstimateSubmission((current) => current ? { ...current, validUntil } : current)
     },
-  }), [estimateAcceptedAt, estimateDraft, estimateLifecycleStatus, estimateStatus, estimateSubmission, estimateValidUntil, estimateViewedAt, messages, revisionSubmittedAt, validityExtension, visitSchedule, visitStatus])
+    completeContractConversion: () => {
+      setContractConversion({ estimateId: 'SP-20260724-001', requestId: 'REQ-260715-012', projectId: 'PRJ-20260724-001', convertedAt: '2026-07-24' })
+      setProjects((current) => current.map((project) => project.projectId === 'PRJ-20260724-001' ? { ...project, status: 'START_SCHEDULED' } : project))
+    },
+    updateProjectSchedule: (projectId, startDate, completionDate, reason) => {
+      setProjects((current) => current.map((project) => project.projectId === projectId ? { ...project, schedule: { ...project.schedule, startDate, completionDate } } : project))
+      setProjectChangeRequest({
+        previousStartDate: projects.find((project) => project.projectId === projectId)?.schedule.startDate ?? startDate,
+        previousCompletionDate: projects.find((project) => project.projectId === projectId)?.schedule.completionDate ?? completionDate,
+        changedStartDate: startDate,
+        changedCompletionDate: completionDate,
+        reason: reason.trim(),
+      })
+    },
+    startProject: (projectId) => setProjects((current) => current.map((project) => project.projectId === projectId && project.status === 'START_SCHEDULED' ? {
+      ...project,
+      status: 'IN_PROGRESS',
+      checklist: [
+        { id: 'demolition', label: '철거 공사 완료', completed: true },
+        { id: 'floor', label: '바닥재 시공 완료', completed: true },
+        { id: 'wallpaper', label: '벽지 시공 진행 중', completed: true },
+        { id: 'inspection', label: '최종 점검 예정', completed: false },
+      ],
+    } : project)),
+    requestProjectCompletion: (projectId) => {
+      setProjects((current) => current.map((project) => project.projectId === projectId && project.status === 'IN_PROGRESS' ? { ...project, status: 'COMPLETION_REQUESTED' } : project))
+      setProjectCompletionRequest({ requestedAt: '2026-08-07', status: 'REQUESTED' })
+    },
+  }), [contractConversion, estimateAcceptedAt, estimateDraft, estimateLifecycleStatus, estimateStatus, estimateSubmission, estimateValidUntil, estimateViewedAt, messages, projectChangeRequest, projectCompletionRequest, projects, revisionSubmittedAt, validityExtension, visitSchedule, visitStatus])
 
   return <ContractorPortalFlowContext.Provider value={value}>{children}</ContractorPortalFlowContext.Provider>
 }

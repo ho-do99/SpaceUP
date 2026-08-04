@@ -158,6 +158,72 @@ export interface ContractorSentEstimate {
   finalAmount: number
 }
 
+export type ContractorProjectStatus =
+  | 'VISIT_SCHEDULED'
+  | 'START_SCHEDULED'
+  | 'IN_PROGRESS'
+  | 'COMPLETION_REQUESTED'
+  | 'COMPLETED'
+
+export type ContractorProjectFilter =
+  | 'all'
+  | 'visit_scheduled'
+  | 'start_scheduled'
+  | 'in_progress'
+  | 'completed'
+
+export interface ContractorProjectSchedule {
+  startDate: string
+  completionDate: string
+  visitDate?: string
+  visitTime?: string
+}
+
+export interface ContractorProjectChecklistItem {
+  id: string
+  label: string
+  completed: boolean
+}
+
+export interface ContractorProjectChangeRequest {
+  previousStartDate: string
+  previousCompletionDate: string
+  changedStartDate: string
+  changedCompletionDate: string
+  reason: string
+}
+
+export interface ContractorProjectCompletionRequest {
+  requestedAt: string
+  status: 'REQUESTED'
+}
+
+export interface ContractorContractConversion {
+  estimateId: string
+  requestId: string
+  projectId: string
+  convertedAt: string
+}
+
+export interface ContractorProject {
+  projectId: string
+  estimateId: string
+  requestId: string
+  name: string
+  customerName: string
+  managerName: string
+  address: string
+  contractAmount: number
+  contractDate: string
+  constructionItems: readonly string[]
+  lightingNotice: string
+  status: ContractorProjectStatus
+  schedule: ContractorProjectSchedule
+  checklist: readonly ContractorProjectChecklistItem[]
+  customerRequest: string
+  readOnlyPaymentLabel?: string
+}
+
 export interface PropertySummary {
   region: string
   address: string
