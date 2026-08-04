@@ -34,7 +34,9 @@ public class ImageStoreService {
 			throw new IllegalArgumentException("이미지 파일만 업로드할 수 있습니다.");
 		}
 
-		File dir = new File(uploadDir);
+		// ⭐ MultipartFile.transferTo()는 상대 경로를 넘기면 Tomcat의 임시 멀티파트 디렉터리를 기준으로
+		// 해석해버려서(우리 앱의 실제 작업 디렉터리가 아님) 파일을 못 찾는 오류가 납니다. 절대 경로로 변환해서 넘겨야 합니다.
+		File dir = new File(uploadDir).getAbsoluteFile();
 		if (!dir.exists()) {
 			dir.mkdirs();
 		}
@@ -46,7 +48,7 @@ public class ImageStoreService {
 		String storeFileName = UUID.randomUUID() + extension;
 
 		try {
-			multipartFile.transferTo(new File(uploadDir + storeFileName));
+			multipartFile.transferTo(new File(dir, storeFileName));
 		} catch (IOException e) {
 			throw new IllegalStateException("이미지 저장 중 오류가 발생했습니다.", e);
 		}
@@ -55,8 +57,9 @@ public class ImageStoreService {
 
 	public Resource loadAsResource(String storeFileName) {
 		try {
-			Path filePath = Paths.get(uploadDir).resolve(storeFileName).normalize();
-			if (!filePath.startsWith(Paths.get(uploadDir).normalize())) {
+			Path baseDir = Paths.get(uploadDir).toAbsolutePath().normalize();
+			Path filePath = baseDir.resolve(storeFileName).normalize();
+			if (!filePath.startsWith(baseDir)) {
 				throw new FileNotFoundException("잘못된 파일 경로입니다: " + storeFileName);
 			}
 			Resource resource = new UrlResource(filePath.toUri());
