@@ -266,6 +266,53 @@ export interface ContractorSettlement {
   statement: ContractorSettlementStatement
 }
 
+export type ContractorNotificationType = 'REQUEST' | 'ESTIMATE' | 'VISIT' | 'SETTLEMENT'
+
+export type ContractorNotificationFilter = 'all' | 'request' | 'estimate' | 'visit' | 'settlement'
+
+export interface ContractorNotification {
+  notificationId: string
+  type: ContractorNotificationType
+  title: string
+  message: string
+  createdAtLabel: string
+  section: 'TODAY' | 'PREVIOUS'
+  isRead: boolean
+  destination: string
+}
+
+export type ContractorReviewFilter = 'all' | 'five' | 'four' | 'three_or_less'
+
+export type ContractorReviewKeyword =
+  | '일정을 잘 지켰어요'
+  | '마감이 깔끔해요'
+  | '상담이 자세해요'
+  | '소통이 빨라요'
+
+export interface ContractorReview {
+  reviewId: string
+  userName: string
+  rating: 1 | 2 | 3 | 4 | 5
+  createdAt: string
+  projectName: string
+  projectStatusLabel: string
+  constructionItem: string
+  region?: string
+  constructionPeriod?: string
+  completedAt: string
+  satisfactionLabel: string
+  content: string
+  excerpt: string
+  keywords: readonly ContractorReviewKeyword[]
+}
+
+export interface ContractorReviewSummary {
+  contractorName: string
+  averageRating: number
+  totalCount: number
+  ratingCounts: Readonly<Record<1 | 2 | 3 | 4 | 5, number>>
+}
+
 export interface PropertySummary {
   region: string
   address: string

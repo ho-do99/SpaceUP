@@ -5,6 +5,7 @@ import {
   contractorDefaultVisitSchedule,
   contractorEstimateRevisionRequest,
   contractorProjectMocks,
+  contractorNotificationMocks,
   contractorVisitChangeRequest,
 } from '@/mocks/contractorPortalMockData'
 import type {
@@ -18,6 +19,7 @@ import type {
   ContractorProject,
   ContractorProjectChangeRequest,
   ContractorProjectCompletionRequest,
+  ContractorNotification,
   ContractorVisitSchedule,
   ContractorVisitStatus,
 } from '@/types/contractorPortal'
@@ -40,6 +42,7 @@ export default function ContractorPortalFlowProvider({ children }: { children: R
   const [projects, setProjects] = useState<readonly ContractorProject[]>(contractorProjectMocks)
   const [projectChangeRequest, setProjectChangeRequest] = useState<ContractorProjectChangeRequest | null>(null)
   const [projectCompletionRequest, setProjectCompletionRequest] = useState<ContractorProjectCompletionRequest | null>(null)
+  const [notifications, setNotifications] = useState<readonly ContractorNotification[]>(contractorNotificationMocks)
   const messageSequence = useRef(0)
 
   const value = useMemo<ContractorPortalFlowContextValue>(() => ({
@@ -60,6 +63,7 @@ export default function ContractorPortalFlowProvider({ children }: { children: R
     projects,
     projectChangeRequest,
     projectCompletionRequest,
+    notifications,
     changeRequest: contractorVisitChangeRequest,
     addMessage: (text) => {
       const normalizedText = text.trim()
@@ -186,7 +190,9 @@ export default function ContractorPortalFlowProvider({ children }: { children: R
       setProjects((current) => current.map((project) => project.projectId === projectId && project.status === 'IN_PROGRESS' ? { ...project, status: 'COMPLETION_REQUESTED' } : project))
       setProjectCompletionRequest({ requestedAt: '2026-08-07', status: 'REQUESTED' })
     },
-  }), [contractConversion, estimateAcceptedAt, estimateDraft, estimateLifecycleStatus, estimateStatus, estimateSubmission, estimateValidUntil, estimateViewedAt, messages, projectChangeRequest, projectCompletionRequest, projects, revisionSubmittedAt, validityExtension, visitSchedule, visitStatus])
+    markNotificationRead: (notificationId) => setNotifications((current) => current.map((notification) => notification.notificationId === notificationId ? { ...notification, isRead: true } : notification)),
+    markAllNotificationsRead: () => setNotifications((current) => current.map((notification) => notification.isRead ? notification : { ...notification, isRead: true })),
+  }), [contractConversion, estimateAcceptedAt, estimateDraft, estimateLifecycleStatus, estimateStatus, estimateSubmission, estimateValidUntil, estimateViewedAt, messages, notifications, projectChangeRequest, projectCompletionRequest, projects, revisionSubmittedAt, validityExtension, visitSchedule, visitStatus])
 
   return <ContractorPortalFlowContext.Provider value={value}>{children}</ContractorPortalFlowContext.Provider>
 }

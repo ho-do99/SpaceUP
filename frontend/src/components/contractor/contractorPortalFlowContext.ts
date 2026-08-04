@@ -11,6 +11,7 @@ import type {
   ContractorProject,
   ContractorProjectChangeRequest,
   ContractorProjectCompletionRequest,
+  ContractorNotification,
   ContractorVisitChangeRequest,
   ContractorVisitSchedule,
   ContractorVisitStatus,
@@ -34,6 +35,7 @@ export interface ContractorPortalFlowContextValue {
   projects: readonly ContractorProject[]
   projectChangeRequest: ContractorProjectChangeRequest | null
   projectCompletionRequest: ContractorProjectCompletionRequest | null
+  notifications: readonly ContractorNotification[]
   changeRequest: ContractorVisitChangeRequest
   addMessage: (text: string) => void
   registerVisit: (schedule: ContractorVisitSchedule) => void
@@ -54,6 +56,8 @@ export interface ContractorPortalFlowContextValue {
   updateProjectSchedule: (projectId: string, startDate: string, completionDate: string, reason: string) => void
   startProject: (projectId: string) => void
   requestProjectCompletion: (projectId: string) => void
+  markNotificationRead: (notificationId: string) => void
+  markAllNotificationsRead: () => void
 }
 
 export const ContractorPortalFlowContext = createContext<ContractorPortalFlowContextValue | null>(null)

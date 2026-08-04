@@ -8,6 +8,9 @@ import type {
   ContractorEstimateDraft,
   ContractorEstimateRevisionRequest,
   ContractorProject,
+  ContractorNotification,
+  ContractorReview,
+  ContractorReviewSummary,
   ContractorSettlement,
   ContractorSentEstimate,
   ContractorRequest,
@@ -333,6 +336,93 @@ export const contractorSettlements: readonly ContractorSettlement[] = [
 
 export function findContractorSettlement(settlementId: string | undefined) {
   return contractorSettlements.find((settlement) => settlement.settlementId === settlementId)
+}
+
+export const contractorNotificationMocks: readonly ContractorNotification[] = [
+  {
+    notificationId: 'NOTI-260724-001',
+    type: 'REQUEST',
+    title: '새로운 의뢰가 도착했습니다.',
+    message: 'REQ-260715-012 · 광주 서구 아파트 의뢰를 확인하세요.',
+    createdAtLabel: '5분 전',
+    section: 'TODAY',
+    isRead: false,
+    destination: '/contractor/requests/REQ-260715-012',
+  },
+  {
+    notificationId: 'NOTI-260724-002',
+    type: 'ESTIMATE',
+    title: '사용자가 견적을 확인했습니다.',
+    message: 'SP-20260724-001 견적을 사용자가 확인했습니다.',
+    createdAtLabel: '1시간 전',
+    section: 'TODAY',
+    isRead: false,
+    destination: '/contractor/estimates/SP-20260724-001',
+  },
+  {
+    notificationId: 'NOTI-260724-003',
+    type: 'VISIT',
+    title: '현장 방문 일정이 예정되어 있습니다.',
+    message: '광주 서구 ○○아파트 · 2026.07.24 15:00',
+    createdAtLabel: '오늘',
+    section: 'TODAY',
+    isRead: false,
+    destination: '/contractor/requests/REQ-260715-012/visit',
+  },
+  {
+    notificationId: 'NOTI-260716-004',
+    type: 'SETTLEMENT',
+    title: '정산 처리가 완료되었습니다.',
+    message: 'ST-2607-008 정산 금액이 지급되었습니다.',
+    createdAtLabel: '07.16',
+    section: 'PREVIOUS',
+    isRead: true,
+    destination: '/contractor/settlements/ST-2607-008',
+  },
+]
+
+export const contractorReviewSummary: ContractorReviewSummary = {
+  contractorName: '(주)스페이스 인테리어',
+  averageRating: 4.8,
+  totalCount: 24,
+  ratingCounts: { 5: 20, 4: 3, 3: 1, 2: 0, 1: 0 },
+}
+
+export const contractorReviewMocks: readonly ContractorReview[] = [
+  {
+    reviewId: 'REV-260723-001',
+    userName: '홍*동',
+    rating: 5,
+    createdAt: '2026.07.23',
+    projectName: '장판·벽지 시공',
+    projectStatusLabel: '완료 2026.07.21',
+    constructionItem: '장판·벽지 시공',
+    region: '광주 북구',
+    constructionPeriod: '2026.07.18 ~ 2026.07.21',
+    completedAt: '2026.07.21',
+    satisfactionLabel: '매우 만족해요',
+    excerpt: '상담부터 시공 완료까지 안내가 친절했고,',
+    content: '상담부터 시공 완료까지 안내가 친절했고,\n약속한 일정에 맞춰 깔끔하게 시공해주셨습니다.\n장판과 벽지 마감 상태도 만족스럽습니다.',
+    keywords: ['일정을 잘 지켰어요', '마감이 깔끔해요'],
+  },
+  {
+    reviewId: 'REV-260718-002',
+    userName: '김*영',
+    rating: 4,
+    createdAt: '2026.07.18',
+    projectName: '거실 장판 시공',
+    projectStatusLabel: '완료 2026.07.16',
+    constructionItem: '거실 장판 시공',
+    completedAt: '2026.07.16',
+    satisfactionLabel: '만족해요',
+    excerpt: '현장 확인부터 견적 안내까지 설명이 자세했고,',
+    content: '현장 확인부터 견적 안내까지 설명이 자세했고,\n문의할 때마다 빠르게 답변해주셨습니다.',
+    keywords: ['상담이 자세해요', '소통이 빨라요'],
+  },
+]
+
+export function findContractorReview(reviewId: string | undefined) {
+  return contractorReviewMocks.find((review) => review.reviewId === reviewId)
 }
 
 export function findContractorProject(projectId: string | undefined) {

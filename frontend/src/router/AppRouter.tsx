@@ -43,6 +43,9 @@ import ContractorSettlementListPage from '@/pages/contractor/ContractorSettlemen
 import ContractorSettlementDetailPage from '@/pages/contractor/ContractorSettlementDetailPage'
 import ContractorSettlementStatementPage from '@/pages/contractor/ContractorSettlementStatementPage'
 import ContractorSettlementBreakdownPage from '@/pages/contractor/ContractorSettlementBreakdownPage'
+import ContractorNotificationPage from '@/pages/contractor/ContractorNotificationPage'
+import ContractorReviewListPage from '@/pages/contractor/ContractorReviewListPage'
+import ContractorReviewDetailPage from '@/pages/contractor/ContractorReviewDetailPage'
 import ContractorRequestAnalysisPage from '@/pages/contractor/ContractorRequestAnalysisPage'
 import ContractorRequestApprovedPage from '@/pages/contractor/ContractorRequestApprovedPage'
 import ContractorRequestDetailPage from '@/pages/contractor/ContractorRequestDetailPage'
@@ -115,6 +118,9 @@ export default function AppRouter() {
           <Route path="/contractor/settlements/:settlementId/statement" element={<ContractorSettlementStatementPage />} />
           <Route path="/contractor/settlements/:settlementId/breakdown" element={<ContractorSettlementBreakdownPage />} />
           <Route path="/contractor/settlements/:settlementId" element={<ContractorSettlementDetailPage />} />
+          <Route path="/contractor/notifications" element={<ContractorNotificationPage />} />
+          <Route path="/contractor/reviews" element={<ContractorReviewListPage />} />
+          <Route path="/contractor/reviews/:reviewId" element={<ContractorReviewDetailPage />} />
           <Route path="/contractor/requests/:requestId" element={<ContractorRequestDetailPage />} />
         </Route>
         <Route path="/mypage/requests" element={<EstimateRequestHistoryPage />} />
