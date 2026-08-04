@@ -11,6 +11,39 @@ export type ContractorRequestFilter = 'all' | 'in_progress' | 'matched' | 'unmat
 
 export type ContractorRequestDetailTab = 'summary' | 'floor-plan' | 'photos' | 'analysis'
 
+export type ContractorChatSender = 'customer' | 'contractor' | 'system'
+
+export type ContractorVisitStatus =
+  | 'UNSCHEDULED'
+  | 'SCHEDULED'
+  | 'CHANGE_REQUESTED'
+  | 'COMPLETED'
+
+export interface ContractorChatMessage {
+  id: string
+  sender: ContractorChatSender
+  text: string
+  timeLabel: string
+}
+
+export interface ContractorVisitSchedule {
+  date: string
+  time: string
+  address: string
+  managerName: string
+  note: string
+  completedAt?: string
+}
+
+export interface ContractorVisitChangeRequest {
+  requestedBy: 'customer'
+  previousDate: string
+  previousTime: string
+  requestedDate: string
+  requestedTime: string
+  reason: string
+}
+
 export interface PropertySummary {
   region: string
   address: string

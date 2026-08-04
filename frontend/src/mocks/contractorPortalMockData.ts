@@ -3,7 +3,13 @@ import livingRoomImage from '@/assets/user/images/simulation-before.png'
 import kitchenImage from '@/assets/user/images/simulation-upload-preview.png'
 import bathroomImage from '@/assets/user/images/style-marble.png'
 import entranceImage from '@/assets/user/images/style-modern.png'
-import type { ContractorRequest, ContractorRequestDetail } from '@/types/contractorPortal'
+import type {
+  ContractorChatMessage,
+  ContractorRequest,
+  ContractorRequestDetail,
+  ContractorVisitChangeRequest,
+  ContractorVisitSchedule,
+} from '@/types/contractorPortal'
 
 export const contractorRequests: readonly ContractorRequest[] = [
   {
@@ -90,6 +96,38 @@ export const contractorRequestDetails: readonly ContractorRequestDetail[] = [
     ],
   },
 ]
+
+export const contractorChatMessages: readonly ContractorChatMessage[] = [
+  {
+    id: 'chat-1',
+    sender: 'customer',
+    text: '안녕하세요. 방문 가능한 시간을 알려주세요.',
+    timeLabel: '10:32',
+  },
+  {
+    id: 'chat-2',
+    sender: 'contractor',
+    text: '오늘 오후 3시에 방문 가능합니다.',
+    timeLabel: '10:35',
+  },
+]
+
+export const contractorDefaultVisitSchedule: ContractorVisitSchedule = {
+  date: '2026-07-24',
+  time: '15:00',
+  address: '광주 서구 ○○아파트 101동 1203호',
+  managerName: '김현수',
+  note: '바닥 상태와 수납 치수를 확인합니다.',
+}
+
+export const contractorVisitChangeRequest: ContractorVisitChangeRequest = {
+  requestedBy: 'customer',
+  previousDate: '2026-07-24',
+  previousTime: '15:00',
+  requestedDate: '2026-07-25',
+  requestedTime: '14:00',
+  reason: '사용자 일정으로 방문 날짜 변경을 요청했습니다.',
+}
 
 export function findContractorRequest(requestId: string | undefined) {
   return contractorRequests.find((request) => request.requestId === requestId)
