@@ -55,6 +55,22 @@ public class ImageStoreService {
 		return storeFileName;
 	}
 
+	// ⭐ [AI 인테리어 이미지 생성] Gemini 등 외부 생성 API가 돌려준 바이트 배열을 업로드 이미지와 동일한
+	// 저장소/서빙 경로(GET /api/files/images/{storeFileName})로 저장하기 위한 용도
+	public String storeBytes(byte[] data, String extension) {
+		File dir = new File(uploadDir).getAbsoluteFile();
+		if (!dir.exists()) {
+			dir.mkdirs();
+		}
+		String storeFileName = UUID.randomUUID() + extension;
+		try {
+			java.nio.file.Files.write(new File(dir, storeFileName).toPath(), data);
+		} catch (IOException e) {
+			throw new IllegalStateException("이미지 저장 중 오류가 발생했습니다.", e);
+		}
+		return storeFileName;
+	}
+
 	public Resource loadAsResource(String storeFileName) {
 		try {
 			Path baseDir = Paths.get(uploadDir).toAbsolutePath().normalize();
