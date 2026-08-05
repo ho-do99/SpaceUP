@@ -26,6 +26,11 @@ public interface QuoteRequestRepository extends JpaRepository<QuoteRequest, Long
 	// ⭐ PDF "마이페이지 - 견적 요청 내역" 화면: 임대인이 본인이 보낸 의뢰 목록 조회
 	Page<QuoteRequest> findByOwnerId(Long ownerId, Pageable pageable);
 
+	// ⭐ [채팅/방문/공사 도메인] 스레드 목록 등 페이지네이션이 필요 없는 전체 조회용
+	List<QuoteRequest> findByOwnerId(Long ownerId);
+
+	List<QuoteRequest> findByContractorId(Long contractorId);
+
 	// ⭐ [Figma 반영] "7일 자동 취소" 배치용: 아직 진행 중(대기 상태)인데 lastActivityAt이 기준시각보다 오래된 것들
 	List<QuoteRequest> findByStatusInAndLastActivityAtBefore(List<RequestStatus> statuses, LocalDateTime threshold);
 
