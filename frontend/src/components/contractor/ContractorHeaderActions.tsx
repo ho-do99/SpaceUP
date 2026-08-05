@@ -15,7 +15,8 @@ export default function ContractorHeaderActions() {
   const isMyPageActive =
     location.pathname === '/contractor/mypage' ||
     location.pathname.startsWith('/contractor/settings') ||
-    location.pathname.startsWith('/contractor/company')
+    location.pathname.startsWith('/contractor/company') ||
+    location.pathname.startsWith('/contractor/portfolio')
 
   return (
     <div className="flex shrink-0 items-center gap-3">
@@ -25,18 +26,28 @@ export default function ContractorHeaderActions() {
         aria-label="채팅"
         className="rounded-md opacity-80 disabled:cursor-not-allowed"
       >
-        <img src={messageIcon} alt="" className="h-5 w-5" />
+        <img
+          src={messageIcon}
+          alt=""
+          className="h-5 w-5"
+        />
       </button>
 
       <Link
         to="/contractor/mypage"
         aria-label="마이페이지"
-        aria-current={isMyPageActive ? 'page' : undefined}
+        aria-current={
+          isMyPageActive ? 'page' : undefined
+        }
         className={`rounded-[10px] p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb] ${
           isMyPageActive ? 'bg-[#eff6ff]' : ''
         }`}
       >
-        <img src={userIcon} alt="" className="h-5 w-5" />
+        <img
+          src={userIcon}
+          alt=""
+          className="h-5 w-5"
+        />
       </Link>
 
       <Link
@@ -48,7 +59,11 @@ export default function ContractorHeaderActions() {
         }`}
         className="relative rounded-md p-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
       >
-        <img src={bellIcon} alt="" className="h-5 w-5" />
+        <img
+          src={bellIcon}
+          alt=""
+          className="h-5 w-5"
+        />
 
         {unreadCount > 0 ? (
           <span

@@ -55,6 +55,9 @@ import ContractorNotificationPage from '@/pages/contractor/ContractorNotificatio
 import ContractorReviewListPage from '@/pages/contractor/ContractorReviewListPage'
 import ContractorReviewDetailPage from '@/pages/contractor/ContractorReviewDetailPage'
 import ContractorMyPage from '@/pages/contractor/ContractorMyPage'
+import ContractorPortfolioPage from '@/pages/contractor/ContractorPortfolioPage'
+import ContractorPortfolioEditPage from '@/pages/contractor/ContractorPortfolioEditPage'
+import ContractorPortfolioCreatePage from '@/pages/contractor/ContractorPortfolioCreatePage'
 import ContractorSettingsPage from '@/pages/contractor/ContractorSettingsPage'
 import ContractorAccountSettingsPage from '@/pages/contractor/ContractorAccountSettingsPage'
 import ContractorManagerInfoPage from '@/pages/contractor/ContractorManagerInfoPage'
@@ -282,6 +285,21 @@ export default function AppRouter() {
           <Route
             path="/contractor/mypage"
             element={<ContractorMyPage />}
+          />
+
+          <Route
+            path="/contractor/portfolio"
+            element={<ContractorPortfolioPage />}
+          />
+
+          <Route
+            path="/contractor/portfolio/create"
+            element={<ContractorPortfolioCreatePage />}
+          />
+
+          <Route
+            path="/contractor/portfolio/:portfolioId/edit"
+            element={<ContractorPortfolioEditPage />}
           />
 
           <Route

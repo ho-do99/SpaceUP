@@ -109,7 +109,10 @@ export default function ContractorMyPage() {
           </div>
         </section>
 
-        <section className="mt-5" aria-labelledby="my-info-title">
+        <section
+          className="mt-5"
+          aria-labelledby="my-info-title"
+        >
           <h2
             id="my-info-title"
             className="mb-2 text-sm font-bold text-[#1e293b]"
@@ -121,7 +124,9 @@ export default function ContractorMyPage() {
             <MyPageActionCard
               title="계정 설정"
               description="비밀번호와 계정 보안 설정을 관리합니다."
-              onClick={() => navigate('/contractor/settings/account')}
+              onClick={() =>
+                navigate('/contractor/settings/account')
+              }
               icon={
                 <svg
                   aria-hidden="true"
@@ -142,7 +147,9 @@ export default function ContractorMyPage() {
             <MyPageActionCard
               title="담당자 정보"
               description="담당자 이름과 연락처를 관리합니다."
-              onClick={() => navigate('/contractor/settings/manager')}
+              onClick={() =>
+                navigate('/contractor/settings/manager')
+              }
               icon={
                 <svg
                   aria-hidden="true"
@@ -165,7 +172,9 @@ export default function ContractorMyPage() {
             <MyPageActionCard
               title="업체 공개 설정"
               description="고객에게 공개할 업체 정보를 설정합니다."
-              onClick={() => navigate('/contractor/settings/visibility')}
+              onClick={() =>
+                navigate('/contractor/settings/visibility')
+              }
               icon={
                 <svg
                   aria-hidden="true"
@@ -185,7 +194,10 @@ export default function ContractorMyPage() {
           </div>
         </section>
 
-        <section className="mt-5" aria-labelledby="portfolio-title">
+        <section
+          className="mt-5"
+          aria-labelledby="portfolio-title"
+        >
           <h2
             id="portfolio-title"
             className="mb-2 text-sm font-bold text-[#1e293b]"
@@ -197,7 +209,9 @@ export default function ContractorMyPage() {
             <MyPageActionCard
               title="포트폴리오 관리·수정"
               description="등록 12건 · 공개 10건"
-              disabled
+              onClick={() =>
+                navigate('/contractor/portfolio')
+              }
               icon={
                 <svg
                   aria-hidden="true"
@@ -209,7 +223,13 @@ export default function ContractorMyPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <rect
+                    x="3"
+                    y="3"
+                    width="18"
+                    height="18"
+                    rx="2"
+                  />
                   <circle cx="8.5" cy="8.5" r="1.5" />
                   <path d="m21 15-5-5L5 21" />
                 </svg>
@@ -219,7 +239,9 @@ export default function ContractorMyPage() {
             <MyPageActionCard
               title="새 포트폴리오 등록"
               description="대표 이미지와 시공 사례를 새로 등록합니다."
-              disabled
+              onClick={() =>
+                navigate('/contractor/portfolio/create')
+              }
               icon={
                 <svg
                   aria-hidden="true"
@@ -231,7 +253,13 @@ export default function ContractorMyPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <rect
+                    x="3"
+                    y="3"
+                    width="18"
+                    height="18"
+                    rx="2"
+                  />
                   <path d="M12 8v8" />
                   <path d="M8 12h8" />
                 </svg>
@@ -240,7 +268,10 @@ export default function ContractorMyPage() {
           </div>
         </section>
 
-        <section className="mt-5" aria-labelledby="review-title">
+        <section
+          className="mt-5"
+          aria-labelledby="review-title"
+        >
           <h2
             id="review-title"
             className="mb-2 text-sm font-bold text-[#1e293b]"
@@ -251,7 +282,9 @@ export default function ContractorMyPage() {
           <MyPageActionCard
             title="받은 리뷰"
             description="평균 4.8 · 리뷰 24건"
-            onClick={() => navigate('/contractor/reviews')}
+            onClick={() =>
+              navigate('/contractor/reviews')
+            }
             icon={
               <svg
                 aria-hidden="true"
