@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import com.spaceup.domain.ai.exception.AiImageGenerationConfigurationException;
+import com.spaceup.domain.ai.exception.AiImageGenerationException;
 import com.spaceup.domain.rental.exception.RentalApiConfigurationException;
 import com.spaceup.domain.rental.exception.RentalApiException;
 import com.spaceup.global.util.ApiResponse;
@@ -185,5 +187,37 @@ public class GlobalExceptionHandler {
 			InvalidVerificationCodeException e) {
 		log.warn("휴대폰 인증코드 검증 실패: {}", e.getMessage());
 		return ResponseEntity.status(400).body(ApiResponse.fail(e.getMessage()));
+	}
+
+	@ExceptionHandler(SiteVisitNotFoundException.class)
+	public ResponseEntity<ApiResponse<Void>> handleSiteVisitNotFoundException(SiteVisitNotFoundException e) {
+		log.warn("현장방문 일정 조회 실패: {}", e.getMessage());
+		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
+	}
+
+	@ExceptionHandler(ReviewNotFoundException.class)
+	public ResponseEntity<ApiResponse<Void>> handleReviewNotFoundException(ReviewNotFoundException e) {
+		log.warn("리뷰 조회 실패: {}", e.getMessage());
+		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
+	}
+
+	@ExceptionHandler(ProjectNotFoundException.class)
+	public ResponseEntity<ApiResponse<Void>> handleProjectNotFoundException(ProjectNotFoundException e) {
+		log.warn("프로젝트 조회 실패: {}", e.getMessage());
+		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
+	}
+
+	// ⭐ [AI 인테리어 이미지 생성] GEMINI_API_KEY 미설정 - 운영자가 바로 인지할 수 있도록 503
+	@ExceptionHandler(AiImageGenerationConfigurationException.class)
+	public ResponseEntity<ApiResponse<Void>> handleAiImageGenerationConfigurationException(
+			AiImageGenerationConfigurationException e) {
+		log.warn("AI 이미지 생성 설정 오류: {}", e.getMessage());
+		return ResponseEntity.status(503).body(ApiResponse.fail(e.getMessage()));
+	}
+
+	@ExceptionHandler(AiImageGenerationException.class)
+	public ResponseEntity<ApiResponse<Void>> handleAiImageGenerationException(AiImageGenerationException e) {
+		log.warn("AI 이미지 생성 실패: {}", e.getMessage());
+		return ResponseEntity.status(502).body(ApiResponse.fail(e.getMessage()));
 	}
 }
