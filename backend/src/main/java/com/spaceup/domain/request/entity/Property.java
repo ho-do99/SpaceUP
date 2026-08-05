@@ -64,4 +64,25 @@ public class Property extends BaseTimeEntity {
 	public void updateArea(Double exclusiveAreaM2) {
 		this.exclusiveAreaM2 = exclusiveAreaM2;
 	}
+
+	// ⭐ [프론트 연동] PATCH /api/requests/{requestId} - 화면 뒤쪽 단계에서 값이 채워지는 필드들을 부분 수정.
+	// 값을 보낸 필드만 반영되고, null인 필드는 기존 값을 유지합니다.
+	public void updatePartial(String region, String housingType, Double exclusiveAreaM2, Long currentDeposit,
+			Long currentMonthlyRent) {
+		if (region != null) {
+			this.region = region;
+		}
+		if (housingType != null) {
+			this.housingType = housingType;
+		}
+		if (exclusiveAreaM2 != null) {
+			this.exclusiveAreaM2 = exclusiveAreaM2;
+		}
+		if (currentDeposit != null) {
+			this.currentDeposit = currentDeposit;
+		}
+		if (currentMonthlyRent != null) {
+			this.currentMonthlyRent = currentMonthlyRent;
+		}
+	}
 }

@@ -24,6 +24,7 @@ import com.spaceup.domain.quote.entity.QuoteStatus;
 import com.spaceup.domain.quote.repository.ContractorQuoteRepository;
 import com.spaceup.domain.request.dto.RequestCreateRequest;
 import com.spaceup.domain.request.dto.RequestResponse;
+import com.spaceup.domain.request.dto.RequestUpdateRequest;
 import com.spaceup.domain.request.entity.Property;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.entity.RejectReason;
@@ -77,6 +78,21 @@ public class RequestService {
 		request.touch(); // ⭐ 생성 시점부터 자동취소 타이머 시작
 
 		return request.getId();
+	}
+
+	// ⭐ [프론트 연동] PATCH /api/requests/{requestId} - 화면 뒤쪽 단계(예산/희망일정/요청항목)에서 값이
+	// 채워지는 필드들을 나중에 저장. 본인이 등록한 의뢰만 수정 가능합니다.
+	@Transactional
+	public void updateRequest(Long requestId, Long landlordId, RequestUpdateRequest dto) {
+		QuoteRequest request = findRequestOrThrow(requestId);
+		if (!request.getOwner().getId().equals(landlordId)) {
+			throw new ForbiddenAccessException("본인이 등록한 의뢰만 수정할 수 있습니다.");
+		}
+		request.getProperty().updatePartial(dto.getRegion(), dto.getPropertyType(), dto.getAreaM2(), dto.getDeposit(),
+				dto.getMonthlyRent());
+		request.updatePartial(dto.getTargetRent(), dto.getBudgetMin(), dto.getBudgetMax(), dto.getDesiredDate(),
+				dto.getRequestedItems());
+		request.touch();
 	}
 
 	public RequestResponse getRequest(Long requestId) {
