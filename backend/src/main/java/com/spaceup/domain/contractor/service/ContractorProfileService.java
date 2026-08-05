@@ -98,6 +98,12 @@ public class ContractorProfileService {
 		findOrCreateProfile(memberId).increaseCompletedProject();
 	}
 
+	// ⭐ domain/review 쪽에서 리뷰가 생성/변경될 때마다 평균 평점+개수를 다시 계산해 호출하는 확장 지점
+	@Transactional
+	public void updateRating(Long memberId, double averageRating, int reviewCount) {
+		findOrCreateProfile(memberId).updateRating(averageRating, reviewCount);
+	}
+
 	private ContractorProfile findOrCreateProfile(Long memberId) {
 		return contractorProfileRepository.findByMemberId(memberId).orElseGet(() -> createEmptyProfile(memberId));
 	}
