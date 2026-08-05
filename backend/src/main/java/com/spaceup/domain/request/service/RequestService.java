@@ -31,6 +31,7 @@ import com.spaceup.domain.request.entity.RejectReason;
 import com.spaceup.domain.request.entity.RequestStatus;
 import com.spaceup.domain.request.repository.PropertyRepository;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
+import com.spaceup.domain.visit.service.SiteVisitService;
 import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.InvalidStatusTransitionException;
 import com.spaceup.global.error.MemberNotFoundException;
@@ -52,6 +53,7 @@ public class RequestService {
 	private final AnalysisJobRepository analysisJobRepository;
 	private final ContractorQuoteRepository contractorQuoteRepository;
 	private final NotificationService notificationService;
+	private final SiteVisitService siteVisitService;
 
 	// ⭐ PDF "02 임대 정보 입력" 완료 시 호출. AI 분석은 domain/analysis 쪽에서 별도로 요청합니다
 	// (AnalysisJobService.requestAnalysis - 컨트롤러 레벨에서 이어 호출). 매물(Property)과 견적요청
@@ -146,6 +148,7 @@ public class RequestService {
 		validateTransitionable(request, RequestStatus.REVIEWING);
 		request.approve();
 		request.touch();
+		siteVisitService.createIfAbsent(request); // ⭐ 승인 직후부터 "현장방문 예약" 흐름이 시작됩니다 (UNSCHEDULED로 생성)
 
 		notificationService.notify(request.getOwner().getId(), NotificationType.REQUEST, "의뢰가 승인되었습니다",
 				String.format("%s 의뢰를 시공사가 승인했습니다. 견적을 확인해 주세요.", request.getRequestCode()));
