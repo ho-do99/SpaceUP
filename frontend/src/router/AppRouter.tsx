@@ -59,9 +59,12 @@ import ContractorSettingsPage from '@/pages/contractor/ContractorSettingsPage'
 import ContractorAccountSettingsPage from '@/pages/contractor/ContractorAccountSettingsPage'
 import ContractorManagerInfoPage from '@/pages/contractor/ContractorManagerInfoPage'
 import ContractorVisibilitySettingsPage from '@/pages/contractor/ContractorVisibilitySettingsPage'
+import ContractorWithdrawalPage from '@/pages/contractor/ContractorWithdrawalPage'
+import ContractorWithdrawalCompletedPage from '@/pages/contractor/ContractorWithdrawalCompletedPage'
 import ContractorCompanyInfoPage from '@/pages/contractor/ContractorCompanyInfoPage'
 import ContractorCompanySpecialtiesPage from '@/pages/contractor/ContractorCompanySpecialtiesPage'
 import ContractorCompanyRegionsPage from '@/pages/contractor/ContractorCompanyRegionsPage'
+import ContractorCompanySettlementPage from '@/pages/contractor/ContractorCompanySettlementPage'
 import ContractorRequestAnalysisPage from '@/pages/contractor/ContractorRequestAnalysisPage'
 import ContractorRequestApprovedPage from '@/pages/contractor/ContractorRequestApprovedPage'
 import ContractorRequestDetailPage from '@/pages/contractor/ContractorRequestDetailPage'
@@ -297,6 +300,14 @@ export default function AppRouter() {
             path="/contractor/settings/visibility"
             element={<ContractorVisibilitySettingsPage />}
           />
+          <Route
+            path="/contractor/settings/withdrawal"
+            element={<ContractorWithdrawalPage />}
+          />
+          <Route
+            path="/contractor/settings/withdrawal/completed"
+            element={<ContractorWithdrawalCompletedPage />}
+          />
 
           <Route
             path="/contractor/company"
@@ -306,10 +317,13 @@ export default function AppRouter() {
             path="/contractor/company/specialties"
             element={<ContractorCompanySpecialtiesPage />}
           />
-
           <Route
             path="/contractor/company/regions"
             element={<ContractorCompanyRegionsPage />}
+          />
+          <Route
+            path="/contractor/company/settlement"
+            element={<ContractorCompanySettlementPage />}
           />
 
           <Route
