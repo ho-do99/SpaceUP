@@ -6,7 +6,7 @@ import axios, {
 } from 'axios'
 import { getAccessToken } from '@/utils/authSession'
 
-const DEFAULT_API_BASE_URL = 'http://localhost:8087'
+const DEFAULT_API_BASE_URL = 'http://localhost:8080'
 
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 

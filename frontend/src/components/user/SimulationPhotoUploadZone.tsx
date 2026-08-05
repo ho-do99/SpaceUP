@@ -5,6 +5,7 @@ interface SimulationPhotoUploadZoneProps {
   file: File | null
   previewUrl: string | null
   errorMessage: string
+  disabled: boolean
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void
   onDelete: () => void
 }
@@ -21,6 +22,7 @@ export default function SimulationPhotoUploadZone({
   file,
   previewUrl,
   errorMessage,
+  disabled,
   onFileChange,
   onDelete,
 }: SimulationPhotoUploadZoneProps) {
@@ -30,7 +32,8 @@ export default function SimulationPhotoUploadZone({
     <input
       id={inputId}
       type="file"
-      accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+      accept="image/*"
+      disabled={disabled}
       className="sr-only"
       aria-describedby={describedBy}
       aria-invalid={Boolean(errorMessage)}
@@ -60,13 +63,15 @@ export default function SimulationPhotoUploadZone({
           <div className="mt-3 flex justify-end gap-3">
             <label
               htmlFor={inputId}
-              className="flex h-9 w-24 cursor-pointer items-center justify-center rounded-lg bg-[#eff6ff] text-[12px] font-semibold text-[#2563eb] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#2563eb]"
+              aria-disabled={disabled}
+              className={`flex h-9 w-24 items-center justify-center rounded-lg bg-[#eff6ff] text-[12px] font-semibold text-[#2563eb] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#2563eb] ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
             >
               {fileInput}
               사진 변경
             </label>
             <button
               type="button"
+              disabled={disabled}
               className="h-9 w-24 rounded-lg border border-[#cbd5e1] bg-white text-[12px] font-semibold text-[#475569] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
               onClick={onDelete}
             >
@@ -81,11 +86,12 @@ export default function SimulationPhotoUploadZone({
             현재 집 사진을 선택해주세요
           </p>
           <p id={helpId} className="mt-2 text-[11px] leading-[17px] text-[#94a3b8]">
-            JPG, PNG · 최대 10MB
+            PNG, JPEG, GIF, WebP 등 · 최대 20MB
           </p>
           <label
             htmlFor={inputId}
-            className="mt-6 flex h-10 w-[110px] cursor-pointer items-center justify-center rounded-lg bg-[#eff6ff] text-[12px] font-semibold text-[#2563eb] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#2563eb]"
+            aria-disabled={disabled}
+            className={`mt-6 flex h-10 w-[110px] items-center justify-center rounded-lg bg-[#eff6ff] text-[12px] font-semibold text-[#2563eb] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#2563eb] ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
           >
             {fileInput}
             사진 선택

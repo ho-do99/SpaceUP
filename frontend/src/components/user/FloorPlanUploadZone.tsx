@@ -1,29 +1,12 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useRef, type ChangeEvent } from 'react'
 import uploadCloudIcon from '@/assets/user/icons/upload-cloud.svg'
 
 interface FloorPlanUploadZoneProps {
   file: File | null
+  previewUrl: string | null
+  errorMessage: string
+  disabled: boolean
   onFileChange: (file: File | null) => void
-}
-
-const fileAccept = '.jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf'
-const maxFileSize = 10 * 1024 * 1024
-const allowedExtensionPattern = /\.(jpe?g|png|pdf)$/i
-const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'application/pdf'])
-
-function getFileError(file: File) {
-  const hasAllowedExtension = allowedExtensionPattern.test(file.name)
-  const hasAllowedMimeType = file.type === '' || allowedMimeTypes.has(file.type)
-
-  if (!hasAllowedExtension || !hasAllowedMimeType) {
-    return 'JPG, JPEG, PNG, PDF 파일만 업로드할 수 있습니다.'
-  }
-
-  if (file.size > maxFileSize) {
-    return '파일 크기는 10MB 이하만 가능합니다.'
-  }
-
-  return null
 }
 
 function getFileDescription(file: File) {
@@ -39,28 +22,21 @@ function getFileDescription(file: File) {
 
 export default function FloorPlanUploadZone({
   file,
+  previewUrl,
+  errorMessage,
+  disabled,
   onFileChange,
 }: FloorPlanUploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [error, setError] = useState<string | null>(null)
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
+    event.target.value = ''
 
     if (!selectedFile) {
       return
     }
 
-    const nextError = getFileError(selectedFile)
-
-    if (nextError) {
-      event.target.value = ''
-      setError(nextError)
-      onFileChange(null)
-      return
-    }
-
-    setError(null)
     onFileChange(selectedFile)
   }
 
@@ -69,7 +45,6 @@ export default function FloorPlanUploadZone({
       inputRef.current.value = ''
     }
 
-    setError(null)
     onFileChange(null)
   }
 
@@ -85,9 +60,10 @@ export default function FloorPlanUploadZone({
         ref={inputRef}
         id="villa-floor-plan"
         type="file"
-        accept={fileAccept}
-        aria-describedby={`floor-plan-file-hint${error ? ' floor-plan-file-error' : ''}`}
-        aria-invalid={error !== null}
+        accept="image/*"
+        disabled={disabled}
+        aria-describedby={`floor-plan-file-hint${errorMessage ? ' floor-plan-file-error' : ''}`}
+        aria-invalid={Boolean(errorMessage)}
         className="peer sr-only"
         onChange={handleFileChange}
       />
@@ -97,7 +73,11 @@ export default function FloorPlanUploadZone({
           file ? 'h-[136px]' : 'h-36'
         }`}
       >
-        <img src={uploadCloudIcon} alt="" className="size-8 shrink-0" />
+        <img
+          src={file && previewUrl ? previewUrl : uploadCloudIcon}
+          alt={file && previewUrl ? '선택한 평면도 미리보기' : ''}
+          className={`size-8 shrink-0 ${file && previewUrl ? 'rounded object-cover' : ''}`}
+        />
 
         {file ? (
           <>
@@ -113,13 +93,15 @@ export default function FloorPlanUploadZone({
             <div className="mt-0.5 flex h-8 items-center justify-center gap-2">
               <label
                 htmlFor="villa-floor-plan"
-                className="flex h-8 w-[84px] cursor-pointer items-center justify-center rounded-[8px] bg-[#eff6ff] text-[11px] font-bold text-[#2563eb] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#2563eb]"
+                aria-disabled={disabled}
+                className={`flex h-8 w-[84px] items-center justify-center rounded-[8px] bg-[#eff6ff] text-[11px] font-bold text-[#2563eb] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#2563eb] ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                 onClick={prepareFileChange}
               >
                 변경
               </label>
               <button
                 type="button"
+                disabled={disabled}
                 className="flex h-8 w-[84px] items-center justify-center rounded-[8px] border border-[#cbd5e1] bg-white text-[11px] font-bold text-[#64748b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
                 onClick={handleRemove}
               >
@@ -136,11 +118,12 @@ export default function FloorPlanUploadZone({
               id="floor-plan-file-hint"
               className="text-[10px] leading-3 text-[#64748b]"
             >
-              JPG, PNG, PDF / 최대 10MB
+              PNG, JPEG, GIF, WebP 등 / 최대 20MB
             </p>
             <label
               htmlFor="villa-floor-plan"
-              className="flex h-10 w-28 cursor-pointer items-center justify-center rounded-[8px] bg-[#eff6ff] text-[12px] font-bold text-[#2563eb] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#2563eb]"
+              aria-disabled={disabled}
+              className={`flex h-10 w-28 items-center justify-center rounded-[8px] bg-[#eff6ff] text-[12px] font-bold text-[#2563eb] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#2563eb] ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
             >
               파일 선택
             </label>
@@ -148,13 +131,13 @@ export default function FloorPlanUploadZone({
         )}
       </div>
 
-      {error && (
+      {errorMessage && (
         <p
           id="floor-plan-file-error"
           role="alert"
           className="mt-2 text-center text-[11px] leading-4 text-red-600"
         >
-          {error}
+          {errorMessage}
         </p>
       )}
     </div>

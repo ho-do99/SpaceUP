@@ -1,21 +1,21 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { getImageUploadErrorMessage, uploadImage, validateImageFile } from '@/api/fileApi'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import SimulationPhotoUploadZone from '@/components/user/SimulationPhotoUploadZone'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import { interiorStyleOptions } from '@/mocks/interiorStyles'
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024
-const allowedFileTypes = new Set(['image/jpeg', 'image/png'])
-const allowedFileNamePattern = /\.(jpe?g|png)$/i
+import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
 
 export default function SimulationPhotoUploadPage() {
   const navigate = useNavigate()
   const { state } = useLocation()
+  const abortControllerRef = useRef<AbortController | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
   const routeStyleId =
     typeof state === 'object' && state !== null ? Reflect.get(state, 'styleId') : undefined
   const selectedStyle =
@@ -27,6 +27,8 @@ export default function SimulationPhotoUploadPage() {
 
   useEffect(() => {
     return () => {
+      abortControllerRef.current?.abort()
+
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl)
       }
@@ -40,16 +42,11 @@ export default function SimulationPhotoUploadPage() {
       return
     }
 
-    if (!allowedFileTypes.has(file.type) || !allowedFileNamePattern.test(file.name)) {
-      setSelectedFile(null)
-      setErrorMessage('JPG 또는 PNG 파일만 선택할 수 있습니다.')
-      event.target.value = ''
-      return
-    }
+    const fileError = validateImageFile(file)
 
-    if (file.size > MAX_FILE_SIZE) {
+    if (fileError) {
       setSelectedFile(null)
-      setErrorMessage('10MB 이하의 사진을 선택해주세요.')
+      setErrorMessage(fileError)
       event.target.value = ''
       return
     }
@@ -63,13 +60,46 @@ export default function SimulationPhotoUploadPage() {
     setErrorMessage('')
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    if (selectedFile) {
+    if (!selectedFile || isUploading) {
+      return
+    }
+
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+    setErrorMessage('')
+    setIsUploading(true)
+
+    try {
+      const uploadResponse = await uploadImage(selectedFile, abortController.signal)
+      const uploadedImageUrl = resolveApiAssetUrl(uploadResponse.imageUrl)
+
+      if (!uploadedImageUrl) {
+        setErrorMessage('서버 응답을 확인할 수 없습니다.')
+        return
+      }
+
       navigate('/analysis/simulation/generating', {
-        state: { styleId: selectedStyle.id, photoFile: selectedFile },
+        state: {
+          styleId: selectedStyle.id,
+          uploadedImagePath: uploadResponse.imageUrl,
+          uploadedImageUrl,
+        },
       })
+    } catch (error: unknown) {
+      if (!abortController.signal.aborted) {
+        setErrorMessage(getImageUploadErrorMessage(error))
+      }
+    } finally {
+      if (!abortController.signal.aborted) {
+        setIsUploading(false)
+      }
+
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null
+      }
     }
   }
 
@@ -105,6 +135,7 @@ export default function SimulationPhotoUploadPage() {
                 file={selectedFile}
                 previewUrl={previewUrl}
                 errorMessage={errorMessage}
+                disabled={isUploading}
                 onFileChange={handleFileChange}
                 onDelete={handleDelete}
               />
@@ -115,9 +146,10 @@ export default function SimulationPhotoUploadPage() {
         <footer className="shrink-0 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
           <Button
             type="submit"
-            disabled={!selectedFile}
+            disabled={!selectedFile || isUploading}
+            isLoading={isUploading}
             className={`h-12 w-full !rounded-[5px] !border !px-4 !py-0 !text-[12px] !font-bold !shadow-none hover:!translate-y-0 hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] ${
-              selectedFile
+              selectedFile && !isUploading
                 ? '!border-[#2563eb] !bg-[#2563eb] hover:!bg-[#2563eb]'
                 : '!border-[#cbd5e1] !bg-[#cbd5e1] !opacity-100'
             }`}

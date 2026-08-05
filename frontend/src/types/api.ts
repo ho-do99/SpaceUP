@@ -3,3 +3,7 @@ export interface ApiResponse<T> {
   message: string
   data: T | null
 }
+
+export interface ImageUploadResponse {
+  imageUrl: string
+}
