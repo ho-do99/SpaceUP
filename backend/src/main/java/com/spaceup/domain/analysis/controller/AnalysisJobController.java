@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 import com.spaceup.domain.analysis.dto.AnalysisJobEditRequest;
 import com.spaceup.domain.analysis.dto.AnalysisJobResponse;
 import com.spaceup.domain.analysis.dto.AnalysisJobResultRequest;
+import com.spaceup.domain.analysis.dto.AnalysisSpaceRequest;
+import com.spaceup.domain.analysis.dto.AnalysisSpaceResponse;
 import com.spaceup.domain.analysis.service.AnalysisJobService;
 import com.spaceup.domain.product.dto.RecommendedProductResponse;
 import com.spaceup.domain.product.service.ProductRecommendationService;
@@ -59,6 +61,19 @@ public class AnalysisJobController {
 	@GetMapping("/request/{requestId}")
 	public ResponseEntity<ApiResponse<AnalysisJobResponse>> getByRequest(@PathVariable Long requestId) {
 		return ResponseEntity.ok(ApiResponse.success("분석 결과 조회 완료", analysisJobService.getByRequest(requestId)));
+	}
+
+	// ⭐ [프론트 연동] "공간 정보 수정" 화면 - 편집한 공간(방) 목록 전체를 한 번에 교체 저장
+	@PutMapping("/request/{requestId}/spaces")
+	public ResponseEntity<ApiResponse<Void>> replaceSpaces(@PathVariable Long requestId,
+			@Valid @RequestBody List<AnalysisSpaceRequest> request) {
+		analysisJobService.replaceSpaces(requestId, request);
+		return ResponseEntity.ok(ApiResponse.success("공간 정보가 저장되었습니다.", null));
+	}
+
+	@GetMapping("/request/{requestId}/spaces")
+	public ResponseEntity<ApiResponse<List<AnalysisSpaceResponse>>> getSpaces(@PathVariable Long requestId) {
+		return ResponseEntity.ok(ApiResponse.success("공간 목록 조회 완료", analysisJobService.getSpaces(requestId)));
 	}
 
 	// ⭐ [프론트 연동] "추천 상품" 화면 - 분석 결과 기반 바닥재/벽지 추천 (카테고리별 상위 3개)

@@ -122,6 +122,18 @@ public class AnalysisJob extends BaseTimeEntity {
 	@Column(name = "preliminary_rent_increase_max")
 	private Long preliminaryRentIncreaseMax;
 
+	// ⭐ [프론트 연동] "공간 정보 확인" 화면 - 층고는 공간별이 아니라 매물 전체 기준 단일 값으로 요청받았습니다.
+	@Column(name = "ceiling_height_m")
+	private Double ceilingHeightM;
+
+	// ⭐ [프론트 연동] 공간별(AnalysisSpace) 목록 중 "시공 선택"된 공간들의 바닥/벽지 면적 합계입니다.
+	// AnalysisJobService.replaceSpaces()가 공간 목록을 저장할 때마다 다시 계산해서 채웁니다.
+	@Column(name = "total_floor_area_m2")
+	private Double totalFloorAreaM2;
+
+	@Column(name = "total_wallpaper_area_m2")
+	private Double totalWallpaperAreaM2;
+
 	// ⭐ ML 파이프라인 콜백이 이 메서드로 결과를 채웁니다.
 	public void completeWith(Integer roomCount, Integer bathroomCount, Boolean hasBalcony, String kitchenType,
 			Integer spaceScore, Integer conditionScore, String issueTags, Long estimatedQuoteMin,
@@ -145,7 +157,8 @@ public class AnalysisJob extends BaseTimeEntity {
 
 	// ⭐ [프론트 연동] "공간 정보 확인" 화면에서 임대인이 AI가 인식한 방 개수/욕실 개수/발코니 유무/주방 형태를
 	// 직접 고쳐 저장할 수 있어야 함(값이 null인 필드는 변경하지 않음 - 부분 수정 허용).
-	public void updateBasicInfo(Integer roomCount, Integer bathroomCount, Boolean hasBalcony, String kitchenType) {
+	public void updateBasicInfo(Integer roomCount, Integer bathroomCount, Boolean hasBalcony, String kitchenType,
+			Double ceilingHeightM) {
 		if (roomCount != null) {
 			this.roomCount = roomCount;
 		}
@@ -158,6 +171,15 @@ public class AnalysisJob extends BaseTimeEntity {
 		if (kitchenType != null) {
 			this.kitchenType = kitchenType;
 		}
+		if (ceilingHeightM != null) {
+			this.ceilingHeightM = ceilingHeightM;
+		}
+	}
+
+	// ⭐ [프론트 연동] AnalysisJobService.replaceSpaces()가 공간 목록을 다시 저장할 때마다 호출해 갱신합니다.
+	public void applyTotalConstructionArea(Double totalFloorAreaM2, Double totalWallpaperAreaM2) {
+		this.totalFloorAreaM2 = totalFloorAreaM2;
+		this.totalWallpaperAreaM2 = totalWallpaperAreaM2;
 	}
 
 	public void fail() {

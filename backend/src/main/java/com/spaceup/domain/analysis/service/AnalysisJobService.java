@@ -1,14 +1,21 @@
 package com.spaceup.domain.analysis.service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.spaceup.domain.analysis.dto.AnalysisJobEditRequest;
 import com.spaceup.domain.analysis.dto.AnalysisJobResponse;
 import com.spaceup.domain.analysis.dto.AnalysisJobResultRequest;
+import com.spaceup.domain.analysis.dto.AnalysisSpaceRequest;
+import com.spaceup.domain.analysis.dto.AnalysisSpaceResponse;
 import com.spaceup.domain.analysis.entity.AnalysisJob;
+import com.spaceup.domain.analysis.entity.AnalysisSpace;
 import com.spaceup.domain.analysis.entity.AnalysisStatus;
 import com.spaceup.domain.analysis.repository.AnalysisJobRepository;
+import com.spaceup.domain.analysis.repository.AnalysisSpaceRepository;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
 import com.spaceup.global.error.AnalysisNotFoundException;
@@ -22,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 public class AnalysisJobService {
 
 	private final AnalysisJobRepository analysisJobRepository;
+	private final AnalysisSpaceRepository analysisSpaceRepository;
 	private final QuoteRequestRepository quoteRequestRepository;
 	private final RentalValueCalculator rentalValueCalculator;
 
@@ -65,10 +73,42 @@ public class AnalysisJobService {
 	public void updateBasicInfo(Long requestId, AnalysisJobEditRequest dto) {
 		AnalysisJob analysis = findByRequestOrThrow(requestId);
 		analysis.updateBasicInfo(dto.getRoomCount(), dto.getBathroomCount(), dto.getHasBalcony(),
-				dto.getKitchenType());
+				dto.getKitchenType(), dto.getCeilingHeightM());
 		if (dto.getExclusiveAreaM2() != null) {
 			analysis.getRequest().getProperty().updateArea(dto.getExclusiveAreaM2());
 		}
+	}
+
+	// ⭐ [프론트 연동] "공간 정보 확인" 화면 - 편집한 공간 목록 전체를 교체 저장하고, 시공 선택된 공간들의
+	// 바닥/벽지 면적 합계를 다시 계산해 AnalysisJob에 반영합니다.
+	@Transactional
+	public void replaceSpaces(Long requestId, List<AnalysisSpaceRequest> spaceRequests) {
+		AnalysisJob analysis = findByRequestOrThrow(requestId);
+		analysisSpaceRepository.deleteByAnalysisJobId(analysis.getId());
+
+		double totalFloorArea = 0;
+		double totalWallpaperArea = 0;
+		int sortOrder = 0;
+		for (AnalysisSpaceRequest spaceRequest : spaceRequests) {
+			AnalysisSpace space = AnalysisSpace.builder().analysisJob(analysis).spaceName(spaceRequest.getSpaceName())
+					.spaceAreaM2(spaceRequest.getSpaceAreaM2()).floorAreaM2(spaceRequest.getFloorAreaM2())
+					.wallpaperAreaM2(spaceRequest.getWallpaperAreaM2())
+					.selectedForConstruction(spaceRequest.isSelectedForConstruction()).sortOrder(sortOrder++).build();
+			analysisSpaceRepository.save(space);
+
+			if (spaceRequest.isSelectedForConstruction()) {
+				totalFloorArea += spaceRequest.getFloorAreaM2() != null ? spaceRequest.getFloorAreaM2() : 0;
+				totalWallpaperArea += spaceRequest.getWallpaperAreaM2() != null ? spaceRequest.getWallpaperAreaM2()
+						: 0;
+			}
+		}
+		analysis.applyTotalConstructionArea(totalFloorArea, totalWallpaperArea);
+	}
+
+	public List<AnalysisSpaceResponse> getSpaces(Long requestId) {
+		AnalysisJob analysis = findByRequestOrThrow(requestId);
+		return analysisSpaceRepository.findByAnalysisJobIdOrderBySortOrderAsc(analysis.getId()).stream()
+				.map(AnalysisSpaceResponse::new).collect(Collectors.toList());
 	}
 
 	@Transactional
