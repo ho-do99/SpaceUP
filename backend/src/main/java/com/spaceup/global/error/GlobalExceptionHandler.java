@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException; // 👈 검증 예외 부품 링크
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import com.spaceup.domain.rental.exception.RentalApiConfigurationException;
 import com.spaceup.domain.rental.exception.RentalApiException;
@@ -15,6 +16,14 @@ import lombok.extern.slf4j.Slf4j;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+	// ⭐ [프론트 연동] 이미지 업로드 등 multipart 요청이 spring.servlet.multipart.max-file-size(20MB)를
+	// 넘으면 스프링이 이 예외를 던집니다. 별도 핸들러가 없으면 500으로 떨어져서 413으로 명확히 구분합니다.
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException e) {
+		log.warn("업로드 파일 용량 초과: {}", e.getMessage());
+		return ResponseEntity.status(413).body(ApiResponse.fail("파일 크기가 20MB를 초과했습니다."));
+	}
 
 	// ⭐ [국토부 실거래가 연동] 서비스키 미설정 등 설정 오류 - 운영자가 바로 인지할 수 있도록 503
 	@ExceptionHandler(RentalApiConfigurationException.class)
