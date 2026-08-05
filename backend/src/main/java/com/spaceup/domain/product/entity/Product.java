@@ -73,6 +73,20 @@ public class Product extends BaseTimeEntity {
 	@Column(length = 30)
 	private String brand;
 
+	// ⭐ [프론트 연동] 추천 상품 화면에 실제 이미지를 보여주기 위한 필드. 자재업체가 상품 등록 시
+	// domain/file의 범용 이미지 업로드 API로 먼저 올린 뒤 그 imageUrl을 여기 넣습니다.
+	@Column(name = "image_url", length = 500)
+	private String imageUrl;
+
+	// ⭐ [프론트 연동] 판매 단위 (예: "롤", "박스", "㎡")
+	@Column(length = 20)
+	private String unit;
+
+	// ⭐ [프론트 연동] 이 상품 1단위(unit)가 시공 가능한 면적(㎡). 추천 상품의 수량(quantity)을
+	// "면적 ÷ coverageM2" 기준으로 계산하는 데 씁니다(ProductRecommendationService 참고).
+	@Column(name = "coverage_m2")
+	private Double coverageM2;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private ProductStatus status;
@@ -95,7 +109,8 @@ public class Product extends BaseTimeEntity {
 
 	// ⭐ PDF "자재 등록/수정" 화면에서 기존 상품을 수정할 때 사용
 	public void updateInfo(String name, String spec, String color, Long supplyPrice, Long salePrice,
-			Integer minOrderQty, String manufacturer, String brand) {
+			Integer minOrderQty, String manufacturer, String brand, String imageUrl, String unit,
+			Double coverageM2) {
 		this.name = name;
 		this.spec = spec;
 		this.color = color;
@@ -104,6 +119,9 @@ public class Product extends BaseTimeEntity {
 		this.minOrderQty = minOrderQty;
 		this.manufacturer = manufacturer;
 		this.brand = brand;
+		this.imageUrl = imageUrl;
+		this.unit = unit;
+		this.coverageM2 = coverageM2;
 	}
 
 	public void changeStatus(ProductStatus status) {

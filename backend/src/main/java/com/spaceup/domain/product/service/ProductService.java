@@ -42,6 +42,7 @@ public class ProductService {
 				.name(dto.getName()).category(dto.getCategory()).spec(dto.getSpec()).color(dto.getColor())
 				.supplyPrice(dto.getSupplyPrice()).salePrice(dto.getSalePrice()).minOrderQty(dto.getMinOrderQty())
 				.stockQty(dto.getStockQty()).manufacturer(dto.getManufacturer()).brand(dto.getBrand())
+				.imageUrl(dto.getImageUrl()).unit(dto.getUnit()).coverageM2(dto.getCoverageM2())
 				.status(dto.getStockQty() != null && dto.getStockQty() > 0 ? ProductStatus.ON_SALE
 						: ProductStatus.SOLD_OUT)
 				.build();
@@ -60,7 +61,8 @@ public class ProductService {
 		Product product = findProductOrThrow(productId);
 		validateOwnership(product, vendorId);
 		product.updateInfo(dto.getName(), dto.getSpec(), dto.getColor(), dto.getSupplyPrice(), dto.getSalePrice(),
-				dto.getMinOrderQty(), dto.getManufacturer(), dto.getBrand());
+				dto.getMinOrderQty(), dto.getManufacturer(), dto.getBrand(), dto.getImageUrl(), dto.getUnit(),
+				dto.getCoverageM2());
 	}
 
 	// ⭐ PDF "재고 관리" 화면의 "재고 조정" / "입고 등록" 버튼 (delta가 양수면 입고, 음수면 출고/조정) - 본인 상품만
