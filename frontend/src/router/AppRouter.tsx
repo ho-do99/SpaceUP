@@ -37,6 +37,7 @@ import PropertyInformationPage from '@/pages/PropertyInformationPage'
 import ApartmentAddressSearchPage from '@/pages/ApartmentAddressSearchPage'
 
 import ContractorDashboardPage from '@/pages/contractor/ContractorDashboardPage'
+import ContractorChatListPage from '@/pages/contractor/ContractorChatListPage'
 import ContractorChatPage from '@/pages/contractor/ContractorChatPage'
 import ContractorEstimateReadyPage from '@/pages/contractor/ContractorEstimateReadyPage'
 import ContractorEstimateEditPage from '@/pages/contractor/ContractorEstimateEditPage'
@@ -82,9 +83,18 @@ export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/upload" element={<FloorPlanUploadPage />} />
+        <Route
+          path="/"
+          element={<HomePage />}
+        />
+        <Route
+          path="/login"
+          element={<LoginPage />}
+        />
+        <Route
+          path="/upload"
+          element={<FloorPlanUploadPage />}
+        />
 
         <Route
           path="/analysis/loading"
@@ -132,25 +142,35 @@ export default function AppRouter() {
           />
           <Route
             path="/estimate/materials/floor"
-            element={<FloorMaterialSelectionPage />}
+            element={
+              <FloorMaterialSelectionPage />
+            }
           />
           <Route
             path="/estimate/materials/wallpaper"
-            element={<WallpaperMaterialSelectionPage />}
+            element={
+              <WallpaperMaterialSelectionPage />
+            }
           />
           <Route
             path="/estimate/materials/lighting"
-            element={<LightingMaterialSelectionPage />}
+            element={
+              <LightingMaterialSelectionPage />
+            }
           />
           <Route
             path="/report/value-increase"
-            element={<HomeValueIncreaseReportPage />}
+            element={
+              <HomeValueIncreaseReportPage />
+            }
           />
         </Route>
 
         <Route
           path="/estimate/request/complete"
-          element={<EstimateRequestCompletePage />}
+          element={
+            <EstimateRequestCompletePage />
+          }
         />
         <Route
           path="/estimate/request"
@@ -182,32 +202,51 @@ export default function AppRouter() {
         >
           <Route
             path="/contractor"
-            element={<ContractorDashboardPage />}
+            element={
+              <ContractorDashboardPage />
+            }
+          />
+
+          <Route
+            path="/contractor/chats"
+            element={<ContractorChatListPage />}
           />
 
           <Route
             path="/contractor/requests"
-            element={<ContractorRequestListPage />}
+            element={
+              <ContractorRequestListPage />
+            }
           />
           <Route
             path="/contractor/requests/:requestId/floor-plan"
-            element={<ContractorRequestFloorPlanPage />}
+            element={
+              <ContractorRequestFloorPlanPage />
+            }
           />
           <Route
             path="/contractor/requests/:requestId/photos"
-            element={<ContractorRequestPhotosPage />}
+            element={
+              <ContractorRequestPhotosPage />
+            }
           />
           <Route
             path="/contractor/requests/:requestId/analysis"
-            element={<ContractorRequestAnalysisPage />}
+            element={
+              <ContractorRequestAnalysisPage />
+            }
           />
           <Route
             path="/contractor/requests/:requestId/approved"
-            element={<ContractorRequestApprovedPage />}
+            element={
+              <ContractorRequestApprovedPage />
+            }
           />
           <Route
             path="/contractor/requests/:requestId/chat/completed"
-            element={<ContractorChatPage completed />}
+            element={
+              <ContractorChatPage completed />
+            }
           />
           <Route
             path="/contractor/requests/:requestId/chat"
@@ -219,67 +258,97 @@ export default function AppRouter() {
           />
           <Route
             path="/contractor/requests/:requestId/estimate-ready"
-            element={<ContractorEstimateReadyPage />}
+            element={
+              <ContractorEstimateReadyPage />
+            }
           />
           <Route
             path="/contractor/requests/:requestId/estimate/sent"
-            element={<ContractorEstimateSentPage />}
+            element={
+              <ContractorEstimateSentPage />
+            }
           />
           <Route
             path="/contractor/requests/:requestId/estimate/preview"
-            element={<ContractorEstimatePreviewPage />}
+            element={
+              <ContractorEstimatePreviewPage />
+            }
           />
           <Route
             path="/contractor/requests/:requestId/estimate"
-            element={<ContractorEstimateEditPage />}
+            element={
+              <ContractorEstimateEditPage />
+            }
           />
           <Route
             path="/contractor/requests/:requestId"
-            element={<ContractorRequestDetailPage />}
+            element={
+              <ContractorRequestDetailPage />
+            }
           />
 
           <Route
             path="/contractor/estimates"
-            element={<ContractorEstimateListPage />}
+            element={
+              <ContractorEstimateListPage />
+            }
           />
           <Route
             path="/contractor/estimates/:estimateId/contract-ready"
-            element={<ContractorContractReadyPage />}
+            element={
+              <ContractorContractReadyPage />
+            }
           />
           <Route
             path="/contractor/estimates/:estimateId"
-            element={<ContractorEstimateDetailPage />}
+            element={
+              <ContractorEstimateDetailPage />
+            }
           />
 
           <Route
             path="/contractor/projects"
-            element={<ContractorProjectListPage />}
+            element={
+              <ContractorProjectListPage />
+            }
           />
           <Route
             path="/contractor/projects/:projectId"
-            element={<ContractorProjectDetailPage />}
+            element={
+              <ContractorProjectDetailPage />
+            }
           />
 
           <Route
             path="/contractor/settlements"
-            element={<ContractorSettlementListPage />}
+            element={
+              <ContractorSettlementListPage />
+            }
           />
           <Route
             path="/contractor/settlements/:settlementId/statement"
-            element={<ContractorSettlementStatementPage />}
+            element={
+              <ContractorSettlementStatementPage />
+            }
           />
           <Route
             path="/contractor/settlements/:settlementId/breakdown"
-            element={<ContractorSettlementBreakdownPage />}
+            element={
+              <ContractorSettlementBreakdownPage />
+            }
           />
           <Route
             path="/contractor/settlements/:settlementId"
-            element={<ContractorSettlementDetailPage />}
+            element={
+              <ContractorSettlementDetailPage />
+            }
           />
 
           <Route
             path="/contractor/notifications"
-            element={<ContractorNotificationPage />}
+            element={
+              <ContractorNotificationPage />
+            }
           />
 
           <Route
@@ -289,78 +358,110 @@ export default function AppRouter() {
 
           <Route
             path="/contractor/portfolio"
-            element={<ContractorPortfolioPage />}
+            element={
+              <ContractorPortfolioPage />
+            }
           />
-
           <Route
             path="/contractor/portfolio/create"
-            element={<ContractorPortfolioCreatePage />}
+            element={
+              <ContractorPortfolioCreatePage />
+            }
           />
-
           <Route
             path="/contractor/portfolio/:portfolioId/edit"
-            element={<ContractorPortfolioEditPage />}
+            element={
+              <ContractorPortfolioEditPage />
+            }
           />
 
           <Route
             path="/contractor/settings"
-            element={<ContractorSettingsPage />}
+            element={
+              <ContractorSettingsPage />
+            }
           />
           <Route
             path="/contractor/settings/account"
-            element={<ContractorAccountSettingsPage />}
+            element={
+              <ContractorAccountSettingsPage />
+            }
           />
           <Route
             path="/contractor/settings/manager"
-            element={<ContractorManagerInfoPage />}
+            element={
+              <ContractorManagerInfoPage />
+            }
           />
           <Route
             path="/contractor/settings/visibility"
-            element={<ContractorVisibilitySettingsPage />}
+            element={
+              <ContractorVisibilitySettingsPage />
+            }
           />
           <Route
             path="/contractor/settings/withdrawal"
-            element={<ContractorWithdrawalPage />}
+            element={
+              <ContractorWithdrawalPage />
+            }
           />
           <Route
             path="/contractor/settings/withdrawal/completed"
-            element={<ContractorWithdrawalCompletedPage />}
+            element={
+              <ContractorWithdrawalCompletedPage />
+            }
           />
 
           <Route
             path="/contractor/company"
-            element={<ContractorCompanyInfoPage />}
+            element={
+              <ContractorCompanyInfoPage />
+            }
           />
           <Route
             path="/contractor/company/specialties"
-            element={<ContractorCompanySpecialtiesPage />}
+            element={
+              <ContractorCompanySpecialtiesPage />
+            }
           />
           <Route
             path="/contractor/company/regions"
-            element={<ContractorCompanyRegionsPage />}
+            element={
+              <ContractorCompanyRegionsPage />
+            }
           />
           <Route
             path="/contractor/company/settlement"
-            element={<ContractorCompanySettlementPage />}
+            element={
+              <ContractorCompanySettlementPage />
+            }
           />
 
           <Route
             path="/contractor/reviews"
-            element={<ContractorReviewListPage />}
+            element={
+              <ContractorReviewListPage />
+            }
           />
           <Route
             path="/contractor/reviews/:reviewId"
-            element={<ContractorReviewDetailPage />}
+            element={
+              <ContractorReviewDetailPage />
+            }
           />
         </Route>
 
         <Route
           path="/mypage/requests"
-          element={<EstimateRequestHistoryPage />}
+          element={
+            <EstimateRequestHistoryPage />
+          }
         />
         <Route
           path="/mypage/requests/:requestId"
-          element={<EstimateRequestDetailPage />}
+          element={
+            <EstimateRequestDetailPage />
+          }
         />
         <Route
           path="/mypage"
@@ -376,7 +477,9 @@ export default function AppRouter() {
         />
         <Route
           path="/analysis/new/property"
-          element={<PropertyInformationPage />}
+          element={
+            <PropertyInformationPage />
+          }
         />
       </Routes>
     </BrowserRouter>
