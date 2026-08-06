@@ -3,6 +3,7 @@ package com.spaceup.global.config;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -46,9 +47,14 @@ public class SecurityConfig {
 		return source;
 	}
 
+	// ⭐ Spring MVC의 HandlerMappingIntrospector도 CorsConfigurationSource를 구현하고 있어서 같은 타입 빈이
+	// 2개 존재합니다. 파라미터 이름으로 자동 구분되긴 하지만, 그건 컴파일러가 -parameters 플래그로 파라미터명을
+	// 남겨줘야만 동작합니다 (Gradle은 설정돼 있지만, Eclipse 등 IDE 자체 컴파일러는 기본값이 꺼져 있을 수 있어
+	// "required a single bean, but 2 were found" 오류가 남). @Qualifier로 명시해 컴파일러 설정과 무관하게
+	// 항상 우리가 만든 빈을 쓰도록 고정합니다.
 	@Bean
-	public SecurityFilterChain filterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource)
-			throws Exception {
+	public SecurityFilterChain filterChain(HttpSecurity http,
+			@Qualifier("corsConfigurationSource") CorsConfigurationSource corsConfigurationSource) throws Exception {
 		http.csrf(csrf -> csrf.disable()).cors(cors -> cors.configurationSource(corsConfigurationSource))
 				.headers(headers -> headers.frameOptions(frame -> frame.disable()))
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
