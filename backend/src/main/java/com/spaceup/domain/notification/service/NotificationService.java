@@ -25,19 +25,33 @@ public class NotificationService {
 	private final NotificationRepository notificationRepository;
 	private final MemberRepository memberRepository;
 
+	private static final int TITLE_MAX_LENGTH = 100;
+	private static final int CONTENT_MAX_LENGTH = 300;
+
 	// ⭐ 이 메서드가 핵심 확장 지점입니다. RequestService.assignContractor(), QuoteService.submit(),
 	// ScheduleEvent 생성 시점 등에서 이 메서드를 호출해 알림을 자동 발생시키면 됩니다.
 	// 예: notificationService.notify(contractor.getId(), NotificationType.REQUEST, "새 의뢰가 도착했습니다", ...)
+	// ⭐ [버그 수정] 호출부가 사용자 입력값(견적 수정요청 메모 등)을 그대로 String.format에 끼워 넣는 경우가
+	// 있어서, 합쳐진 문자열이 title/content 컬럼 길이(100/300자)를 넘으면 DataIntegrityViolationException으로
+	// 알림 저장 자체가 실패해 원래 하려던 작업(예: 수정요청)까지 통째로 롤백되는 문제가 있었습니다. 이 진입점
+	// 하나에서 안전하게 잘라내 모든 호출부를 한 번에 보호합니다.
 	@Transactional
 	public Long notify(Long receiverId, NotificationType type, String title, String content) {
 		Member receiver = memberRepository.findById(receiverId)
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원 번호입니다: " + receiverId));
 
-		Notification notification = Notification.builder().receiver(receiver).type(type).title(title)
-				.content(content).build();
+		Notification notification = Notification.builder().receiver(receiver).type(type)
+				.title(truncate(title, TITLE_MAX_LENGTH)).content(truncate(content, CONTENT_MAX_LENGTH)).build();
 
 		notificationRepository.save(notification);
 		return notification.getId();
+	}
+
+	private String truncate(String value, int maxLength) {
+		if (value == null || value.length() <= maxLength) {
+			return value;
+		}
+		return value.substring(0, maxLength);
 	}
 
 	// ⭐ PDF "알림센터" 화면 목록 (로그인한 본인 알림, 최신순, 페이지네이션)
