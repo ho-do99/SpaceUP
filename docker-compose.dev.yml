@@ -37,6 +37,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile.dev
     restart: unless-stopped
+    env_file:
+      - /home/ubuntu/spaceup-secret.env
     environment:
       SPRING_PROFILES_ACTIVE: dev
       DB_HOST: ${DB_HOST:-db}
