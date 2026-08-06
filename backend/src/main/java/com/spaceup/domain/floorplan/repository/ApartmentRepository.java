@@ -12,9 +12,13 @@ import com.spaceup.domain.floorplan.entity.Apartment;
 @Repository
 public interface ApartmentRepository extends JpaRepository<Apartment, Long> {
 
-	// ⭐ [프론트 연동] "아파트/평면도 검색" - 키워드(이름/주소)·지역·면적범위·방개수를 모두 선택적으로 필터링
+	// ⭐ [버그 수정] 원래 inner join이라 평면도(variant)가 아직 하나도 없는 아파트는 필터를 전혀 안 걸어도
+	// 검색 결과에서 통째로 빠졌습니다(관리자가 아파트만 등록하고 평면도를 아직 안 넣은 정상적인 중간 상태인데도).
+	// left join으로 바꿔서 그런 아파트도 목록엔 나오게 하고, 면적/방개수처럼 variant 값이 있어야 의미있는
+	// 필터는 파라미터가 null일 때만 v가 null이어도 통과하도록 그대로 둡니다(면적 필터를 실제로 걸면 당연히
+	// 평면도가 있는 아파트만 걸러집니다).
 	@Query("""
-			select distinct a from Apartment a join a.variants v
+			select distinct a from Apartment a left join a.variants v
 			where (:keyword is null or a.name like concat('%', :keyword, '%')
 				or a.roadAddress like concat('%', :keyword, '%')
 				or a.lotAddress like concat('%', :keyword, '%'))
