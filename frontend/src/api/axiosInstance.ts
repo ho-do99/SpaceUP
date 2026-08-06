@@ -129,7 +129,7 @@ function getApiErrorMessage(value: unknown): string | null {
  * /api/api/member/login
  * → /api/member/login
  */
-function normalizeRequestUrl(url: string | undefined): string | undefined {
+export function normalizeRequestUrl(url: string | undefined): string | undefined {
   if (!url) {
     return url
   }
