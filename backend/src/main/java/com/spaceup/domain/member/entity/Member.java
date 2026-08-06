@@ -11,6 +11,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+
+import com.spaceup.global.error.InvalidStatusTransitionException;
+
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -163,8 +166,15 @@ public class Member {
 		this.applicationNumber = applicationNumber;
 	}
 
-	// ⭐ 관리자 승인 처리(시공사/자재업체 전용). 승인번호를 발급하고 보완요청 관련 필드는 비웁니다.
+	// ⭐ [상태 가드 추가] 관리자 승인 처리(시공사/자재업체 전용). 승인번호를 발급하고 보완요청 관련 필드는 비웁니다.
+	// 탈퇴한 회원이나 이미 승인된 회원을 다시 승인하면(중복 클릭 등) 승인번호가 조용히 덮어써지던 문제를 막습니다.
 	public void approve(String approvalNumber) {
+		if (this.withdrawn) {
+			throw new InvalidStatusTransitionException("탈퇴한 회원은 승인할 수 없습니다.");
+		}
+		if (this.approvalStatus == MemberApprovalStatus.APPROVED) {
+			throw new InvalidStatusTransitionException("이미 승인된 회원입니다.");
+		}
 		this.approvalStatus = MemberApprovalStatus.APPROVED;
 		this.approvalNumber = approvalNumber;
 		this.revisionMessage = null;

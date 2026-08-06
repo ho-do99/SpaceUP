@@ -47,8 +47,15 @@ public class PortfolioService {
 				.collect(Collectors.toList());
 	}
 
-	public PortfolioResponse getPortfolio(Long portfolioId) {
-		return new PortfolioResponse(findOrThrow(portfolioId));
+	// ⭐ [보안 수정] 이 엔드포인트는 로그인 없이도 호출 가능(permitAll)합니다. 비공개 포트폴리오는 소유자 본인에게만
+	// 보여야 하므로, isPublic=false인 경우 viewerId가 소유자와 일치할 때만 반환합니다.
+	public PortfolioResponse getPortfolio(Long portfolioId, Long viewerId) {
+		Portfolio portfolio = findOrThrow(portfolioId);
+		boolean isOwner = viewerId != null && portfolio.getContractor().getId().equals(viewerId);
+		if (!portfolio.isPublic() && !isOwner) {
+			throw new PortfolioNotFoundException("존재하지 않는 포트폴리오입니다: " + portfolioId);
+		}
+		return new PortfolioResponse(portfolio);
 	}
 
 	// ⭐ [프론트 연동] "시공사 상세" 화면 - 다른 사용자가 해당 시공사의 공개 포트폴리오만 조회

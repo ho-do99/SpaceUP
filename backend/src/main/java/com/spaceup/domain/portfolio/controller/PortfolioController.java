@@ -37,9 +37,12 @@ public class PortfolioController {
 		return ResponseEntity.ok(ApiResponse.success("포트폴리오 목록 조회 완료", portfolioService.getMyPortfolios(contractorId)));
 	}
 
+	// ⭐ [보안 수정] 로그인 없이도 호출 가능한 엔드포인트라 authentication이 null이거나 익명일 수 있습니다.
 	@GetMapping("/{portfolioId}")
-	public ResponseEntity<ApiResponse<PortfolioResponse>> getPortfolio(@PathVariable Long portfolioId) {
-		return ResponseEntity.ok(ApiResponse.success("포트폴리오 조회 완료", portfolioService.getPortfolio(portfolioId)));
+	public ResponseEntity<ApiResponse<PortfolioResponse>> getPortfolio(@PathVariable Long portfolioId,
+			Authentication authentication) {
+		return ResponseEntity.ok(ApiResponse.success("포트폴리오 조회 완료",
+				portfolioService.getPortfolio(portfolioId, getMemberIdOrNull(authentication))));
 	}
 
 	// ⭐ [프론트 연동] "시공사 상세" 화면에서 특정 시공사의 공개 포트폴리오 목록을 보여줄 때 사용
@@ -74,6 +77,15 @@ public class PortfolioController {
 
 	private Long getMemberId(Authentication authentication) {
 		MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+		return principal.getId();
+	}
+
+	// ⭐ permitAll 엔드포인트에서 비로그인 호출 시 authentication이 null이거나 익명(anonymousUser)일 수 있어
+	// 안전하게 memberId를 꺼내는 헬퍼입니다.
+	private Long getMemberIdOrNull(Authentication authentication) {
+		if (authentication == null || !(authentication.getPrincipal() instanceof MemberPrincipal principal)) {
+			return null;
+		}
 		return principal.getId();
 	}
 }

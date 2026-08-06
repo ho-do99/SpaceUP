@@ -13,5 +13,6 @@ public interface MaterialOrderRepository extends JpaRepository<MaterialOrder, Lo
 
 	Page<MaterialOrder> findByBuyerId(Long buyerId, Pageable pageable);
 
-	Page<MaterialOrder> findByStatus(OrderStatus status, Pageable pageable);
+	// ⭐ [보안 수정] 자재업체가 자신이 등록한 상품에 대한 주문만 상태별로 조회할 수 있도록 vendorId로 스코프
+	Page<MaterialOrder> findByStatusAndProductVendorId(OrderStatus status, Long vendorId, Pageable pageable);
 }

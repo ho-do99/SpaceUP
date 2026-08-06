@@ -21,6 +21,9 @@ public class ProductResponse {
 	private final Integer stockQty;
 	private final String manufacturer;
 	private final String brand;
+	private final String imageUrl;
+	private final String unit;
+	private final Double coverageM2;
 	private final ProductStatus status;
 
 	public ProductResponse(Product product) {
@@ -37,6 +40,9 @@ public class ProductResponse {
 		this.stockQty = product.getStockQty();
 		this.manufacturer = product.getManufacturer();
 		this.brand = product.getBrand();
+		this.imageUrl = product.getImageUrl();
+		this.unit = product.getUnit();
+		this.coverageM2 = product.getCoverageM2();
 		this.status = product.getStatus();
 	}
 }

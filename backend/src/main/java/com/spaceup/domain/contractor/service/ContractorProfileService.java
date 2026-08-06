@@ -98,10 +98,25 @@ public class ContractorProfileService {
 		findOrCreateProfile(memberId).increaseCompletedProject();
 	}
 
+	// ⭐ [동시성 수정] domain/review 쪽에서 리뷰가 생성/변경될 때마다 평균 평점+개수를 다시 계산해 호출하는
+	// 확장 지점입니다. 리뷰 두 개가 거의 동시에 등록되면 각자 계산한 평균/개수로 서로를 덮어쓸 수 있어서
+	// (lost update), 행 단위 락으로 이 메서드 호출을 직렬화합니다 - 락을 못 잡은 쪽은 앞선 트랜잭션이
+	// 끝날 때까지 대기했다가 갱신된 최신 상태를 기준으로 다시 계산합니다.
+	@Transactional
+	public void updateRating(Long memberId, double averageRating, int reviewCount) {
+		ContractorProfile profile = contractorProfileRepository.findByMemberIdForUpdate(memberId)
+				.orElseGet(() -> createEmptyProfile(memberId));
+		profile.updateRating(averageRating, reviewCount);
+	}
+
 	private ContractorProfile findOrCreateProfile(Long memberId) {
 		return contractorProfileRepository.findByMemberId(memberId).orElseGet(() -> createEmptyProfile(memberId));
 	}
 
+	// ⭐ [동시성 수정] member_id는 유니크 제약이 걸려 있어, 첫 조회가 동시에 두 번 들어오면(예: 새 탭 2개)
+	// 둘 다 "프로필 없음"을 보고 둘 다 save()를 시도해 하나는 DataIntegrityViolationException으로 실패합니다.
+	// 예전엔 이게 그대로 500으로 나갔는데, GlobalExceptionHandler에 공용 핸들러를 추가해 409로 명확히
+	// 응답하도록 정리했습니다(클라이언트가 재조회하면 먼저 저장된 프로필을 정상적으로 받습니다).
 	private ContractorProfile createEmptyProfile(Long memberId) {
 		Member member = memberRepository.findById(memberId)
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원 번호입니다: " + memberId));

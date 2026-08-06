@@ -147,6 +147,28 @@ public class QuoteRequest extends BaseTimeEntity {
 		this.warningSent = true;
 	}
 
+	// ⭐ [프론트 연동] PATCH /api/requests/{requestId} - 예산/희망일정/요청항목은 화면 뒤쪽 단계(자재선택
+	// 이후)에서 입력되는데 의뢰는 그 전에 이미 생성돼 있어야 해서(AI 분석에 requestId 필요), 나중에 채워
+	// 넣을 수 있는 부분 수정 API가 필요합니다. 값을 보낸 필드만 반영되고 null인 필드는 기존 값을 유지합니다.
+	public void updatePartial(Long targetRent, Long budgetMin, Long budgetMax, String desiredDate,
+			String requestedItems) {
+		if (targetRent != null) {
+			this.targetRent = targetRent;
+		}
+		if (budgetMin != null) {
+			this.budgetMin = budgetMin;
+		}
+		if (budgetMax != null) {
+			this.budgetMax = budgetMax;
+		}
+		if (desiredDate != null) {
+			this.desiredDate = desiredDate;
+		}
+		if (requestedItems != null) {
+			this.requestedItems = requestedItems;
+		}
+	}
+
 	// ⭐ DB가 부여한 auto-increment id를 이용해 사람이 읽는 코드를 나중에 붙일 때 사용 (RequestService 참고 -
 	// count()+1 방식 대신 실제 PK 기반이라 동시 요청에도 코드가 절대 겹치지 않습니다)
 	public void assignCode(String requestCode) {

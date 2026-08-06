@@ -25,6 +25,7 @@ import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.entity.MemberRole;
 import com.spaceup.domain.member.security.MemberPrincipal;
 import com.spaceup.domain.member.service.CustomUserDetailsService;
+import com.spaceup.domain.request.service.RequestImageService;
 import com.spaceup.domain.request.service.RequestService;
 import com.spaceup.global.config.SecurityConfig;
 import com.spaceup.global.error.ForbiddenAccessException;
@@ -50,6 +51,8 @@ class RequestRecommendedContractorsControllerTest {
 	private AnalysisJobService analysisJobService;
 	@MockitoBean
 	private ContractorRecommendationService contractorRecommendationService;
+	@MockitoBean
+	private RequestImageService requestImageService;
 	@MockitoBean
 	private JwtTokenProvider jwtTokenProvider;
 	@MockitoBean

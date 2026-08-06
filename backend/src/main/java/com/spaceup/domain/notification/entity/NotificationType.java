@@ -6,5 +6,9 @@ public enum NotificationType {
 	QUOTE, // 새 견적 요청/도착
 	SCHEDULE, // 시공 일정 확정/변경
 	REQUEST, // 의뢰 상태 변경
-	SETTLEMENT // 정산 생성/완료
+	SETTLEMENT, // 정산 생성/완료
+	CHAT, // 새 채팅 메시지
+	VISIT, // 현장방문 예약/변경/완료
+	REVIEW, // 새 리뷰 등록
+	PROJECT // 공사 진행 상태 변경
 }

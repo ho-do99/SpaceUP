@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.global.entity.BaseTimeEntity;
+import com.spaceup.global.error.InvalidStatusTransitionException;
 
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -55,7 +56,13 @@ public class Settlement extends BaseTimeEntity {
 	@Column(nullable = false, length = 20)
 	private SettlementStatus status;
 
+	// ⭐ [멱등성 수정] 이미 SETTLED인 정산을 다시 완료 처리하면 파트너에게 "정산 완료" 알림이 중복 발송되던
+	// 문제를 막기 위해 PENDING 상태에서만 완료 처리를 허용합니다.
 	public void complete() {
+		if (this.status != SettlementStatus.PENDING) {
+			throw new InvalidStatusTransitionException(
+					String.format("현재 상태(%s)에서는 완료 처리할 수 없습니다. PENDING 상태만 가능합니다.", this.status));
+		}
 		this.status = SettlementStatus.SETTLED;
 	}
 

@@ -15,8 +15,13 @@ import com.spaceup.domain.matching.dto.RecommendedContractorResponse;
 import com.spaceup.domain.matching.service.ContractorRecommendationService;
 import com.spaceup.domain.member.security.MemberPrincipal;
 import com.spaceup.domain.request.dto.RequestCreateRequest;
+import com.spaceup.domain.request.dto.RequestImageAddRequest;
+import com.spaceup.domain.request.dto.RequestImageResponse;
 import com.spaceup.domain.request.dto.RequestRejectRequest;
 import com.spaceup.domain.request.dto.RequestResponse;
+import com.spaceup.domain.request.dto.RequestUpdateRequest;
+import com.spaceup.domain.request.entity.RequestImageType;
+import com.spaceup.domain.request.service.RequestImageService;
 import com.spaceup.domain.request.service.RequestService;
 import com.spaceup.global.util.ApiResponse;
 
@@ -30,6 +35,7 @@ public class RequestController {
 	private final RequestService requestService;
 	private final AnalysisJobService analysisJobService;
 	private final ContractorRecommendationService contractorRecommendationService;
+	private final RequestImageService requestImageService;
 
 	// ⭐ PDF "02 임대 정보 입력" 완료 버튼 → 의뢰 생성 (로그인한 임대인 본인 명의로 생성) + AI 분석 PENDING 등록
 	@PostMapping
@@ -37,14 +43,24 @@ public class RequestController {
 			Authentication authentication) {
 		Long landlordId = getMemberId(authentication);
 		Long requestId = requestService.createRequest(landlordId, request);
-		analysisJobService.requestAnalysis(requestId); // ⭐ ML 파이프라인에 분석을 맡기는 시작점
+		analysisJobService.requestAnalysis(requestId, landlordId); // ⭐ ML 파이프라인에 분석을 맡기는 시작점
 		return ResponseEntity.ok(ApiResponse.success("의뢰가 등록되었습니다.", requestId));
 	}
 
 	// ⭐ PDF "의뢰 상세" 화면 조회
 	@GetMapping("/{requestId}")
-	public ResponseEntity<ApiResponse<RequestResponse>> getRequest(@PathVariable Long requestId) {
-		return ResponseEntity.ok(ApiResponse.success("의뢰 상세 조회 완료", requestService.getRequest(requestId)));
+	public ResponseEntity<ApiResponse<RequestResponse>> getRequest(@PathVariable Long requestId,
+			Authentication authentication) {
+		return ResponseEntity.ok(
+				ApiResponse.success("의뢰 상세 조회 완료", requestService.getRequest(requestId, getMemberId(authentication))));
+	}
+
+	// ⭐ [프론트 연동] 예산/희망일정/요청항목처럼 화면 뒤쪽 단계에서 채워지는 값을 나중에 저장. 본인 의뢰만 가능
+	@PatchMapping("/{requestId}")
+	public ResponseEntity<ApiResponse<Void>> updateRequest(@PathVariable Long requestId,
+			@RequestBody RequestUpdateRequest request, Authentication authentication) {
+		requestService.updateRequest(requestId, getMemberId(authentication), request);
+		return ResponseEntity.ok(ApiResponse.success("의뢰 정보가 수정되었습니다.", null));
 	}
 
 	// ⭐ PDF "의뢰 목록" 화면 (시공사 로그인 기준 - 본인에게 배정된 의뢰만 조회, 페이지네이션)
@@ -97,6 +113,28 @@ public class RequestController {
 			@Valid @RequestBody RequestRejectRequest request, Authentication authentication) {
 		requestService.reject(requestId, getMemberId(authentication), request.getReason(), request.getDetail());
 		return ResponseEntity.ok(ApiResponse.success("의뢰를 거절했습니다.", null));
+	}
+
+	// ⭐ [프론트 연동] 이미지 업로드 API(POST /api/files/images)가 돌려준 imageUrl을 의뢰에 연결. 본인 의뢰만 가능
+	@PostMapping("/{requestId}/images")
+	public ResponseEntity<ApiResponse<Long>> addImage(@PathVariable Long requestId,
+			@Valid @RequestBody RequestImageAddRequest request, Authentication authentication) {
+		Long imageId = requestImageService.addImage(requestId, getMemberId(authentication), request);
+		return ResponseEntity.ok(ApiResponse.success("이미지가 의뢰에 연결되었습니다.", imageId));
+	}
+
+	// ⭐ imageType 쿼리파라미터를 안 주면 평면도+집사진 전체를 반환합니다.
+	@GetMapping("/{requestId}/images")
+	public ResponseEntity<ApiResponse<List<RequestImageResponse>>> getImages(@PathVariable Long requestId,
+			@RequestParam(required = false) RequestImageType imageType) {
+		return ResponseEntity.ok(ApiResponse.success("이미지 목록 조회 완료", requestImageService.getImages(requestId, imageType)));
+	}
+
+	@DeleteMapping("/{requestId}/images/{imageId}")
+	public ResponseEntity<ApiResponse<Void>> deleteImage(@PathVariable Long requestId, @PathVariable Long imageId,
+			Authentication authentication) {
+		requestImageService.deleteImage(requestId, imageId, getMemberId(authentication));
+		return ResponseEntity.ok(ApiResponse.success("이미지가 삭제되었습니다.", null));
 	}
 
 	private Long getMemberId(Authentication authentication) {
