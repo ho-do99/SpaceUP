@@ -16,6 +16,7 @@ import com.spaceup.domain.ai.exception.AiImageGenerationException;
 import com.spaceup.domain.ai.provider.GeneratedImage;
 import com.spaceup.domain.ai.provider.ImageGenerationProvider;
 
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -23,6 +24,7 @@ import tools.jackson.databind.ObjectMapper;
 // GEMINI_API_KEY 환경변수만 채워지면 바로 동작합니다 - 이 파일에는 실제 키를 절대 하드코딩하지 않습니다.
 // 참고: generativelanguage.googleapis.com의 {model}:generateContent 엔드포인트에 이미지 생성을 요청하면
 // candidates[0].content.parts[] 중 inlineData(base64)를 가진 파트가 결과 이미지입니다.
+@Slf4j
 @Component
 public class GeminiImageClient implements ImageGenerationProvider {
 
@@ -80,7 +82,10 @@ public class GeminiImageClient implements ImageGenerationProvider {
 			}
 		}
 		if (images.isEmpty()) {
-			throw new AiImageGenerationException("Gemini 응답에 생성된 이미지가 없습니다: " + responseJson);
+			// ⭐ [정보 노출 수정] 원본 응답(모델 버전/세이프티 차단 사유 등 내부 정보 포함 가능)은 서버 로그에만
+			// 남기고, 클라이언트에는 일반화된 메시지만 돌려줍니다.
+			log.warn("Gemini 응답에 생성된 이미지가 없습니다: {}", responseJson);
+			throw new AiImageGenerationException("이미지 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.");
 		}
 		return images;
 	}
