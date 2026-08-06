@@ -1,6 +1,9 @@
 package com.spaceup.global.error;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException; // 👈 검증 예외 부품 링크
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -233,5 +236,29 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ApiResponse<Void>> handleApartmentNotFoundException(ApartmentNotFoundException e) {
 		log.warn("아파트 조회 실패: {}", e.getMessage());
 		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
+	}
+
+	// ⭐ [동시성 수정] Product.version(@Version) 등 낙관적 락이 걸린 엔티티를 두 트랜잭션이 동시에 수정하면
+	// 나중에 커밋하는 쪽이 이 예외를 받습니다. 그대로 두면 500으로 떨어지므로 "다시 시도해 달라"는 409로 응답합니다.
+	@ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+	public ResponseEntity<ApiResponse<Void>> handleObjectOptimisticLockingFailureException(
+			ObjectOptimisticLockingFailureException e) {
+		log.warn("동시 수정 충돌 발생: {}", e.getMessage());
+		return ResponseEntity.status(409).body(ApiResponse.fail("다른 요청과 동시에 처리되어 충돌이 발생했습니다. 다시 시도해 주세요."));
+	}
+
+	// ⭐ [동시성 수정] 유니크 제약조건 위반(동시 생성 레이스) 등 DB 무결성 위반을 500 대신 409로 명확히 구분합니다.
+	@ExceptionHandler(DataIntegrityViolationException.class)
+	public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolationException(DataIntegrityViolationException e) {
+		log.warn("데이터 무결성 제약 위반: {}", e.getMessage());
+		return ResponseEntity.status(409).body(ApiResponse.fail("요청을 처리할 수 없습니다. 이미 존재하는 데이터이거나 잘못된 상태입니다."));
+	}
+
+	// ⭐ [검증 강화] 요청 본문이 JSON 형식 자체는 맞지만 의미상 잘못된 경우(예: enum에 없는 문자열 값,
+	// 리뷰 keywords에 고정 4종 외의 값을 보낸 경우)를 500 대신 400으로 응답합니다.
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+		log.warn("요청 본문 파싱 실패: {}", e.getMessage());
+		return ResponseEntity.status(400).body(ApiResponse.fail("요청 본문의 값이 올바르지 않습니다."));
 	}
 }
