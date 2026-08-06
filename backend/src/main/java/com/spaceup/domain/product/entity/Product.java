@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.global.entity.BaseTimeEntity;
@@ -90,6 +91,13 @@ public class Product extends BaseTimeEntity {
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private ProductStatus status;
+
+	// ⭐ [보안/동시성 수정] 낙관적 락. 이게 없으면 두 주문이 동시에 재고 5개를 각자 읽어 각자 통과시켜서
+	// 실제로는 5개뿐인데 10개가 팔리는 오버셀이 가능했습니다(둘 다 "차감 후 음수인지"만 자기 트랜잭션 안에서
+	// 확인하고 서로의 변경을 못 봄). @Version이 있으면 두 번째로 커밋을 시도하는 트랜잭션이
+	// ObjectOptimisticLockingFailureException으로 실패해 재시도/재고 재확인을 하게 됩니다.
+	@Version
+	private Long version;
 
 	// ⭐ [최종 검토 반영] 기존에는 delta가 재고보다 커도 그대로 차감되어 stockQty가 음수가 될 수 있었습니다.
 	// 이제 차감 후 값이 음수가 되면 InsufficientStockException을 던져 오버셀을 막습니다.
