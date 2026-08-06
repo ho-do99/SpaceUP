@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import com.spaceup.domain.ai.exception.AiImageGenerationConfigurationException;
 import com.spaceup.domain.ai.exception.AiImageGenerationException;
+import com.spaceup.domain.analysis.ai.exception.AiFloorplanAnalysisException;
 import com.spaceup.domain.rental.exception.RentalApiConfigurationException;
 import com.spaceup.domain.rental.exception.RentalApiException;
 import com.spaceup.global.util.ApiResponse;
@@ -219,5 +220,18 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ApiResponse<Void>> handleAiImageGenerationException(AiImageGenerationException e) {
 		log.warn("AI 이미지 생성 실패: {}", e.getMessage());
 		return ResponseEntity.status(502).body(ApiResponse.fail(e.getMessage()));
+	}
+
+	// ⭐ [AI/OCR 연동] AI 평면도 분석 서비스(origin/ai, 포트 8004) 호출 실패 - 502
+	@ExceptionHandler(AiFloorplanAnalysisException.class)
+	public ResponseEntity<ApiResponse<Void>> handleAiFloorplanAnalysisException(AiFloorplanAnalysisException e) {
+		log.warn("AI 평면도 분석 실패: {}", e.getMessage());
+		return ResponseEntity.status(502).body(ApiResponse.fail(e.getMessage()));
+	}
+
+	@ExceptionHandler(ApartmentNotFoundException.class)
+	public ResponseEntity<ApiResponse<Void>> handleApartmentNotFoundException(ApartmentNotFoundException e) {
+		log.warn("아파트 조회 실패: {}", e.getMessage());
+		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
 	}
 }
