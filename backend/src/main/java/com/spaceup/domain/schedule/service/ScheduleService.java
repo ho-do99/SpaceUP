@@ -7,7 +7,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.spaceup.domain.contractor.service.ContractorProfileService;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.repository.MemberRepository;
 import com.spaceup.domain.notification.entity.NotificationType;
@@ -35,7 +34,6 @@ public class ScheduleService {
 	private final QuoteRequestRepository quoteRequestRepository;
 	private final MemberRepository memberRepository;
 	private final NotificationService notificationService;
-	private final ContractorProfileService contractorProfileService;
 
 	// ⭐ PDF "일정관리" 화면 - 견적이 확정(Quote.accept())된 이후 시공사가 착공 일정을 등록하는 시점. 임대인에게 확정
 	// 알림을 보냅니다.
@@ -79,13 +77,14 @@ public class ScheduleService {
 		event.start();
 	}
 
-	// ⭐ 시공 완료 시 시공사 프로필의 완료 실적을 같이 누적합니다 (ContractorProfile.increaseCompletedProject).
+	// ⭐ [도메인 정리] 완료 실적(ContractorProfile.completedProjectCount) 집계는 실제 프론트 화면이 쓰는
+	// ContractorProject.confirmCompletion()(domain/project) 쪽으로 일원화했습니다. 이 착공 일정(PDF
+	// "일정관리")은 계속 쓰이지만, 여기서 실적을 같이 올리면 두 도메인에서 중복 집계되어 여기서는 뺐습니다.
 	@Transactional
 	public void complete(Long scheduleId, Long contractorId) {
 		ScheduleEvent event = findScheduleOrThrow(scheduleId);
 		validateOwnership(event, contractorId);
 		event.complete();
-		contractorProfileService.increaseCompletedProject(event.getContractor().getId());
 
 		notificationService.notify(event.getRequest().getOwner().getId(), NotificationType.SCHEDULE,
 				"시공이 완료되었습니다", String.format("%s 시공이 완료되었습니다.", event.getTitle()));
