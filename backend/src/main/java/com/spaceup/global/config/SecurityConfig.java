@@ -61,6 +61,19 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/api/files/images/**").permitAll()
 						// ⭐ [프론트 연동] "리뷰" 조회는 로그인 없이도 시공사 상세 화면 등에서 노출됩니다. 작성(POST)은 인증 필요.
 						.requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
+						// ⭐ [사전 존재 버그 수정] 시공사 공개 상세/포트폴리오/상품 목록은 원래 로그인 없이 조회 가능하게
+						// 만들었는데 permitAll이 누락되어 anyRequest().authenticated()에 걸려 401이 나고 있었습니다.
+						// "/me" 류 경로는 와일드카드 permitAll보다 먼저 선언해야 인증이 그대로 유지됩니다
+						// (Spring Security는 먼저 매칭되는 규칙을 적용).
+						.requestMatchers(HttpMethod.GET, "/api/contractors/me").authenticated()
+						.requestMatchers(HttpMethod.GET, "/api/contractors/*").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/portfolios/me").authenticated()
+						.requestMatchers(HttpMethod.GET, "/api/portfolios/*", "/api/portfolios/contractor/*")
+						.permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*").permitAll()
+						// ⭐ [프론트 연동] "아파트/평면도 검색"은 로그인 없이 조회 가능, 등록은 관리자만
+						.requestMatchers(HttpMethod.GET, "/api/floorplans/**").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/floorplans/**").hasRole("ADMIN")
 						// ⭐ 확장 지점: 관리자 전용 API가 생기면 아래처럼 역할별로 제한하세요.
 						// ⭐ 확장 지점: 다른 역할별 제한이 필요해지면 이런 식으로 추가하세요.
 						// .requestMatchers("/api/quotes/**").hasAnyRole("CONTRACTOR", "LANDLORD")
