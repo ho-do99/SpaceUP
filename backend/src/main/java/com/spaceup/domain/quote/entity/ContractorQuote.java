@@ -151,11 +151,13 @@ public class ContractorQuote extends BaseTimeEntity {
 	}
 
 	// ⭐ 자재비+인건비+부가세-할인 = 최종 견적. 항목/금액이 바뀔 때마다 서비스 레이어에서 호출해 재계산합니다.
+	// ⭐ [버그 수정] discount가 material+labor+vat 합계보다 크면 음수 견적금액이 나와서 계약금액/임대가치
+	// 계산까지 전부 오염될 수 있었습니다. 0을 하한으로 둡니다.
 	public void recalculateTotal() {
 		long material = materialCost != null ? materialCost : 0;
 		long labor = laborCost != null ? laborCost : 0;
 		long vatAmount = vat != null ? vat : 0;
 		long discountAmount = discount != null ? discount : 0;
-		this.totalAmount = material + labor + vatAmount - discountAmount;
+		this.totalAmount = Math.max(0, material + labor + vatAmount - discountAmount);
 	}
 }
