@@ -41,4 +41,7 @@ public class ProductCreateRequest {
 	private String manufacturer;
 	private String brand;
 	private String productCode; // 미입력 시 서비스에서 자동 채번
+	private String imageUrl; // domain/file 업로드 API가 반환한 이미지 URL
+	private String unit; // 판매 단위 (예: "롤", "박스", "㎡")
+	private Double coverageM2; // 1단위(unit)가 시공 가능한 면적(㎡) - 추천 상품 수량 계산에 사용
 }

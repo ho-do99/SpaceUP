@@ -32,6 +32,9 @@ public class AnalysisJobResponse {
 	private final Long preliminaryDepositIncreaseMax;
 	private final Long preliminaryRentIncreaseMin;
 	private final Long preliminaryRentIncreaseMax;
+	private final Double ceilingHeightM;
+	private final Double totalFloorAreaM2;
+	private final Double totalWallpaperAreaM2;
 
 	public AnalysisJobResponse(AnalysisJob analysis) {
 		this.id = analysis.getId();
@@ -57,5 +60,8 @@ public class AnalysisJobResponse {
 		this.preliminaryDepositIncreaseMax = analysis.getPreliminaryDepositIncreaseMax();
 		this.preliminaryRentIncreaseMin = analysis.getPreliminaryRentIncreaseMin();
 		this.preliminaryRentIncreaseMax = analysis.getPreliminaryRentIncreaseMax();
+		this.ceilingHeightM = analysis.getCeilingHeightM();
+		this.totalFloorAreaM2 = analysis.getTotalFloorAreaM2();
+		this.totalWallpaperAreaM2 = analysis.getTotalWallpaperAreaM2();
 	}
 }

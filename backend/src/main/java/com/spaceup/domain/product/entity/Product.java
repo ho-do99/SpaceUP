@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.global.entity.BaseTimeEntity;
@@ -73,9 +74,30 @@ public class Product extends BaseTimeEntity {
 	@Column(length = 30)
 	private String brand;
 
+	// ⭐ [프론트 연동] 추천 상품 화면에 실제 이미지를 보여주기 위한 필드. 자재업체가 상품 등록 시
+	// domain/file의 범용 이미지 업로드 API로 먼저 올린 뒤 그 imageUrl을 여기 넣습니다.
+	@Column(name = "image_url", length = 500)
+	private String imageUrl;
+
+	// ⭐ [프론트 연동] 판매 단위 (예: "롤", "박스", "㎡")
+	@Column(length = 20)
+	private String unit;
+
+	// ⭐ [프론트 연동] 이 상품 1단위(unit)가 시공 가능한 면적(㎡). 추천 상품의 수량(quantity)을
+	// "면적 ÷ coverageM2" 기준으로 계산하는 데 씁니다(ProductRecommendationService 참고).
+	@Column(name = "coverage_m2")
+	private Double coverageM2;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private ProductStatus status;
+
+	// ⭐ [보안/동시성 수정] 낙관적 락. 이게 없으면 두 주문이 동시에 재고 5개를 각자 읽어 각자 통과시켜서
+	// 실제로는 5개뿐인데 10개가 팔리는 오버셀이 가능했습니다(둘 다 "차감 후 음수인지"만 자기 트랜잭션 안에서
+	// 확인하고 서로의 변경을 못 봄). @Version이 있으면 두 번째로 커밋을 시도하는 트랜잭션이
+	// ObjectOptimisticLockingFailureException으로 실패해 재시도/재고 재확인을 하게 됩니다.
+	@Version
+	private Long version;
 
 	// ⭐ [최종 검토 반영] 기존에는 delta가 재고보다 커도 그대로 차감되어 stockQty가 음수가 될 수 있었습니다.
 	// 이제 차감 후 값이 음수가 되면 InsufficientStockException을 던져 오버셀을 막습니다.
@@ -95,7 +117,8 @@ public class Product extends BaseTimeEntity {
 
 	// ⭐ PDF "자재 등록/수정" 화면에서 기존 상품을 수정할 때 사용
 	public void updateInfo(String name, String spec, String color, Long supplyPrice, Long salePrice,
-			Integer minOrderQty, String manufacturer, String brand) {
+			Integer minOrderQty, String manufacturer, String brand, String imageUrl, String unit,
+			Double coverageM2) {
 		this.name = name;
 		this.spec = spec;
 		this.color = color;
@@ -104,6 +127,9 @@ public class Product extends BaseTimeEntity {
 		this.minOrderQty = minOrderQty;
 		this.manufacturer = manufacturer;
 		this.brand = brand;
+		this.imageUrl = imageUrl;
+		this.unit = unit;
+		this.coverageM2 = coverageM2;
 	}
 
 	public void changeStatus(ProductStatus status) {

@@ -1,0 +1,51 @@
+services:
+  ocr:
+    build:
+      context: .
+      dockerfile: ocr/Dockerfile
+    container_name: spaceup-ocr
+    ports:
+      - "8001:8000"
+    restart: unless-stopped
+
+  spa:
+    build: ./spa
+    container_name: spaceup-spa
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./model_weights/segmentation:/models:ro
+    environment:
+      SPA_FP_MODEL: /models/SPA_FP_test_model.pth
+      SPA_CS_MODEL: /models/SPA_CS_test_model.pth
+    restart: unless-stopped
+
+  viewer3d:
+    build:
+      context: .
+      dockerfile: viewerselect/Dockerfile
+    container_name: spaceup-viewer3d
+    ports:
+      - "8003:8000"
+    environment:
+      SPA_URL: http://spa:8000
+      OCR_URL: http://ocr:8000
+    depends_on:
+      - ocr
+      - spa
+    restart: unless-stopped
+
+  viewerwall:
+    build:
+      context: .
+      dockerfile: viewerwall/Dockerfile
+    container_name: spaceup-viewerwall
+    ports:
+      - "8004:8000"
+    environment:
+      SPA_URL: http://spa:8000
+      OCR_URL: http://ocr:8000
+    depends_on:
+      - ocr
+      - spa
+    restart: unless-stopped

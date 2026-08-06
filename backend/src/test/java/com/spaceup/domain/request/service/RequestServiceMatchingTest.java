@@ -27,8 +27,10 @@ import com.spaceup.domain.notification.service.NotificationService;
 import com.spaceup.domain.quote.repository.ContractorQuoteRepository;
 import com.spaceup.domain.request.entity.Property;
 import com.spaceup.domain.request.entity.QuoteRequest;
+import com.spaceup.domain.request.entity.RequestStatus;
 import com.spaceup.domain.request.repository.PropertyRepository;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
+import com.spaceup.domain.visit.service.SiteVisitService;
 
 // ⭐ [시공사 추천 점수 고도화] RequestService.assignContractor()가 BigDecimal matchScore를 HALF_UP으로
 // int 반올림해서 AnalysisJob에 저장하는지만 검증합니다(다른 assignContractor 동작은 기존 로직 그대로).
@@ -57,6 +59,8 @@ class RequestServiceMatchingTest {
 	private ContractorQuoteRepository contractorQuoteRepository;
 	@Mock
 	private NotificationService notificationService;
+	@Mock
+	private SiteVisitService siteVisitService;
 
 	private RequestService requestService;
 
@@ -71,7 +75,7 @@ class RequestServiceMatchingTest {
 	void roundsMatchScoreHalfUpBeforeSaving(String matchScoreValue, int expectedScore) {
 		requestService = new RequestService(quoteRequestRepository, propertyRepository, memberRepository,
 				matchingScoreCalculator, contractorProfileRepository, analysisJobService, analysisJobRepository,
-				contractorQuoteRepository, notificationService);
+				contractorQuoteRepository, notificationService, siteVisitService);
 
 		QuoteRequest request = requestWithLandlordOwner();
 		ContractorProfile profile = ContractorProfile.builder().member(contractor()).build();
@@ -91,7 +95,7 @@ class RequestServiceMatchingTest {
 	void savesZeroScoreWhenContractorHasNoProfileYet() {
 		requestService = new RequestService(quoteRequestRepository, propertyRepository, memberRepository,
 				matchingScoreCalculator, contractorProfileRepository, analysisJobService, analysisJobRepository,
-				contractorQuoteRepository, notificationService);
+				contractorQuoteRepository, notificationService, siteVisitService);
 
 		QuoteRequest request = requestWithLandlordOwner();
 
@@ -109,7 +113,7 @@ class RequestServiceMatchingTest {
 		Member landlord = Member.builder().id(LANDLORD_ID).build();
 		Property property = Property.builder().owner(landlord).region("광주 북구").build();
 		return QuoteRequest.builder().id(REQUEST_ID).owner(landlord).property(property).requestCode("REQ-TEST-000001")
-				.build();
+				.status(RequestStatus.NEW).build();
 	}
 
 	private Member contractor() {

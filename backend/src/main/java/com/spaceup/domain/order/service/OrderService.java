@@ -87,8 +87,15 @@ public class OrderService {
 		order.completePayment();
 	}
 
-	public OrderResponse getOrder(Long orderId) {
-		return new OrderResponse(findOrderOrThrow(orderId));
+	// ⭐ [보안 수정] 주문한 구매자 본인 또는 상품을 등록한 자재업체 본인만 조회 가능
+	public OrderResponse getOrder(Long orderId, Long memberId) {
+		MaterialOrder order = findOrderOrThrow(orderId);
+		boolean isBuyer = order.getBuyer().getId().equals(memberId);
+		boolean isVendor = order.getProduct().getVendor().getId().equals(memberId);
+		if (!isBuyer && !isVendor) {
+			throw new ForbiddenAccessException("본인이 관련된 주문만 조회할 수 있습니다.");
+		}
+		return new OrderResponse(order);
 	}
 
 	// ⭐ PDF "주문/발주 관리" 목록 (시공사 로그인 기준 - 본인이 주문한 내역, 페이지네이션)
@@ -96,9 +103,10 @@ public class OrderService {
 		return orderRepository.findByBuyerId(buyerId, pageable).map(OrderResponse::new);
 	}
 
-	// ⭐ PDF "주문/발주 관리" 목록 (자재업체 로그인 기준 - 상태별 파이프라인 조회, 페이지네이션)
-	public Page<OrderResponse> getOrdersByStatus(OrderStatus status, Pageable pageable) {
-		return orderRepository.findByStatus(status, pageable).map(OrderResponse::new);
+	// ⭐ [보안 수정] 원래 vendorId로 스코프가 안 돼 있어서 모든 자재업체의 주문이 다 노출되고 있었습니다.
+	// PDF "주문/발주 관리" 목록 (자재업체 로그인 기준 - 본인이 등록한 상품에 대한 주문만, 상태별, 페이지네이션)
+	public Page<OrderResponse> getOrdersByStatus(OrderStatus status, Long vendorId, Pageable pageable) {
+		return orderRepository.findByStatusAndProductVendorId(status, vendorId, pageable).map(OrderResponse::new);
 	}
 
 	private MaterialOrder findOrderOrThrow(Long orderId) {

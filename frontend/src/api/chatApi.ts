@@ -1,0 +1,5 @@
+import { apiRequest } from './axiosInstance'; import { unwrapApiResponse } from './apiResponse'; import type { ApiResponse } from '@/types/api'; import type { ChatMessage, ChatThread } from '@/types/backendContractor'
+export async function getChatThreads() { const r = await apiRequest<ApiResponse<ChatThread[]>>({ method: 'GET', url: '/api/chats/threads', authenticated: true }); return unwrapApiResponse<ChatThread[]>(r, '채팅 목록 조회에 실패했습니다.') }
+export async function getChatMessages(id: number) { const r = await apiRequest<ApiResponse<ChatMessage[]>>({ method: 'GET', url: `/api/chats/${id}/messages`, authenticated: true }); return unwrapApiResponse<ChatMessage[]>(r, '메시지 조회에 실패했습니다.') }
+export async function sendChatMessage(id: number, content: string) { const r = await apiRequest<ApiResponse<ChatMessage>>({ method: 'POST', url: `/api/chats/${id}/messages`, data: { content }, authenticated: true }); return unwrapApiResponse<ChatMessage>(r, '메시지 전송에 실패했습니다.') }
+export async function readChat(id: number) { await apiRequest({ method: 'POST', url: `/api/chats/${id}/read`, authenticated: true }) }
