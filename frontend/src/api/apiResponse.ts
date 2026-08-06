@@ -41,3 +41,16 @@ export function unwrapApiResponse<T>(
 
   return value.data as T
 }
+
+export function unwrapEmptyApiResponse(
+  value: unknown,
+  fallbackMessage: string,
+): void {
+  if (!isApiResponse(value)) {
+    throw new ApiClientError('서버 응답을 확인할 수 없습니다.', 'invalid-response')
+  }
+
+  if (!value.success) {
+    throw new ApiClientError(value.message.trim() || fallbackMessage, 'business')
+  }
+}
