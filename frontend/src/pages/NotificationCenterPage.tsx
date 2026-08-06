@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import NotificationCard from '@/components/user/NotificationCard'
 import UserHeader from '@/components/user/UserHeader'
@@ -7,13 +7,31 @@ import {
   notificationFilters,
   type NotificationFilter,
   type UserNotification,
-  userNotifications,
 } from '@/mocks/notifications'
+import { getNotifications, readAllNotifications, readNotification } from '@/api/notificationApi'
+import { mapNotification } from './notificationMapper'
 
 export default function NotificationCenterPage() {
   const navigate = useNavigate()
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>('all')
-  const [notifications, setNotifications] = useState<readonly UserNotification[]>(userNotifications)
+  const [notifications, setNotifications] = useState<readonly UserNotification[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadNotifications = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const page = await getNotifications({ size: 50 })
+      setNotifications(page.content.map((notification) => mapNotification(notification)))
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : '알림을 불러오지 못했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { void loadNotifications() }, [])
 
   const visibleNotifications = useMemo(
     () =>
@@ -28,11 +46,24 @@ export default function NotificationCenterPage() {
     (notification) => notification.group === 'previous',
   )
 
-  const markAllAsRead = () => {
-    setNotifications((current) => current.map((notification) => ({ ...notification, isRead: true })))
+  const markAllAsRead = async () => {
+    try {
+      await readAllNotifications()
+      setNotifications((current) => current.map((notification) => ({ ...notification, isRead: true })))
+    } catch (readError) {
+      setError(readError instanceof Error ? readError.message : '읽음 처리에 실패했습니다.')
+    }
   }
 
-  const handleSelect = (selected: UserNotification) => {
+  const handleSelect = async (selected: UserNotification) => {
+    if (!selected.isRead) {
+      try {
+        await readNotification(Number(selected.id))
+      } catch (readError) {
+        setError(readError instanceof Error ? readError.message : '읽음 처리에 실패했습니다.')
+        return
+      }
+    }
     setNotifications((current) =>
       current.map((notification) =>
         notification.id === selected.id ? { ...notification, isRead: true } : notification,
@@ -83,6 +114,15 @@ export default function NotificationCenterPage() {
             )
           })}
         </div>
+
+        {loading ? <p className="mt-8 text-center text-sm text-[#64748b]">알림을 불러오는 중입니다.</p> : null}
+        {error ? (
+          <div className="mt-6 text-center text-sm text-red-600">
+            <p>{error}</p>
+            <button type="button" onClick={() => void loadNotifications()} className="mt-3 rounded-lg border px-3 py-2 text-[#2563eb]">다시 시도</button>
+          </div>
+        ) : null}
+        {!loading && !error && visibleNotifications.length === 0 ? <p className="mt-8 text-center text-sm text-[#64748b]">알림이 없습니다.</p> : null}
 
         {todayNotifications.length > 0 ? (
           <section className="mt-3" aria-labelledby="today-notifications-heading">
