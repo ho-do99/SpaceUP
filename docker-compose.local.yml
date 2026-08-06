@@ -1,28 +1,6 @@
 name: ${COMPOSE_PROJECT_NAME:-spaceup-local}
 
 services:
-  db:
-    image: mysql:8.4
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      TZ: Asia/Seoul
-    ports:
-      - "${MYSQL_PORT:-3306}:3306"
-    volumes:
-      - mysql-local-data:/var/lib/mysql
-      - ./database/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - mysqladmin ping -h localhost -u root -p"$$MYSQL_ROOT_PASSWORD"
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
   ai:
     build:
       context: ./ai
@@ -58,8 +36,6 @@ services:
       - gradle-local-cache:/home/gradle/.gradle
       - ./storage:/app/storage
     depends_on:
-      db:
-        condition: service_healthy
       ai:
         condition: service_started
 
@@ -69,7 +45,7 @@ services:
       dockerfile: Dockerfile.local
     restart: unless-stopped
     environment:
-      VITE_PORT: 5173
+      VITE_PORT: ${VITE_PORT:-5173}
       VITE_API_BASE_URL: ${VITE_API_BASE_URL}
       VITE_API_PROXY_TARGET: ${VITE_API_PROXY_TARGET}
     ports:
@@ -99,6 +75,5 @@ services:
         condition: service_started
 
 volumes:
-  mysql-local-data:
   gradle-local-cache:
   frontend-local-node-modules:

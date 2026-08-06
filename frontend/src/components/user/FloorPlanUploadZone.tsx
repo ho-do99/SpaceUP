@@ -69,9 +69,8 @@ export default function FloorPlanUploadZone({
       />
 
       <div
-        className={`flex w-full flex-col items-center justify-center gap-1.5 rounded-[12px] border border-dashed border-[#cbd5e1] bg-[#f8fafc] px-3 py-3.5 ${
-          file ? 'h-[136px]' : 'h-36'
-        }`}
+        className={`flex w-full flex-col items-center justify-center gap-1.5 rounded-[12px] border border-dashed border-[#cbd5e1] bg-[#f8fafc] px-3 py-3.5 ${file ? 'h-[136px]' : 'h-36'
+          }`}
       >
         <img
           src={file && previewUrl ? previewUrl : uploadCloudIcon}
