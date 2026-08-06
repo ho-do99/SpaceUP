@@ -3,6 +3,7 @@ package com.spaceup.domain.review.service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -65,9 +66,11 @@ public class ReviewService {
 		Member reviewer = findMemberOrThrow(landlordId);
 		Member contractor = request.getContractor();
 
+		String keywords = dto.getKeywords() != null
+				? dto.getKeywords().stream().map(Enum::name).collect(Collectors.joining(","))
+				: null;
 		Review review = Review.builder().request(request).reviewer(reviewer).contractor(contractor)
-				.rating(dto.getRating()).content(dto.getContent())
-				.keywords(dto.getKeywords() != null ? String.join(",", dto.getKeywords()) : null).build();
+				.rating(dto.getRating()).content(dto.getContent()).keywords(keywords).build();
 		reviewRepository.save(review);
 
 		refreshContractorRating(contractor.getId());

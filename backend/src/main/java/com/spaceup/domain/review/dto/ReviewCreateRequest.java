@@ -10,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import com.spaceup.domain.review.entity.ReviewKeyword;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -23,6 +25,8 @@ public class ReviewCreateRequest {
 	@NotBlank(message = "리뷰 내용은 필수입니다.")
 	private String content;
 
-	// ⭐ ContractorReviewKeyword 4종 중 선택 (미선택 가능)
-	private List<String> keywords;
+	// ⭐ [보안 수정] 원래 List<String>이라 아무 문자열이나(콤마 포함 값까지) 그대로 저장돼서, 저장 시
+	// String.join(",")/조회 시 split(",")를 거치며 콤마가 든 값이 여러 개의 가짜 키워드로 깨지는 문제가
+	// 있었습니다. enum 타입으로 받으면 Jackson이 4종 고정값 외에는 역직렬화 단계에서 바로 거부합니다.
+	private List<ReviewKeyword> keywords;
 }
