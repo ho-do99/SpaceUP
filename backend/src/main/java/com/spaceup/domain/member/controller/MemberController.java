@@ -69,8 +69,16 @@ public class MemberController {
 		return ResponseEntity.status(401).body(ApiResponse.fail("로그인 실패: 아이디 또는 비밀번호가 틀렸습니다."));
 	}
 
+	// ⭐ [보안 수정] 이메일/전화번호/승인정보 등 개인정보가 담겨 있어 본인 또는 관리자만 조회 가능해야 합니다.
 	@GetMapping("/{memberId}")
-	public ResponseEntity<ApiResponse<MemberResponse>> getProfile(@PathVariable Long memberId) {
+	public ResponseEntity<ApiResponse<MemberResponse>> getProfile(@PathVariable Long memberId,
+			Authentication authentication) {
+		Long requesterId = getMemberIdFromAuthentication(authentication);
+		boolean isAdmin = authentication.getAuthorities().stream()
+				.anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
+		if (!requesterId.equals(memberId) && !isAdmin) {
+			throw new UnauthorizedAccessException("본인 정보만 조회할 수 있습니다.");
+		}
 		return ResponseEntity.ok(ApiResponse.success("회원정보 조회 완료", memberService.getProfile(memberId)));
 	}
 

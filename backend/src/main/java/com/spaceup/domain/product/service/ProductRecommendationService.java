@@ -15,6 +15,7 @@ import com.spaceup.domain.product.entity.ProductCategory;
 import com.spaceup.domain.product.entity.ProductStatus;
 import com.spaceup.domain.product.repository.ProductRepository;
 import com.spaceup.global.error.AnalysisNotFoundException;
+import com.spaceup.global.error.ForbiddenAccessException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,9 +33,16 @@ public class ProductRecommendationService {
 	private final ProductRepository productRepository;
 	private final AnalysisJobRepository analysisJobRepository;
 
-	public List<RecommendedProductResponse> recommend(Long requestId) {
+	// ⭐ [보안 수정] 의뢰의 임대인 본인 또는 배정된 시공사만 추천 상품을 조회할 수 있습니다.
+	public List<RecommendedProductResponse> recommend(Long requestId, Long memberId) {
 		AnalysisJob analysis = analysisJobRepository.findByRequestId(requestId)
 				.orElseThrow(() -> new AnalysisNotFoundException("해당 의뢰의 분석 결과가 없습니다: " + requestId));
+		boolean isOwner = analysis.getRequest().getOwner().getId().equals(memberId);
+		boolean isContractor = analysis.getRequest().getContractor() != null
+				&& analysis.getRequest().getContractor().getId().equals(memberId);
+		if (!isOwner && !isContractor) {
+			throw new ForbiddenAccessException("본인이 참여 중인 의뢰의 추천 상품만 조회할 수 있습니다.");
+		}
 
 		List<RecommendedProductResponse> result = new ArrayList<>();
 		result.addAll(recommendByCategory(ProductCategory.FLOORING, analysis.getIssueTags(),

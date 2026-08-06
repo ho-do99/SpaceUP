@@ -81,8 +81,16 @@ public class ProjectService {
 		return new ProjectResponse(project);
 	}
 
-	public ProjectResponse getProject(Long projectId) {
-		return new ProjectResponse(findOrThrow(projectId));
+	// ⭐ [보안 수정] 해당 프로젝트의 임대인 본인 또는 배정된 시공사만 조회 가능
+	public ProjectResponse getProject(Long projectId, Long memberId) {
+		ContractorProject project = findOrThrow(projectId);
+		boolean isOwner = project.getRequest().getOwner().getId().equals(memberId);
+		boolean isContractor = project.getRequest().getContractor() != null
+				&& project.getRequest().getContractor().getId().equals(memberId);
+		if (!isOwner && !isContractor) {
+			throw new ForbiddenAccessException("본인이 참여 중인 프로젝트만 조회할 수 있습니다.");
+		}
+		return new ProjectResponse(project);
 	}
 
 	public Page<ProjectResponse> getProjectsByContractor(Long contractorId, Pageable pageable) {

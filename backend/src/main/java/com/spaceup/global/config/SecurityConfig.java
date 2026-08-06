@@ -80,6 +80,11 @@ public class SecurityConfig {
 						// ⭐ [프론트 연동] "아파트/평면도 검색"은 로그인 없이 조회 가능, 등록은 관리자만
 						.requestMatchers(HttpMethod.GET, "/api/floorplans/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/floorplans/**").hasRole("ADMIN")
+						// ⭐ [보안 수정] ML 파이프라인 콜백/관리자 수동 보정 용도라 특정 임대인·시공사 소유권 개념이
+						// 없습니다. 실제 ML 서비스 간 인증이 생기기 전까지는 관리자만 호출 가능하도록 제한합니다.
+						.requestMatchers(HttpMethod.POST, "/api/analysis/request/*/result",
+								"/api/analysis/request/*/fail")
+						.hasRole("ADMIN")
 						// ⭐ 확장 지점: 관리자 전용 API가 생기면 아래처럼 역할별로 제한하세요.
 						// ⭐ 확장 지점: 다른 역할별 제한이 필요해지면 이런 식으로 추가하세요.
 						// .requestMatchers("/api/quotes/**").hasAnyRole("CONTRACTOR", "LANDLORD")

@@ -19,6 +19,7 @@ import com.spaceup.domain.analysis.repository.AnalysisSpaceRepository;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
 import com.spaceup.global.error.AnalysisNotFoundException;
+import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.RequestNotFoundException;
 
 import lombok.RequiredArgsConstructor;
@@ -36,9 +37,10 @@ public class AnalysisJobService {
 	// ⭐ PDF "02 임대 정보 입력" 완료 직후 호출 지점. PENDING 상태로 분석 레코드를 먼저 만들어두고, ML 파이프라인에
 	// 비동기로 분석을 맡긴 뒤 submitResult()로 콜백을 받는 구조입니다.
 	@Transactional
-	public Long requestAnalysis(Long requestId) {
+	public Long requestAnalysis(Long requestId, Long landlordId) {
 		QuoteRequest request = quoteRequestRepository.findById(requestId)
 				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + requestId));
+		validateOwner(request, landlordId);
 
 		AnalysisJob analysis = AnalysisJob.builder().request(request).status(AnalysisStatus.PENDING).build();
 
@@ -70,8 +72,9 @@ public class AnalysisJobService {
 
 	// ⭐ [프론트 연동] "공간 정보 확인" 화면에서 사용자가 방 개수/욕실 개수/발코니 유무/주방 형태/면적을 직접 수정
 	@Transactional
-	public void updateBasicInfo(Long requestId, AnalysisJobEditRequest dto) {
+	public void updateBasicInfo(Long requestId, Long landlordId, AnalysisJobEditRequest dto) {
 		AnalysisJob analysis = findByRequestOrThrow(requestId);
+		validateOwner(analysis.getRequest(), landlordId);
 		analysis.updateBasicInfo(dto.getRoomCount(), dto.getBathroomCount(), dto.getHasBalcony(),
 				dto.getKitchenType(), dto.getCeilingHeightM());
 		if (dto.getExclusiveAreaM2() != null) {
@@ -82,8 +85,9 @@ public class AnalysisJobService {
 	// ⭐ [프론트 연동] "공간 정보 확인" 화면 - 편집한 공간 목록 전체를 교체 저장하고, 시공 선택된 공간들의
 	// 바닥/벽지 면적 합계를 다시 계산해 AnalysisJob에 반영합니다.
 	@Transactional
-	public void replaceSpaces(Long requestId, List<AnalysisSpaceRequest> spaceRequests) {
+	public void replaceSpaces(Long requestId, Long landlordId, List<AnalysisSpaceRequest> spaceRequests) {
 		AnalysisJob analysis = findByRequestOrThrow(requestId);
+		validateOwner(analysis.getRequest(), landlordId);
 		analysisSpaceRepository.deleteByAnalysisJobId(analysis.getId());
 
 		double totalFloorArea = 0;
@@ -105,8 +109,9 @@ public class AnalysisJobService {
 		analysis.applyTotalConstructionArea(totalFloorArea, totalWallpaperArea);
 	}
 
-	public List<AnalysisSpaceResponse> getSpaces(Long requestId) {
+	public List<AnalysisSpaceResponse> getSpaces(Long requestId, Long memberId) {
 		AnalysisJob analysis = findByRequestOrThrow(requestId);
+		validateParticipant(analysis.getRequest(), memberId);
 		return analysisSpaceRepository.findByAnalysisJobIdOrderBySortOrderAsc(analysis.getId()).stream()
 				.map(AnalysisSpaceResponse::new).collect(Collectors.toList());
 	}
@@ -129,8 +134,26 @@ public class AnalysisJobService {
 		analysisJobRepository.findByRequestId(requestId).ifPresent(analysis -> analysis.updateMatchingScore(score));
 	}
 
-	public AnalysisJobResponse getByRequest(Long requestId) {
-		return new AnalysisJobResponse(findByRequestOrThrow(requestId));
+	public AnalysisJobResponse getByRequest(Long requestId, Long memberId) {
+		AnalysisJob analysis = findByRequestOrThrow(requestId);
+		validateParticipant(analysis.getRequest(), memberId);
+		return new AnalysisJobResponse(analysis);
+	}
+
+	// ⭐ [보안 수정] 본인이 등록한 의뢰만 분석 결과를 수정/재요청할 수 있습니다.
+	private void validateOwner(QuoteRequest request, Long landlordId) {
+		if (!request.getOwner().getId().equals(landlordId)) {
+			throw new ForbiddenAccessException("본인이 등록한 의뢰의 분석 결과만 처리할 수 있습니다.");
+		}
+	}
+
+	// ⭐ [보안 수정] 조회는 의뢰의 임대인 본인 또는 배정된 시공사만 가능합니다.
+	private void validateParticipant(QuoteRequest request, Long memberId) {
+		boolean isOwner = request.getOwner().getId().equals(memberId);
+		boolean isContractor = request.getContractor() != null && request.getContractor().getId().equals(memberId);
+		if (!isOwner && !isContractor) {
+			throw new ForbiddenAccessException("본인이 참여 중인 의뢰의 분석 결과만 조회할 수 있습니다.");
+		}
 	}
 
 	private AnalysisJob findByRequestOrThrow(Long requestId) {

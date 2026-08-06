@@ -34,8 +34,10 @@ public class OrderController {
 	}
 
 	@GetMapping("/{orderId}")
-	public ResponseEntity<ApiResponse<OrderResponse>> getOrder(@PathVariable Long orderId) {
-		return ResponseEntity.ok(ApiResponse.success("주문 조회 완료", orderService.getOrder(orderId)));
+	public ResponseEntity<ApiResponse<OrderResponse>> getOrder(@PathVariable Long orderId,
+			Authentication authentication) {
+		return ResponseEntity
+				.ok(ApiResponse.success("주문 조회 완료", orderService.getOrder(orderId, getMemberId(authentication))));
 	}
 
 	// ⭐ PDF "주문/발주 관리" 목록 (시공사 로그인 기준 - 본인 주문 내역, 페이지네이션)
@@ -49,8 +51,9 @@ public class OrderController {
 	// ⭐ PDF "주문/발주 관리" 파이프라인별 목록 (자재업체 로그인 기준, 페이지네이션)
 	@GetMapping("/status/{status}")
 	public ResponseEntity<ApiResponse<Page<OrderResponse>>> getOrdersByStatus(@PathVariable OrderStatus status,
-			@PageableDefault(size = 20) Pageable pageable) {
-		return ResponseEntity.ok(ApiResponse.success("주문 목록 조회 완료", orderService.getOrdersByStatus(status, pageable)));
+			@PageableDefault(size = 20) Pageable pageable, Authentication authentication) {
+		return ResponseEntity.ok(ApiResponse.success("주문 목록 조회 완료",
+				orderService.getOrdersByStatus(status, getMemberId(authentication), pageable)));
 	}
 
 	// ⭐ PDF 파이프라인 단계 전환 버튼들 (해당 상품을 등록한 자재업체 본인만)

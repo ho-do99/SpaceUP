@@ -34,16 +34,18 @@ public class ContractorQuoteController {
 	}
 
 	@GetMapping("/{quoteId}")
-	public ResponseEntity<ApiResponse<ContractorQuoteResponse>> getQuote(@PathVariable Long quoteId) {
-		return ResponseEntity.ok(ApiResponse.success("견적 조회 완료", contractorQuoteService.getQuote(quoteId)));
+	public ResponseEntity<ApiResponse<ContractorQuoteResponse>> getQuote(@PathVariable Long quoteId,
+			Authentication authentication) {
+		return ResponseEntity.ok(
+				ApiResponse.success("견적 조회 완료", contractorQuoteService.getQuote(quoteId, getMemberId(authentication))));
 	}
 
 	// ⭐ 하나의 의뢰에 달린 견적 이력 전체 (재견적 포함 - "v1/v2..." 버전은 이 목록의 순서/revisionCount로 구분)
 	@GetMapping("/request/{requestId}")
 	public ResponseEntity<ApiResponse<List<ContractorQuoteResponse>>> getQuotesByRequest(
-			@PathVariable Long requestId) {
-		return ResponseEntity
-				.ok(ApiResponse.success("견적 목록 조회 완료", contractorQuoteService.getQuotesByRequest(requestId)));
+			@PathVariable Long requestId, Authentication authentication) {
+		return ResponseEntity.ok(ApiResponse.success("견적 목록 조회 완료",
+				contractorQuoteService.getQuotesByRequest(requestId, getMemberId(authentication))));
 	}
 
 	// ⭐ PDF "견적 제안 보내기" 버튼

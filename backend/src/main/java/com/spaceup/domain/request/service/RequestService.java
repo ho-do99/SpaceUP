@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.EnumSet;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -97,8 +99,14 @@ public class RequestService {
 		request.touch();
 	}
 
-	public RequestResponse getRequest(Long requestId) {
+	// ⭐ [보안 수정] 의뢰의 임대인 본인 또는 배정된 시공사만 상세를 조회할 수 있습니다.
+	public RequestResponse getRequest(Long requestId, Long memberId) {
 		QuoteRequest request = findRequestOrThrow(requestId);
+		boolean isOwner = request.getOwner().getId().equals(memberId);
+		boolean isContractor = request.getContractor() != null && request.getContractor().getId().equals(memberId);
+		if (!isOwner && !isContractor) {
+			throw new ForbiddenAccessException("본인이 참여 중인 의뢰만 조회할 수 있습니다.");
+		}
 		return new RequestResponse(request, lookupMatchingScore(requestId), lookupAcceptedQuoteAmount(requestId));
 	}
 
@@ -116,11 +124,20 @@ public class RequestService {
 
 	// ⭐ 임대인이 특정 시공사에게 견적을 요청하는 순간(PDF 08 견적 요청) 시공사가 매칭됩니다. 본인이 등록한 의뢰만 배정
 	// 가능하며, 매칭점수 계산 + 알림 발송까지 이 시점에 한꺼번에 처리합니다.
+	// ⭐ [보안 수정] 견적요청/시공진행/완료 단계로 넘어간 의뢰를 다시 배정해 상태를 되돌리는 것을 막습니다.
+	// 아직 시공사가 응답하지 않았거나(NEW/REVIEWING) 거절/취소된 의뢰는 다른 시공사로 재배정할 수 있습니다.
+	private static final Set<RequestStatus> ASSIGNABLE_STATUSES = EnumSet.of(RequestStatus.NEW,
+			RequestStatus.REVIEWING, RequestStatus.REJECTED, RequestStatus.CANCELED);
+
 	@Transactional
 	public void assignContractor(Long requestId, Long contractorId, Long landlordId) {
 		QuoteRequest request = findRequestOrThrow(requestId);
 		if (!request.getOwner().getId().equals(landlordId)) {
 			throw new ForbiddenAccessException("본인이 등록한 의뢰만 시공사를 배정할 수 있습니다.");
+		}
+		if (!ASSIGNABLE_STATUSES.contains(request.getStatus())) {
+			throw new InvalidStatusTransitionException(
+					String.format("현재 상태(%s)에서는 시공사를 배정할 수 없습니다.", request.getStatus()));
 		}
 		Member contractor = memberRepository.findById(contractorId)
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 시공사입니다: " + contractorId));

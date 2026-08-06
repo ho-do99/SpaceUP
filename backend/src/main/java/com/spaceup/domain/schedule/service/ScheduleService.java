@@ -43,6 +43,10 @@ public class ScheduleService {
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원 번호입니다: " + contractorId));
 		QuoteRequest request = quoteRequestRepository.findById(dto.getRequestId())
 				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + dto.getRequestId()));
+		// ⭐ [보안 수정] 배정받지 않은 시공사가 남의 의뢰에 일정을 만들 수 없도록 검증
+		if (request.getContractor() == null || !request.getContractor().getId().equals(contractorId)) {
+			throw new ForbiddenAccessException("본인에게 배정된 의뢰에만 일정을 등록할 수 있습니다.");
+		}
 
 		ScheduleEvent event = ScheduleEvent.builder().contractor(contractor).request(request).title(dto.getTitle())
 				.scheduledAt(dto.getScheduledAt()).status(ScheduleStatus.SCHEDULED).build();

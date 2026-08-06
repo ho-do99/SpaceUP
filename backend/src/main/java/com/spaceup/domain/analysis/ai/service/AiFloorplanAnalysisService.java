@@ -66,10 +66,10 @@ public class AiFloorplanAnalysisService {
 			return spaceRequest;
 		}).toList();
 		if (!spaceRequests.isEmpty()) {
-			analysisJobService.replaceSpaces(requestId, spaceRequests);
+			analysisJobService.replaceSpaces(requestId, landlordId, spaceRequests);
 		}
 
-		return analysisJobService.getByRequest(requestId);
+		return analysisJobService.getByRequest(requestId, landlordId);
 	}
 
 	private byte[] readBytes(MultipartFile file) {

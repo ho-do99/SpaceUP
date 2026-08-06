@@ -40,8 +40,10 @@ public class ProjectController {
 	}
 
 	@GetMapping("/{projectId}")
-	public ResponseEntity<ApiResponse<ProjectResponse>> getProject(@PathVariable Long projectId) {
-		return ResponseEntity.ok(ApiResponse.success("프로젝트 조회 완료", projectService.getProject(projectId)));
+	public ResponseEntity<ApiResponse<ProjectResponse>> getProject(@PathVariable Long projectId,
+			Authentication authentication) {
+		return ResponseEntity.ok(
+				ApiResponse.success("프로젝트 조회 완료", projectService.getProject(projectId, getMemberId(authentication))));
 	}
 
 	@GetMapping("/contractor/me")

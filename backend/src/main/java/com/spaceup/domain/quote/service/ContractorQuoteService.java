@@ -23,6 +23,7 @@ import com.spaceup.domain.quote.repository.ContractorQuoteRepository;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
 import com.spaceup.global.error.ForbiddenAccessException;
+import com.spaceup.global.error.InvalidStatusTransitionException;
 import com.spaceup.global.error.MemberNotFoundException;
 import com.spaceup.global.error.QuoteNotFoundException;
 import com.spaceup.global.error.RequestNotFoundException;
@@ -49,6 +50,11 @@ public class ContractorQuoteService {
 	public Long createDraft(Long contractorId, ContractorQuoteCreateRequest dto) {
 		QuoteRequest request = quoteRequestRepository.findById(dto.getRequestId())
 				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + dto.getRequestId()));
+		// ⭐ [보안 수정] 배정받지 않은 시공사가 견적을 작성하면 이후 계약전환/프로젝트 진행 단계에서
+		// request.getContractor()가 이 견적의 작성자와 달라 NPE가 나던 문제를 원천 차단합니다.
+		if (request.getContractor() == null || !request.getContractor().getId().equals(contractorId)) {
+			throw new ForbiddenAccessException("본인에게 배정된 의뢰에만 견적을 작성할 수 있습니다.");
+		}
 		Member contractor = memberRepository.findById(contractorId)
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 시공사입니다: " + contractorId));
 
@@ -89,6 +95,13 @@ public class ContractorQuoteService {
 	public void accept(Long quoteId, Long landlordId) {
 		ContractorQuote quote = findQuoteOrThrow(quoteId);
 		validateLandlordOwnership(quote, landlordId);
+		// ⭐ [보안 수정] 이미 이 의뢰에 수락된 견적이 있으면 중복 수락을 막습니다(두 시공사가 모두 낙찰됐다고
+		// 알림을 받는 것을 방지).
+		contractorQuoteRepository
+				.findFirstByRequestIdAndStatusOrderByUpdatedAtDesc(quote.getRequest().getId(), QuoteStatus.ACCEPTED)
+				.ifPresent(existing -> {
+					throw new InvalidStatusTransitionException("이미 이 의뢰에 수락된 견적이 있습니다.");
+				});
 		quote.accept();
 		applyConfirmedRentalValue(quote);
 
@@ -144,14 +157,30 @@ public class ContractorQuoteService {
 				String.format("%s 견적에 대한 수정 요청: %s", quote.getTitle(), note));
 	}
 
-	public ContractorQuoteResponse getQuote(Long quoteId) {
-		return new ContractorQuoteResponse(findQuoteOrThrow(quoteId));
+	// ⭐ [보안 수정] 작성한 시공사 본인 또는 해당 의뢰의 임대인만 조회 가능 (경쟁 업체의 미발송 견적 단가 열람 차단)
+	public ContractorQuoteResponse getQuote(Long quoteId, Long memberId) {
+		ContractorQuote quote = findQuoteOrThrow(quoteId);
+		boolean isContractor = quote.getContractor().getId().equals(memberId);
+		boolean isLandlord = quote.getRequest().getOwner().getId().equals(memberId);
+		if (!isContractor && !isLandlord) {
+			throw new ForbiddenAccessException("본인이 작성했거나 본인 의뢰에 달린 견적만 조회할 수 있습니다.");
+		}
+		return new ContractorQuoteResponse(quote);
 	}
 
-	// ⭐ PDF "의뢰 상세" 화면에서 해당 의뢰에 달린 견적(이력) 전체 조회
-	public List<ContractorQuoteResponse> getQuotesByRequest(Long requestId) {
-		return contractorQuoteRepository.findByRequestId(requestId).stream().map(ContractorQuoteResponse::new)
-				.collect(Collectors.toList());
+	// ⭐ PDF "의뢰 상세" 화면에서 해당 의뢰에 달린 견적(이력) 전체 조회.
+	// ⭐ [보안 수정] 임대인은 해당 의뢰에 달린 모든 견적을 볼 수 있지만, 시공사는 본인이 작성한 견적만 보입니다
+	// (경쟁 업체 견적 열람 차단).
+	public List<ContractorQuoteResponse> getQuotesByRequest(Long requestId, Long memberId) {
+		QuoteRequest request = quoteRequestRepository.findById(requestId)
+				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + requestId));
+		List<ContractorQuote> quotes = contractorQuoteRepository.findByRequestId(requestId);
+		boolean isLandlord = request.getOwner().getId().equals(memberId);
+		if (!isLandlord) {
+			quotes = quotes.stream().filter(quote -> quote.getContractor().getId().equals(memberId))
+					.collect(Collectors.toList());
+		}
+		return quotes.stream().map(ContractorQuoteResponse::new).collect(Collectors.toList());
 	}
 
 	private void validateContractorOwnership(ContractorQuote quote, Long contractorId) {

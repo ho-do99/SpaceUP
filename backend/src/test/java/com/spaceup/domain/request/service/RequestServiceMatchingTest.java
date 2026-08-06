@@ -27,6 +27,7 @@ import com.spaceup.domain.notification.service.NotificationService;
 import com.spaceup.domain.quote.repository.ContractorQuoteRepository;
 import com.spaceup.domain.request.entity.Property;
 import com.spaceup.domain.request.entity.QuoteRequest;
+import com.spaceup.domain.request.entity.RequestStatus;
 import com.spaceup.domain.request.repository.PropertyRepository;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
 import com.spaceup.domain.visit.service.SiteVisitService;
@@ -112,7 +113,7 @@ class RequestServiceMatchingTest {
 		Member landlord = Member.builder().id(LANDLORD_ID).build();
 		Property property = Property.builder().owner(landlord).region("광주 북구").build();
 		return QuoteRequest.builder().id(REQUEST_ID).owner(landlord).property(property).requestCode("REQ-TEST-000001")
-				.build();
+				.status(RequestStatus.NEW).build();
 	}
 
 	private Member contractor() {

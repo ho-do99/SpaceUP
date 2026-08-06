@@ -43,14 +43,16 @@ public class RequestController {
 			Authentication authentication) {
 		Long landlordId = getMemberId(authentication);
 		Long requestId = requestService.createRequest(landlordId, request);
-		analysisJobService.requestAnalysis(requestId); // ⭐ ML 파이프라인에 분석을 맡기는 시작점
+		analysisJobService.requestAnalysis(requestId, landlordId); // ⭐ ML 파이프라인에 분석을 맡기는 시작점
 		return ResponseEntity.ok(ApiResponse.success("의뢰가 등록되었습니다.", requestId));
 	}
 
 	// ⭐ PDF "의뢰 상세" 화면 조회
 	@GetMapping("/{requestId}")
-	public ResponseEntity<ApiResponse<RequestResponse>> getRequest(@PathVariable Long requestId) {
-		return ResponseEntity.ok(ApiResponse.success("의뢰 상세 조회 완료", requestService.getRequest(requestId)));
+	public ResponseEntity<ApiResponse<RequestResponse>> getRequest(@PathVariable Long requestId,
+			Authentication authentication) {
+		return ResponseEntity.ok(
+				ApiResponse.success("의뢰 상세 조회 완료", requestService.getRequest(requestId, getMemberId(authentication))));
 	}
 
 	// ⭐ [프론트 연동] 예산/희망일정/요청항목처럼 화면 뒤쪽 단계에서 채워지는 값을 나중에 저장. 본인 의뢰만 가능
