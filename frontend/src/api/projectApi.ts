@@ -1,0 +1,5 @@
+import { apiRequest } from './axiosInstance'; import { unwrapApiResponse } from './apiResponse'; import type { ApiResponse } from '@/types/api'; import type { Paged, Project } from '@/types/backendContractor'
+export async function getContractorProjects() { return unwrapApiResponse<Paged<Project>>(await apiRequest<ApiResponse<Paged<Project>>>({ method: 'GET', url: '/api/projects/contractor/me', authenticated: true }), '프로젝트 목록 조회에 실패했습니다.') }
+export async function getProject(id: number) { return unwrapApiResponse<Project>(await apiRequest<ApiResponse<Project>>({ method: 'GET', url: `/api/projects/${id}`, authenticated: true }), '프로젝트 조회에 실패했습니다.') }
+export async function startProject(id: number) { return unwrapApiResponse<Project>(await apiRequest<ApiResponse<Project>>({ method: 'POST', url: `/api/projects/${id}/start`, authenticated: true }), '착공 처리에 실패했습니다.') }
+export async function requestProjectCompletion(id: number) { return unwrapApiResponse<Project>(await apiRequest<ApiResponse<Project>>({ method: 'POST', url: `/api/projects/${id}/request-completion`, authenticated: true }), '완료 요청에 실패했습니다.') }
