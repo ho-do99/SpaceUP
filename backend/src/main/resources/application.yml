@@ -62,3 +62,10 @@ external-api:
     model: gemini-2.5-flash-image
     connect-timeout: 5s
     read-timeout: 60s
+  # ⭐ [AI/OCR 연동] origin/ai 브랜치의 viewerwall 서비스(포트 8004, POST /api/analyze). 아직 메인
+  # docker-compose 네트워크에 포함되어 있지 않아 로컬 기본값은 접근 불가능할 수 있습니다 - AI팀과 네트워크
+  # 연결 방법을 별도로 협의해야 합니다.
+  ai-floorplan:
+    base-url: ${AI_FLOORPLAN_BASE_URL:http://localhost:8004}
+    connect-timeout: 5s
+    read-timeout: 30s
