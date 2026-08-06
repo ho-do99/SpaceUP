@@ -91,7 +91,7 @@ public class SiteVisitService {
 			String note) {
 		SiteVisit visit = findOrThrow(visitId);
 		validateContractor(visit.getRequest(), contractorId);
-		visit.schedule(visitDate, visitTime, visit.getManagerName(), note);
+		visit.propose(visitDate, visitTime, note);
 
 		notificationService.notify(visit.getRequest().getOwner().getId(), NotificationType.VISIT,
 				"새 방문 일정이 제안되었습니다", String.format("%s %s로 방문 일정을 제안드립니다.", visitDate, visitTime));
