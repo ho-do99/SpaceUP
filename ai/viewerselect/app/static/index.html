@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SpaceUP 공간 정보 확인 및 수정</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/selection/styles.css?v=8">
+</head>
+<body>
+  <main class="phone-shell">
+    <header class="app-header">
+      <button class="icon-button" type="button" aria-label="뒤로">‹</button>
+      <strong>공간 정보 확인 및 수정</strong>
+      <div class="header-icons" aria-hidden="true"><span>□</span><span>○</span></div>
+    </header>
+
+    <section class="stepper" aria-label="진행 단계">
+      <span>1</span><span>2</span><span class="active">3</span><span>4</span><span>5</span><span>6</span>
+    </section>
+
+    <section class="intro">
+      <h1>분석된 공간 정보를 확인해주세요</h1>
+      <p>AI 분석 결과를 확인하고 원하는 공간을 선택할 수 있습니다.</p>
+    </section>
+
+    <label id="uploadCard" class="upload-card">
+      <input id="fileInput" type="file" accept="image/png,image/jpeg">
+      <span class="upload-mark">↑</span>
+      <span><b>평면도 선택</b><small>PNG 또는 JPG</small></span>
+    </label>
+
+    <section id="loadingPanel" class="loading-panel hidden" aria-live="polite">
+      <div class="spinner"></div>
+      <b>공간을 분석하고 있습니다</b>
+      <span id="loadingText">OCR·SPA 결과를 불러오는 중입니다.</span>
+    </section>
+
+    <section id="resultPanel" class="result-panel hidden">
+      <div class="analysis-grid">
+        <div class="plan-card">
+          <svg id="floorPlan" role="img" aria-label="분석된 평면도"></svg>
+          <div id="planHint" class="plan-hint">공간을 터치해 선택하세요</div>
+        </div>
+
+        <aside class="info-card">
+          <h2>공간 정보</h2>
+          <strong id="selectedState">공간을 선택해주세요</strong>
+          <dl>
+            <div><dt>선택 공간</dt><dd id="selectedRoom">-</dd></div>
+            <div><dt>공간 면적</dt><dd>평수 선택 후 표시</dd></div>
+            <div><dt>감지 공간</dt><dd id="detectedCount">0개</dd></div>
+          </dl>
+          <div class="selection-actions">
+            <button id="selectAll" type="button">전체 선택</button>
+            <button id="clearSelection" type="button">선택 초기화</button>
+          </div>
+        </aside>
+      </div>
+
+      <section class="selection-section">
+        <h2>인테리어할 공간을 선택해주세요</h2>
+        <p>여러 공간을 선택할 수 있습니다.</p>
+        <div id="roomCards" class="room-cards"></div>
+      </section>
+    </section>
+
+    <div id="errorMessage" class="error-message hidden" role="alert"></div>
+    <button id="nextButton" class="next-button" type="button" disabled>다음</button>
+  </main>
+
+    <script type="module" src="/selection/selection.js?v=8"></script>
+</body>
+</html>
