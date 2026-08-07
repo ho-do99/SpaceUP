@@ -14,7 +14,14 @@ import { getAccessToken } from '@/utils/authSession'
  * 이미 "/api"를 포함한 경로를 사용하므로
  * baseURL에는 "/api"를 붙이지 않습니다.
  */
-const DEFAULT_API_BASE_URL = 'http://localhost:8090'
+// Local Vite development still talks to the local backend.  A built site must
+// use its own origin so the browser reaches Nginx's /api reverse proxy rather
+// than the visitor's localhost.
+const DEFAULT_API_BASE_URL =
+  typeof window !== 'undefined' &&
+  !['localhost', '127.0.0.1'].includes(window.location.hostname)
+    ? window.location.origin
+    : 'http://localhost:8090'
 
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 

@@ -1,12 +1,16 @@
-import { apiRequest } from './axiosInstance'
+import { ApiClientError, apiRequest } from './axiosInstance'
 import { unwrapApiResponse } from './apiResponse'
 import type { ApiResponse } from '@/types/api'
 import type {
   AnalysisJobResponse,
   AnalysisSpaceInput,
   AnalysisSpaceResponse,
+  InteriorImageGenerateInput,
+  InteriorImageGenerateResponse,
   RecommendedProduct,
 } from '@/types/analysis'
+
+const INTERIOR_IMAGE_TIMEOUT_MS = 75_000
 
 export async function getAnalysis(requestId: number) {
   const response = await apiRequest<ApiResponse<AnalysisJobResponse>>({
@@ -43,4 +47,30 @@ export async function getRecommendedProducts(requestId: number) {
     method: 'GET', url: `/api/analysis/request/${requestId}/recommended-products`, authenticated: true,
   })
   return unwrapApiResponse<RecommendedProduct[]>(response, '추천 상품 조회에 실패했습니다.')
+}
+
+export async function generateInteriorImages(
+  requestId: number,
+  input: InteriorImageGenerateInput,
+  signal?: AbortSignal,
+) {
+  const response = await apiRequest<ApiResponse<InteriorImageGenerateResponse>, InteriorImageGenerateInput>({
+    method: 'POST',
+    url: `/api/analysis/request/${requestId}/interior-images`,
+    data: input,
+    authenticated: true,
+    timeout: INTERIOR_IMAGE_TIMEOUT_MS,
+    signal,
+  })
+  return unwrapApiResponse<InteriorImageGenerateResponse>(response, 'AI 이미지 생성에 실패했습니다.')
+}
+
+export function getInteriorImageGenerationErrorMessage(error: unknown) {
+  if (!(error instanceof ApiClientError)) return 'AI 이미지 생성 중 오류가 발생했습니다.'
+  if (error.kind === 'canceled') return ''
+  if (error.status === 401) return '로그인이 만료되었습니다. 다시 로그인해 주세요.'
+  if (error.status === 403) return '이 의뢰의 AI 이미지를 생성할 권한이 없습니다.'
+  if (error.status === 503) return 'AI 생성 설정을 확인할 수 없습니다.'
+  if (error.kind === 'network') return 'AI 생성 응답이 지연되고 있습니다. 다시 시도해 주세요.'
+  return error.message || 'AI 이미지 생성 중 오류가 발생했습니다.'
 }

@@ -1,5 +1,5 @@
 export type PropertyType = 'APARTMENT' | 'VILLA' | string
-export type RequestImageType = 'FLOOR_PLAN' | 'PHOTO'
+export type RequestImageType = 'FLOOR_PLAN' | 'PHOTO' | 'AI_GENERATED'
 
 export interface RequestCreateInput {
   region: string

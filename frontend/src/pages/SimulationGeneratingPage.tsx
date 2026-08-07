@@ -1,6 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-
+import {
+  generateInteriorImages,
+  getInteriorImageGenerationErrorMessage,
+} from '@/api/analysisApi'
 import simulationSpinner from '@/assets/user/icons/simulation-spinner.svg'
 import simulationUploadPreview from '@/assets/user/images/simulation-upload-preview.png'
 
@@ -10,61 +13,101 @@ import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 
 import { interiorStyleOptions } from '@/mocks/interiorStyles'
+import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
+import { getActiveRequestId } from '@/utils/requestFlow'
+import { saveSimulationResult } from '@/utils/simulationResult'
+
+function getRouteString(state: unknown, key: string) {
+  if (typeof state !== 'object' || state === null) return null
+  const value = Reflect.get(state, key)
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
 
 export default function SimulationGeneratingPage() {
   const navigate = useNavigate()
   const { state } = useLocation()
-
-  const routeStyleId =
-    typeof state === 'object' && state !== null
-      ? Reflect.get(state, 'styleId')
-      : undefined
-
-  const routeUploadedImageUrl =
-    typeof state === 'object' && state !== null
-      ? Reflect.get(state, 'uploadedImageUrl')
-      : undefined
-
-  /*
-   * 기존 코드와의 호환성을 위해 photoFile도 남겨둡니다.
-   * 현재 최신 사진 업로드 화면에서는 uploadedImageUrl을 전달합니다.
-   */
-  const routePhotoFile =
-    typeof state === 'object' && state !== null
-      ? Reflect.get(state, 'photoFile')
-      : undefined
-
+  const [generationAttempt, setGenerationAttempt] = useState(0)
+  const [isGenerating, setIsGenerating] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
+  const routeStyleId = getRouteString(state, 'styleId')
+  const uploadedImagePath = getRouteString(state, 'uploadedImagePath')
+  const uploadedImageUrl = uploadedImagePath ? resolveApiAssetUrl(uploadedImagePath) : null
+  const requestId = getActiveRequestId()
   const selectedStyle =
-    interiorStyleOptions.find(
-      (option) => option.id === routeStyleId,
-    ) ?? interiorStyleOptions[0]
-
-  const photoFile =
-    routePhotoFile instanceof File
-      ? routePhotoFile
-      : null
-
-  const objectPreviewUrl = useMemo(
-    () =>
-      photoFile
-        ? URL.createObjectURL(photoFile)
-        : null,
-    [photoFile],
-  )
-
-  const photoPreviewUrl =
-    typeof routeUploadedImageUrl === 'string' &&
-    routeUploadedImageUrl.trim()
-      ? routeUploadedImageUrl
-      : objectPreviewUrl ?? simulationUploadPreview
+    interiorStyleOptions.find((option) => option.id === routeStyleId) ?? interiorStyleOptions[0]
+  const photoPreviewUrl = uploadedImageUrl ?? simulationUploadPreview
+  const canGenerate = Boolean(requestId && uploadedImagePath && uploadedImageUrl)
 
   useEffect(() => {
-    return () => {
-      if (objectPreviewUrl) {
-        URL.revokeObjectURL(objectPreviewUrl)
-      }
+    if (!requestId || !uploadedImagePath || !uploadedImageUrl) {
+      setIsGenerating(false)
+      setErrorMessage('업로드 이미지 또는 진행 중인 의뢰 정보를 찾을 수 없습니다.')
+      return undefined
     }
-  }, [objectPreviewUrl])
+
+    const abortController = new AbortController()
+    setIsGenerating(true)
+    setErrorMessage('')
+
+    // React StrictMode의 개발용 effect 재실행에서 Gemini 요청이 중복되지 않도록
+    // 실제 요청은 다음 task에서 시작하고 첫 cleanup에서 취소합니다.
+    const startTimer = window.setTimeout(() => {
+      void generateInteriorImages(
+        requestId,
+        {
+          style: `${selectedStyle.name} - ${selectedStyle.description}`,
+          referenceImageUrl: uploadedImagePath,
+        },
+        abortController.signal,
+      )
+        .then((response) => {
+          const generatedImage = response.imageUrls
+            .map((path) => ({ path, url: resolveApiAssetUrl(path) }))
+            .find((image): image is { path: string; url: string } => Boolean(image.url))
+
+          if (!generatedImage) {
+            throw new Error('생성된 이미지 경로를 확인할 수 없습니다.')
+          }
+
+          const result = {
+            requestId,
+            styleId: selectedStyle.id,
+            beforeImageUrl: uploadedImageUrl,
+            afterImagePath: generatedImage.path,
+            afterImageUrl: generatedImage.url,
+          }
+          saveSimulationResult(result)
+          navigate('/analysis/simulation/result', { replace: true, state: result })
+        })
+        .catch((error: unknown) => {
+          if (abortController.signal.aborted) return
+          setIsGenerating(false)
+          setErrorMessage(getInteriorImageGenerationErrorMessage(error))
+        })
+    }, 0)
+
+    return () => {
+      window.clearTimeout(startTimer)
+      abortController.abort()
+    }
+  }, [
+    generationAttempt,
+    navigate,
+    requestId,
+    selectedStyle.description,
+    selectedStyle.id,
+    selectedStyle.name,
+    uploadedImagePath,
+    uploadedImageUrl,
+  ])
+
+  const handleFooterAction = () => {
+    if (canGenerate) {
+      setGenerationAttempt((attempt) => attempt + 1)
+    } else {
+      navigate('/analysis/simulation/photo', { state: { styleId: selectedStyle.id } })
+    }
+  }
 
   return (
     <UserScreenShell className="h-dvh">
@@ -92,17 +135,19 @@ export default function SimulationGeneratingPage() {
           {/* 페이지 제목 */}
           <section className="pt-5 text-center">
             <h1 className="break-keep text-[18px] font-bold leading-[22px] text-[#15284c]">
-              선택한 스타일로 공간을 바꾸고 있어요
+              {isGenerating ? '선택한 스타일로 공간을 바꾸고 있어요' : '이미지를 생성하지 못했어요'}
             </h1>
 
             <p className="mt-2 break-keep text-[10px] leading-[17px] text-[#657187]">
-              업로드한 사진을 분석하고 인테리어 이미지를 생성하고 있습니다.
+              {isGenerating
+                ? '업로드한 사진을 분석하고 인테리어 이미지를 생성하고 있습니다.'
+                : '아래 안내를 확인한 후 다시 시도해 주세요.'}
             </p>
           </section>
 
           {/* AI 이미지 생성 중 콘텐츠 */}
           <section
-            role="status"
+            role={errorMessage ? 'alert' : 'status'}
             aria-live="polite"
             className="mt-[14px] flex min-h-[322px] flex-col items-center"
           >
@@ -119,17 +164,22 @@ export default function SimulationGeneratingPage() {
               alt="업로드한 현재 집 사진"
               className="mt-5 h-[132px] w-[220px] rounded-[10px] border border-[#cbd5e1] bg-[#f1f5f9] object-cover"
             />
-
-            {/* 생성 중 스피너 */}
-            <img
-              src={simulationSpinner}
-              alt=""
-              className="mt-[34px] size-12 animate-spin motion-reduce:animate-none"
-            />
-
-            <p className="mt-6 text-[14px] font-medium leading-5 text-[#475569]">
-              잠시만 기다려주세요.
-            </p>
+            {isGenerating ? (
+              <>
+                <img
+                  src={simulationSpinner}
+                  alt=""
+                  className="mt-[34px] size-12 animate-spin motion-reduce:animate-none"
+                />
+                <p className="mt-6 text-[14px] font-medium leading-5 text-[#475569]">
+                  잠시만 기다려주세요.
+                </p>
+              </>
+            ) : (
+              <p className="mt-8 max-w-[280px] break-keep text-center text-[13px] font-medium leading-5 text-[#ef4444]">
+                {errorMessage}
+              </p>
+            )}
           </section>
         </main>
 
@@ -137,10 +187,15 @@ export default function SimulationGeneratingPage() {
         <footer className="shrink-0 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
           <Button
             type="button"
-            disabled
-            className="h-12 w-full !rounded-[5px] !border !border-[#2563eb] !bg-[#cbd5e1] !px-4 !py-0 !text-[12px] !font-bold !opacity-100 !shadow-none"
+            disabled={isGenerating}
+            onClick={handleFooterAction}
+            className={`h-12 w-full !rounded-[5px] !border !px-4 !py-0 !text-[12px] !font-bold !opacity-100 !shadow-none ${
+              isGenerating
+                ? '!border-[#cbd5e1] !bg-[#cbd5e1]'
+                : '!border-[#2563eb] !bg-[#2563eb]'
+            }`}
           >
-            이미지 생성 중…
+            {isGenerating ? '이미지 생성 중…' : canGenerate ? '다시 시도하기' : '사진 다시 선택하기'}
           </Button>
         </footer>
       </div>

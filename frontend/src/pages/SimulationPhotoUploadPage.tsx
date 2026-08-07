@@ -7,14 +7,13 @@ import {
   type FormEvent,
 } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-
 import {
   getImageUploadErrorMessage,
   uploadImage,
 } from '@/api/fileApi'
+import { attachRequestImage } from '@/api/requestApi'
 
 import simulationImageUploadIcon from '@/assets/user/icons/simulation-image-upload.svg'
-
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import UserHeader from '@/components/user/UserHeader'
@@ -22,6 +21,8 @@ import UserScreenShell from '@/components/user/UserScreenShell'
 
 import { interiorStyleOptions } from '@/mocks/interiorStyles'
 import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
+import { getActiveRequestId } from '@/utils/requestFlow'
+import { clearSimulationResult } from '@/utils/simulationResult'
 
 const acceptedImageTypes = ['image/jpeg', 'image/png']
 const maximumImageSize = 10 * 1024 * 1024
@@ -119,11 +120,18 @@ export default function SimulationPhotoUploadPage() {
       return
     }
 
+    const requestId = getActiveRequestId()
+    if (!requestId) {
+      setErrorMessage('진행 중인 의뢰 정보를 찾을 수 없습니다. 처음부터 다시 진행해 주세요.')
+      return
+    }
+
     const abortController = new AbortController()
     abortControllerRef.current = abortController
 
     setErrorMessage('')
     setIsUploading(true)
+    clearSimulationResult()
 
     try {
       const uploadResponse = await uploadImage(
@@ -141,6 +149,11 @@ export default function SimulationPhotoUploadPage() {
         )
         return
       }
+
+      await attachRequestImage(requestId, {
+        imageType: 'PHOTO',
+        imageUrl: uploadResponse.imageUrl,
+      })
 
       navigate('/analysis/simulation/generating', {
         state: {

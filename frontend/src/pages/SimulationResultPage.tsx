@@ -1,19 +1,37 @@
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import BeforeAfterComparison from '@/components/user/BeforeAfterComparison'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { interiorStyleOptions } from '@/mocks/interiorStyles'
+import { getSimulationResult, parseSimulationResult } from '@/utils/simulationResult'
 
 export default function SimulationResultPage() {
   const navigate = useNavigate()
+  const { state } = useLocation()
+  const result = useMemo(
+    () => parseSimulationResult(state) ?? getSimulationResult(),
+    [state],
+  )
+  const selectedStyle =
+    interiorStyleOptions.find((option) => option.id === result?.styleId) ?? interiorStyleOptions[0]
+
+  useEffect(() => {
+    if (!result) {
+      navigate('/analysis/simulation/photo', { replace: true })
+    }
+  }, [navigate, result])
+
+  if (!result) return null
 
   return (
     <UserScreenShell className="h-dvh">
       <UserHeader
         variant="detail"
         title="AI 인테리어 시뮬레이션 결과"
-        onBack={() => navigate('/analysis/simulation/photo')}
+        onBack={() => navigate('/analysis/simulation/photo', { state: { styleId: selectedStyle.id } })}
       />
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -31,10 +49,14 @@ export default function SimulationResultPage() {
 
           <section className="mt-[12px] pb-6">
             <p className="mx-auto w-fit rounded-full bg-[#eff6ff] px-4 py-[10px] text-[12px] font-medium leading-5 text-[#2563eb]">
-              선택 스타일 · 모던
+              선택 스타일 · {selectedStyle.name}
             </p>
             <div className="mt-4">
-              <BeforeAfterComparison />
+              <BeforeAfterComparison
+                beforeImageUrl={result.beforeImageUrl}
+                afterImageUrl={result.afterImageUrl}
+                styleName={selectedStyle.name}
+              />
             </div>
           </section>
         </main>
@@ -44,7 +66,7 @@ export default function SimulationResultPage() {
             type="button"
             variant="outline"
             className="h-12 w-full !rounded-[5px] !border-[#2563eb] !bg-white !px-2 !py-0 !text-[12px] !font-semibold !text-[#2563eb] !shadow-none hover:!translate-y-0 hover:!bg-white hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
-            onClick={() => navigate('/analysis/simulation/photo')}
+            onClick={() => navigate('/analysis/simulation/photo', { state: { styleId: selectedStyle.id } })}
           >
             다시 생성하기
           </Button>
