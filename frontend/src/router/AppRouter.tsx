@@ -30,6 +30,7 @@ import EstimateRequestPage from '@/pages/EstimateRequestPage'
 import EstimateRequestCompletePage from '@/pages/EstimateRequestCompletePage'
 import EstimateRequestHistoryPage from '@/pages/EstimateRequestHistoryPage'
 import EstimateRequestDetailPage from '@/pages/EstimateRequestDetailPage'
+import LandlordChatPage from '@/pages/LandlordChatPage'
 import MyPage from '@/pages/MyPage'
 import NotificationCenterPage from '@/pages/NotificationCenterPage'
 import SettingsPage from '@/pages/SettingsPage'
@@ -462,6 +463,10 @@ export default function AppRouter() {
           element={
             <EstimateRequestDetailPage />
           }
+        />
+        <Route
+          path="/mypage/requests/:requestId/chat/:contractorId"
+          element={<LandlordChatPage />}
         />
         <Route
           path="/mypage"

@@ -6,23 +6,54 @@ import ContractorRequestDetailLayout from '@/components/contractor/ContractorReq
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import ContractorRequestNotFound from './ContractorRequestNotFound'
+import useContractorRequest from '@/hooks/useContractorRequest'
+import { approveRequest, rejectRequest } from '@/api/contractorApi'
+
+const rejectReasonCodes: Record<string, string> = {
+  '지역 미지원': 'REGION_NOT_SUPPORTED', '예산 범위 불일치': 'BUDGET_MISMATCH',
+  '전문 분야 불일치': 'SPECIALTY_MISMATCH', '일정 조율 불가': 'SCHEDULE_CONFLICT', '기타': 'OTHER',
+}
 
 export default function ContractorRequestDetailPage() {
   const { requestId } = useParams()
   const navigate = useNavigate()
-  const request = findContractorRequestDetail(requestId)
+  const fallbackRequest = findContractorRequestDetail(requestId)
+  const live = useContractorRequest(requestId)
+  const request = /^\d+$/.test(requestId ?? '') ? live.request : fallbackRequest
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectedReason, setRejectedReason] = useState('')
+  const [actionError, setActionError] = useState('')
 
+  if (live.loading && !request) return <ContractorRequestNotFound />
   if (!request) return <ContractorRequestNotFound />
+
+  const approve = async () => {
+    if (/^\d+$/.test(request.requestId)) {
+      try { await approveRequest(Number(request.requestId)) } catch (error) {
+        setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.'); return
+      }
+    }
+    navigate(`/contractor/requests/${request.requestId}/approved`)
+  }
+
+  const reject = async (reason: string) => {
+    if (/^\d+$/.test(request.requestId)) {
+      const code = rejectReasonCodes[reason] ?? 'OTHER'
+      try { await rejectRequest(Number(request.requestId), code, code === 'OTHER' ? reason : undefined) } catch (error) {
+        setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.'); return
+      }
+    }
+    setRejectedReason(reason)
+    setRejectOpen(false)
+  }
 
   return (
     <>
       <ContractorRequestDetailLayout
         request={request}
         activeTab="summary"
-        statusMessage={rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined}
-        actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={() => navigate(`/contractor/requests/${request.requestId}/approved`)} />}
+        statusMessage={actionError || (rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined)}
+        actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={approve} />}
       >
         <ContractorSectionCard title="공간 분석 요약">
           <p className="text-xs leading-5 text-[#64748b]">방 {request.analysis.rooms}개 · 욕실 {request.analysis.bathrooms}개 · 발코니 {request.analysis.hasBalcony ? '있음' : '없음'}</p>
@@ -44,7 +75,7 @@ export default function ContractorRequestDetailPage() {
 
         <Link to={`/contractor/requests/${request.requestId}/floor-plan`} className="flex h-11 items-center justify-center rounded-lg border border-[#2563eb] bg-white text-xs font-bold text-[#2563eb]">평면도 · 집 사진 보기</Link>
       </ContractorRequestDetailLayout>
-      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={(reason) => { setRejectedReason(reason); setRejectOpen(false) }} />
+      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={reject} />
     </>
   )
 }

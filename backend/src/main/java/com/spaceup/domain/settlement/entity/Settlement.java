@@ -21,7 +21,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// ⭐ PDF "정산/수수료 관리(관리자)", "정산 관리(자재업체)" 화면. partner는 정산 대상(시공사 또는 자재업체).
+// ⭐ 관리자 정산/수수료 관리와 시공사 정산 화면. partner는 현재 API 호환을 위해 남은 시공사 명칭입니다.
 @Entity
 @Table(name = "settlements")
 @Getter
@@ -39,7 +39,7 @@ public class Settlement extends BaseTimeEntity {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "partner_id", nullable = false)
-	private Member partner; // 정산받는 시공사/자재업체
+	private Member partner; // 정산받는 시공사. 필드·컬럼 이름은 후속 정산 마이그레이션에서 변경합니다.
 
 	@Column(name = "transaction_amount", nullable = false)
 	private Long transactionAmount; // 거래 금액

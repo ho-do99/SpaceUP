@@ -23,7 +23,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	Page<Member> findByRole(MemberRole role, Pageable pageable);
 
 	// ⭐ [최종 검토 반영] 기존 findByRoleAndApproved(boolean)를 승인 워크플로우(enum) 기준으로 교체했습니다.
-	// PDF "시공사관리/자재업체관리(관리자)" - 심사 대기(PENDING) 또는 보완요청(NEEDS_REVISION) 큐.
+	// 시공사 관리(관리자) - 심사 대기(PENDING) 또는 보완요청(NEEDS_REVISION) 큐.
 	List<Member> findByRoleAndApprovalStatus(MemberRole role, MemberApprovalStatus approvalStatus);
 
 	long countByRole(MemberRole role);

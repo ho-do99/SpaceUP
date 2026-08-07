@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
@@ -5,17 +6,25 @@ import ContractorMobileShell from '@/components/contractor/ContractorMobileShell
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
 import ContractorStatusBadge from '@/components/contractor/ContractorStatusBadge'
 import { contractorRequests } from '@/mocks/contractorPortalMockData'
-
-const pipeline = [
-  ['신규', '12'],
-  ['검토', '5'],
-  ['전송', '8'],
-  ['선택', '4'],
-  ['계약', '3'],
-] as const
+import { getAssignedRequests, getContractorDashboard } from '@/api/contractorApi'
+import type { ContractorDashboard } from '@/types/backendContractor'
+import { requestToContractorCard } from '@/utils/contractorRequestAdapter'
 
 export default function ContractorDashboardPage() {
-  const latestRequest = contractorRequests[0]
+  const [latestRequest, setLatestRequest] = useState(contractorRequests[0])
+  const [dashboard, setDashboard] = useState<ContractorDashboard>({ newLeadsCount: 12, quoteRequestedCount: 5, quoteSentCount: 8, contractPendingCount: 3, pendingSettlementAmount: 13_680_000 })
+  useEffect(() => {
+    getContractorDashboard().then(setDashboard).catch(() => undefined)
+    getAssignedRequests({ size: 1 }).then((page) => {
+      const content = Array.isArray(page) ? page : page.content
+      if (content[0]) setLatestRequest(requestToContractorCard(content[0]))
+    }).catch(() => undefined)
+  }, [])
+  const pipeline = [
+    ['신규', String(dashboard.newLeadsCount)], ['검토', String(dashboard.quoteRequestedCount)],
+    ['전송', String(dashboard.quoteSentCount)], ['선택', String(dashboard.contractPendingCount)],
+    ['계약', String(dashboard.contractPendingCount)],
+  ] as const
 
   return (
     <ContractorMobileShell>
@@ -25,10 +34,10 @@ export default function ContractorDashboardPage() {
 
         <section aria-label="오늘의 현황" className="grid grid-cols-2 gap-2">
           {[
-            ['신규 리드', '12건'],
-            ['검토 중', '5건'],
-            ['견적 전송', '8건'],
-            ['계약 대기', '3건'],
+            ['신규 리드', `${dashboard.newLeadsCount}건`],
+            ['검토 중', `${dashboard.quoteRequestedCount}건`],
+            ['견적 전송', `${dashboard.quoteSentCount}건`],
+            ['계약 대기', `${dashboard.contractPendingCount}건`],
           ].map(([label, value]) => (
             <div key={label} className="rounded-xl border border-[#e2e8f0] bg-white p-3 shadow-sm">
               <p className="text-[11px] text-[#64748b]">{label}</p>
@@ -37,7 +46,7 @@ export default function ContractorDashboardPage() {
           ))}
           <div className="col-span-2 rounded-xl bg-[#2563eb] p-3 text-white shadow-sm">
             <p className="text-[11px] text-white/80">정산 예정</p>
-            <p className="mt-1 text-lg font-bold">₩13,680,000</p>
+            <p className="mt-1 text-lg font-bold">₩{dashboard.pendingSettlementAmount.toLocaleString('ko-KR')}</p>
           </div>
         </section>
 

@@ -126,8 +126,9 @@ public class RequestController {
 	// ⭐ imageType 쿼리파라미터를 안 주면 평면도+집사진 전체를 반환합니다.
 	@GetMapping("/{requestId}/images")
 	public ResponseEntity<ApiResponse<List<RequestImageResponse>>> getImages(@PathVariable Long requestId,
-			@RequestParam(required = false) RequestImageType imageType) {
-		return ResponseEntity.ok(ApiResponse.success("이미지 목록 조회 완료", requestImageService.getImages(requestId, imageType)));
+			@RequestParam(required = false) RequestImageType imageType, Authentication authentication) {
+		return ResponseEntity.ok(ApiResponse.success("이미지 목록 조회 완료",
+				requestImageService.getImages(requestId, imageType, getMemberId(authentication))));
 	}
 
 	@DeleteMapping("/{requestId}/images/{imageId}")

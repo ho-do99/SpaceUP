@@ -14,6 +14,7 @@ public class ContractorQuoteResponse {
 	private final Long id;
 	private final Long requestId;
 	private final Long contractorId;
+	private final String contractorName;
 	private final String title;
 	private final String startDate;
 	private final Integer durationDays;
@@ -28,6 +29,7 @@ public class ContractorQuoteResponse {
 		this.id = quote.getId();
 		this.requestId = quote.getRequest().getId();
 		this.contractorId = quote.getContractor().getId();
+		this.contractorName = quote.getContractor().getName();
 		this.title = quote.getTitle();
 		this.startDate = quote.getStartDate();
 		this.durationDays = quote.getDurationDays();

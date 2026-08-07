@@ -57,11 +57,16 @@ public class ProjectService {
 		if (quote.getStatus() != QuoteStatus.ACCEPTED) {
 			throw new InvalidStatusTransitionException("수락된(ACCEPTED) 견적만 계약 전환할 수 있습니다.");
 		}
+		if (quote.getRequest().getContractor() == null
+				|| !quote.getRequest().getContractor().getId().equals(contractorId)) {
+			throw new InvalidStatusTransitionException("최종 선택된 시공사만 계약 전환할 수 있습니다.");
+		}
 		if (contractorProjectRepository.existsByRequestId(quote.getRequest().getId())) {
 			throw new InvalidStatusTransitionException("이미 계약 전환된 의뢰입니다.");
 		}
 
-		boolean visitCompleted = siteVisitRepository.findByRequestId(quote.getRequest().getId())
+		boolean visitCompleted = siteVisitRepository
+				.findByRequestIdAndContractorId(quote.getRequest().getId(), contractorId)
 				.map(visit -> visit.getStatus() == SiteVisitStatus.COMPLETED).orElse(false);
 
 		String constructionItems = constructionItemsOverride != null && !constructionItemsOverride.isBlank()
@@ -126,6 +131,7 @@ public class ProjectService {
 		ContractorProject project = findOrThrow(projectId);
 		validateContractor(project, contractorId);
 		project.start();
+		project.getRequest().startProgress();
 
 		notificationService.notify(project.getRequest().getOwner().getId(), NotificationType.PROJECT, "공사가 시작되었습니다",
 				"공사가 착공되어 시공이 진행 중입니다.");
@@ -151,6 +157,7 @@ public class ProjectService {
 			throw new ForbiddenAccessException("본인이 등록한 의뢰의 프로젝트만 완료 확인할 수 있습니다.");
 		}
 		project.confirmCompletion();
+		project.getRequest().complete();
 		contractorProfileService.increaseCompletedProject(project.getRequest().getContractor().getId());
 
 		notificationService.notify(project.getRequest().getContractor().getId(), NotificationType.PROJECT,

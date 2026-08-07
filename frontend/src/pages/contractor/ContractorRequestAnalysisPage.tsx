@@ -6,11 +6,13 @@ import ContractorRequestDetailLayout from '@/components/contractor/ContractorReq
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import ContractorRequestNotFound from './ContractorRequestNotFound'
+import useContractorRequest from '@/hooks/useContractorRequest'
 
 export default function ContractorRequestAnalysisPage() {
   const { requestId } = useParams()
   const navigate = useNavigate()
-  const request = findContractorRequestDetail(requestId)
+  const liveRequest = useContractorRequest(requestId)
+  const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectedReason, setRejectedReason] = useState('')
 

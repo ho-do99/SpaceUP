@@ -29,8 +29,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 // ⭐ [프론트 연동] "공사 진행률" 화면(ContractorProject). 견적이 수락(ContractorQuote.ACCEPTED)된 뒤
-// 시공사가 "계약 전환"하면 생성됩니다. ScheduleEvent(공사 일정)와는 별개 도메인입니다 - ScheduleEvent는 PDF
-// "일정관리"의 단순 착공 일정이고, 이 엔티티는 실제 프론트가 쓰는 체크리스트/단계별 진행 화면입니다.
+// 시공사가 "계약 전환"하면 생성되며, 실제 프론트의 착공·완공 일정과 체크리스트/단계별 진행 화면을 담당합니다.
 @Entity
 @Table(name = "contractor_projects")
 @Getter

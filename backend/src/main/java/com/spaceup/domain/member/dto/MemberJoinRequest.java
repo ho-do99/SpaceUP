@@ -17,7 +17,7 @@ import com.spaceup.domain.member.entity.MemberRole;
 public class MemberJoinRequest {
 
 	// ⭐ PDF 로그인/회원가입 화면의 "로그인 유형" 선택값. ADMIN은 이 API로 가입시키지 않고 별도 관리자 등록 절차로 뺍니다.
-	@NotNull(message = "회원 유형(임대인/시공사/자재업체)을 선택해 주세요.")
+	@NotNull(message = "회원 유형(임대인/시공사)을 선택해 주세요.")
 	private MemberRole role;
 
 	@NotBlank(message = "아이디는 필수 입력 사항입니다.")

@@ -1,79 +1,209 @@
 import { Link } from 'react-router-dom'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
-import { homeFeatures, homeRecommendations } from '@/mocks/userHome'
+
+import hero3D from '@/assets/user/home/hero-3d.svg'
+import recommendationInterior from '@/assets/user/home/recommendation-interior.svg'
+
+import {
+  homeFeatures,
+  homeFlowSteps,
+  homeRecommendations,
+} from '@/mocks/userHome'
 
 export default function HomePage() {
   return (
     <UserScreenShell>
       <UserHeader variant="main" />
 
-      <main className="flex-1 overflow-y-auto overflow-x-hidden pb-[calc(32px+env(safe-area-inset-bottom))]">
-        <section className="relative mt-4 h-[215px] overflow-hidden bg-[linear-gradient(151.2deg,#ffffff_45%,#edf4fc_100%)] px-6 py-7">
-          <h1 className="break-keep text-[24px] font-bold leading-[34px] text-[#0f274a]">
-            빌라·아파트 데이터 분석으로
-            <span className="block">
-              공간 <span className="text-[#2563eb]">가치를 높이세요</span>
-            </span>
-          </h1>
-          <p className="mt-2 text-[10px] leading-4 text-[#15284c]">
-            공간 분석부터 추천, 견적, 가치 상승 인사이트까지
-            <span className="block">한 번에 확인하세요.</span>
-          </p>
-          <Link
-            to="/analysis/new/property"
-            className="mt-2.5 flex h-9 w-[200px] items-center justify-center rounded-[5px] border border-[#2563eb] bg-[#2563eb] text-[12px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
-          >
-            분석 시작하기
-          </Link>
+      <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f7faff]">
+        <div className="flex w-full flex-col gap-3 px-4 pb-6 pt-[14px]">
+          {/* 히어로 */}
+          <section className="relative h-[220px] w-full shrink-0 overflow-hidden rounded-[16px] bg-white">
+            <div
+              aria-hidden="true"
+              className="absolute -top-7 left-[235px] size-[180px] rounded-full bg-[#eff6ff] opacity-45"
+            />
 
-          <div
-            aria-hidden="true"
-            className="absolute bottom-[-5px] right-[-4px] flex items-end opacity-25"
-          >
-            <span className="h-[70px] w-[42px] border-[3px] border-[#9cbce4]" />
-            <span className="h-[105px] w-[42px] border-[3px] border-[#9cbce4]" />
-            <span className="h-[85px] w-[42px] border-[3px] border-[#9cbce4]" />
-          </div>
-        </section>
+            <div
+              aria-hidden="true"
+              className="absolute left-[290px] top-[118px] size-[95px] rounded-[48px] bg-[#f3f7ff] opacity-25"
+            />
 
-        <section
-          aria-label="SpaceUP 주요 기능"
-          className="mx-[19px] mt-[18px] grid min-h-[130px] grid-cols-3 rounded-[9px] bg-white px-2 py-[18px] shadow-[0_5px_18px_rgba(23,63,113,0.08)]"
-        >
-          {homeFeatures.map((feature, index) => (
-            <article
-              key={feature.title}
-              className={`flex min-w-0 flex-col items-center px-[7px] text-center ${
-                index < homeFeatures.length - 1 ? 'border-r border-[#e3e8f0]' : ''
-              }`}
+            <h1 className="absolute left-[13px] top-[10px] w-[333px] break-keep text-[16.5px] font-bold leading-6 text-[#0f2545]">
+              평면도 분석부터
+              <span className="block">
+                AI 스타일 시뮬레이션까지
+              </span>
+              <span className="block">
+                우리 집 인테리어를{' '}
+                <span className="text-[#2563eb]">
+                  더 쉽게
+                </span>
+              </span>
+            </h1>
+
+            <p className="absolute left-[13px] top-[91px] w-[198px] break-keep text-[9.5px] leading-4 text-[#63748d]">
+              AI가 평면도를 분석하고 3D 모델을 보여드려요.
+              <span className="block">
+                스타일을 선택하면 Before/After 이미지를 생성하고
+                예상 견적과 시공사까지 한 번에 연결해 드려요.
+              </span>
+            </p>
+
+            <Link
+              to="/analysis/new/property"
+              className="absolute left-[13px] top-[157px] flex h-9 w-[97px] items-center justify-center rounded-[9px] bg-[#2563eb] text-[12px] font-bold text-white"
             >
-              <img src={feature.icon} alt="" className="size-7 shrink-0" />
-              <h2 className="mt-2 text-[11px] font-bold leading-[13px] text-[#15284c]">
-                {feature.title}
+              분석 시작하기
+            </Link>
+
+            <img
+              src={hero3D}
+              alt=""
+              className="absolute left-[166px] top-[76px] h-[132px] w-[188px]"
+            />
+          </section>
+
+          {/* 핵심 기능 */}
+          <section
+            aria-label="SpaceUP 주요 기능"
+            className="flex h-[258px] w-full shrink-0 flex-col gap-2"
+          >
+            <div className="grid h-[83px] grid-cols-2 gap-2">
+              {homeFeatures.slice(0, 2).map((feature) => (
+                <article
+                  key={feature.title}
+                  className="relative h-[83px] overflow-hidden rounded-[12px] border border-[#e7eef9] bg-white"
+                >
+                  <div className="absolute left-[9px] top-[13px] flex h-[52px] w-11 items-center justify-center rounded-[9px] bg-[#f1f6ff]">
+                    <img
+                      src={feature.icon}
+                      alt=""
+                      className="size-6"
+                    />
+                  </div>
+
+                  <h2 className="absolute left-[63px] top-[14px] w-[98px] text-[12px] font-bold leading-[18px] text-[#172b4d]">
+                    {feature.title}
+                  </h2>
+
+                  <p className="absolute left-[63px] top-9 w-[94px] break-keep text-[9px] leading-[15px] text-[#6f7f96]">
+                    {feature.description}
+                  </p>
+                </article>
+              ))}
+            </div>
+
+            <div className="grid h-[83px] grid-cols-2 gap-2">
+              {homeFeatures.slice(2, 4).map((feature) => (
+                <article
+                  key={feature.title}
+                  className="relative h-[83px] overflow-hidden rounded-[12px] border border-[#e7eef9] bg-white"
+                >
+                  <div className="absolute left-[9px] top-[13px] flex h-[52px] w-11 items-center justify-center rounded-[9px] bg-[#f1f6ff]">
+                    <img
+                      src={feature.icon}
+                      alt=""
+                      className="size-6"
+                    />
+                  </div>
+
+                  <h2 className="absolute left-[63px] top-[14px] w-[98px] text-[12px] font-bold leading-[18px] text-[#172b4d]">
+                    {feature.title}
+                  </h2>
+
+                  <p className="absolute left-[63px] top-9 w-[94px] break-keep text-[9px] leading-[15px] text-[#6f7f96]">
+                    {feature.description}
+                  </p>
+                </article>
+              ))}
+            </div>
+
+            <article className="relative h-[76px] w-full overflow-hidden rounded-[12px] border border-[#e7eef9] bg-white">
+              <img
+                src={homeFeatures[4].icon}
+                alt=""
+                className="absolute left-[9px] top-[11px] size-[52px]"
+              />
+
+              <h2 className="absolute left-[73px] top-[14px] w-[200px] text-[12px] font-bold leading-[18px] text-[#172b4d]">
+                {homeFeatures[4].title}
               </h2>
-              <p className="mt-2 break-keep text-[8px] leading-[12.8px] text-[#6d788b]">
-                {feature.description}
+
+              <p className="absolute left-[73px] top-[37px] w-[215px] text-[9.5px] leading-[15px] text-[#6f7f96]">
+                {homeFeatures[4].description}
               </p>
             </article>
-          ))}
-        </section>
+          </section>
 
-        <section className="mx-[19px] mt-[18px] rounded-[7px] border border-[#d5dfed] bg-[linear-gradient(164deg,#ffffff_0%,#edf5ff_100%)] p-[14px]">
-          <h2 className="text-[11px] font-bold leading-[13px] text-[#15284c]">
-            이런 분들께 추천해요
-          </h2>
-          <ul className="mt-[9px] space-y-0 text-[9px] leading-[17.1px] text-[#15284c]">
-            {homeRecommendations.map((recommendation) => (
-              <li key={recommendation} className="flex items-start gap-[6px]">
-                <span aria-hidden="true" className="font-extrabold text-[#0750a8]">
-                  ✓
-                </span>
-                <span>{recommendation}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+          {/* 이용 흐름 */}
+          <section className="relative h-[116px] w-full shrink-0 overflow-hidden rounded-[14px] border border-[#e7eef9] bg-white">
+            <h2 className="absolute left-[13px] top-[11px] text-[12px] font-bold leading-[18px] text-[#172b4d]">
+              이용 흐름
+            </h2>
+
+            <div className="absolute left-[13px] right-[13px] top-[38px] grid grid-cols-5">
+              {homeFlowSteps.map((item, index) => (
+                <div
+                  key={item.step}
+                  className="relative flex flex-col items-center"
+                >
+                  {index < homeFlowSteps.length - 1 ? (
+                    <div
+                      aria-hidden="true"
+                      className="absolute left-[calc(50%+13px)] top-[10px] w-[46px] border-t border-dashed border-[#bdd3f5]"
+                    />
+                  ) : null}
+
+                  <div className="relative z-10 flex size-5 items-center justify-center rounded-full bg-[#eaf2ff] text-[9px] font-bold text-[#2563eb]">
+                    {item.step}
+                  </div>
+
+                  <img
+                    src={item.icon}
+                    alt=""
+                    className="mt-[5px] size-6"
+                  />
+
+                  <span className="mt-[3px] whitespace-nowrap text-[8px] font-bold leading-[14px] text-[#314966]">
+                    {item.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* 추천 대상 */}
+          <section className="relative h-[132px] w-full shrink-0 overflow-hidden rounded-[14px] border border-[#e7eef9] bg-white">
+            <h2 className="absolute left-[13px] top-[11px] text-[12px] font-bold leading-[18px] text-[#172b4d]">
+              이런 분들께 추천해요
+            </h2>
+
+            <ul className="absolute left-[13px] top-[41px] space-y-2">
+              {homeRecommendations.map((recommendation) => (
+                <li
+                  key={recommendation}
+                  className="flex h-[14px] items-center gap-2"
+                >
+                  <span className="flex size-[14px] shrink-0 items-center justify-center rounded-full bg-[#2563eb] text-[8px] font-black text-white">
+                    ✓
+                  </span>
+
+                  <span className="text-[9px] leading-4 text-[#40536d]">
+                    {recommendation}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <img
+              src={recommendationInterior}
+              alt=""
+              className="absolute left-[250px] top-[21px] h-[98px] w-[100px]"
+            />
+          </section>
+        </div>
       </main>
     </UserScreenShell>
   )

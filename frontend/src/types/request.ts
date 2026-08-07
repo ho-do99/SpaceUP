@@ -1,5 +1,5 @@
 export type PropertyType = 'APARTMENT' | 'VILLA' | string
-export type RequestImageType = 'FLOOR_PLAN' | 'PHOTO'
+export type RequestImageType = 'FLOOR_PLAN' | 'PHOTO' | 'AI_GENERATED'
 
 export interface RequestCreateInput {
   region: string
@@ -15,7 +15,14 @@ export interface RequestCreateInput {
   requestedItems?: string
 }
 
-export type RequestUpdateInput = Partial<RequestCreateInput>
+export type MaterialTheme = 'MODERN' | 'WOOD' | 'WHITE' | 'MARBLE'
+
+export type RequestUpdateInput = Partial<RequestCreateInput> & {
+  selectedTheme?: MaterialTheme
+  selectedWallpaperProductId?: number
+  selectedFlooringProductId?: number
+  selectedLightingProductId?: number
+}
 
 export interface RequestResponse extends RequestCreateInput {
   id: number
@@ -28,8 +35,13 @@ export interface RequestResponse extends RequestCreateInput {
   rejectReasonDetail?: string | null
   matchingScore?: number | null
   acceptedQuoteAmount?: number | null
+  participationStatus?: 'INVITED' | 'APPROVED' | 'REJECTED' | 'SELECTED' | 'CLOSED' | null
   createdAt?: string
   lastActivityAt?: string
+  selectedTheme?: MaterialTheme | null
+  selectedWallpaperProductId?: number | null
+  selectedFlooringProductId?: number | null
+  selectedLightingProductId?: number | null
 }
 
 export interface RequestImageInput {

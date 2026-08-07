@@ -25,9 +25,11 @@ public class SiteVisitController {
 
 	@GetMapping("/request/{requestId}")
 	public ResponseEntity<ApiResponse<SiteVisitResponse>> getByRequest(@PathVariable Long requestId,
+			@RequestParam(required = false) Long contractorId,
 			Authentication authentication) {
 		return ResponseEntity.ok(
-				ApiResponse.success("방문 일정 조회 완료", siteVisitService.getByRequest(requestId, getMemberId(authentication))));
+				ApiResponse.success("방문 일정 조회 완료",
+						siteVisitService.getByRequest(requestId, contractorId, getMemberId(authentication))));
 	}
 
 	@PostMapping("/request/{requestId}/register")

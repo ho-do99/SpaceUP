@@ -143,7 +143,7 @@ public class ContractorProfile extends BaseTimeEntity {
 		this.availableForConsult = availableForConsult;
 	}
 
-	// ⭐ 시공 완료(ScheduleEvent.complete()) 시점에 호출해 실적을 누적하는 확장 지점
+	// 임대인이 프로젝트 완료를 최종 확인한 시점에 시공 실적을 누적합니다.
 	public void increaseCompletedProject() {
 		this.completedProjectCount++;
 	}

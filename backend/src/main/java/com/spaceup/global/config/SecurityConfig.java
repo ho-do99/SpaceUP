@@ -1,9 +1,11 @@
 package com.spaceup.global.config;
 
 import java.util.List;
+import java.util.Arrays;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -27,6 +29,9 @@ public class SecurityConfig {
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+	@Value("${app.cors.allowed-origins}")
+	private String allowedOrigins;
+
 	@Bean
 	public PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();
@@ -37,7 +42,10 @@ public class SecurityConfig {
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
-		config.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173"));
+		config.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
+				.map(String::trim)
+				.filter(origin -> !origin.isBlank())
+				.toList());
 		config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
 		config.setAllowCredentials(true);
@@ -76,7 +84,8 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/api/portfolios/me").authenticated()
 						.requestMatchers(HttpMethod.GET, "/api/portfolios/*", "/api/portfolios/contractor/*")
 						.permitAll()
-						.requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/material-products", "/api/material-products/*")
+						.permitAll()
 						// ⭐ [프론트 연동] "아파트/평면도 검색"은 로그인 없이 조회 가능, 등록은 관리자만
 						.requestMatchers(HttpMethod.GET, "/api/floorplans/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/floorplans/**").hasRole("ADMIN")

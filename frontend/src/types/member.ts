@@ -1,7 +1,6 @@
 export type MemberRole =
   | 'LANDLORD'
   | 'CONTRACTOR'
-  | 'MATERIAL_VENDOR'
   | 'ADMIN'
 
 export type MemberApprovalStatus =

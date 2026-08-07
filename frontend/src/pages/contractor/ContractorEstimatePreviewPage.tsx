@@ -26,14 +26,17 @@ import useContractorPortalFlow from '@/components/contractor/useContractorPortal
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
+import useContractorRequest from '@/hooks/useContractorRequest'
+import { submitQuote } from '@/api/estimateApi'
+import { getStoredQuoteId } from '@/utils/quoteDraft'
 
 export default function ContractorEstimatePreviewPage() {
   const { requestId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
-  const request =
-    findContractorRequestDetail(requestId)
+  const liveRequest = useContractorRequest(requestId)
+  const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
 
   const {
     visitStatus,
@@ -56,6 +59,8 @@ export default function ContractorEstimatePreviewPage() {
 
   const [submitOpen, setSubmitOpen] =
     useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const closeSubmit = useCallback(
     () => setSubmitOpen(false),
@@ -93,7 +98,24 @@ export default function ContractorEstimatePreviewPage() {
     )
   }
 
-  const submit = () => {
+  const submit = async () => {
+    if (requestId && /^\d+$/.test(requestId)) {
+      const quoteId = getStoredQuoteId(Number(requestId))
+      if (!quoteId) {
+        setSubmitError('저장된 임시 견적을 찾을 수 없습니다. 이전 화면에서 먼저 저장해 주세요.')
+        setSubmitOpen(false)
+        return
+      }
+      setIsSubmitting(true)
+      setSubmitError('')
+      try { await submitQuote(quoteId) } catch (error) {
+        setSubmitError(error instanceof Error ? error.message : '견적 제출에 실패했습니다.')
+        setIsSubmitting(false)
+        setSubmitOpen(false)
+        return
+      }
+      setIsSubmitting(false)
+    }
     if (isRevision) {
       resubmitEstimate(estimateDraft)
     } else {
@@ -123,6 +145,7 @@ export default function ContractorEstimatePreviewPage() {
           <h2 className="text-xl font-bold text-[#0f172a]">
             SpaceUP 견적서
           </h2>
+          {submitError ? <p role="alert" className="mt-3 rounded-lg bg-[#fef2f2] px-3 py-2 text-xs text-[#b91c1c]">{submitError}</p> : null}
 
           <p className="mt-1 text-[11px] leading-4 text-[#64748b]">
             견적번호 SP-20260724-001
@@ -344,7 +367,7 @@ export default function ContractorEstimatePreviewPage() {
       <ContractorEstimateSubmitDialog
         open={submitOpen}
         onClose={closeSubmit}
-        onSubmit={submit}
+        onSubmit={() => { if (!isSubmitting) void submit() }}
         mode={
           isRevision
             ? 'resubmit'

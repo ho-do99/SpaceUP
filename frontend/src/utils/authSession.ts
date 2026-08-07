@@ -7,7 +7,6 @@ const USER_ROLE_KEY = 'role'
 const userRoles: readonly UserRole[] = [
   'LANDLORD',
   'CONTRACTOR',
-  'MATERIAL_VENDOR',
   'ADMIN',
 ]
 

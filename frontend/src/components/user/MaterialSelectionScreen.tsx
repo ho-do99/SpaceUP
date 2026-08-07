@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import Button from '@/components/Button'
 import MaterialFilterChips from '@/components/user/MaterialFilterChips'
 import MaterialProductCard from '@/components/user/MaterialProductCard'
@@ -28,6 +28,12 @@ export default function MaterialSelectionScreen({
   const [selectedFilter, setSelectedFilter] = useState<MaterialFilterId>('recommended')
   const [selectedProductId, setSelectedProductId] = useState(initialProductId)
   const sortedProducts = sortMaterialProducts(products, selectedFilter)
+
+  useEffect(() => {
+    if (products.length > 0 && !products.some((product) => product.id === selectedProductId)) {
+      setSelectedProductId(products[0].id)
+    }
+  }, [products, selectedProductId])
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()

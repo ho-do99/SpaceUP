@@ -3,6 +3,7 @@ package com.spaceup.domain.request.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import com.spaceup.domain.notification.service.NotificationService;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.entity.RequestStatus;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
+import com.spaceup.domain.request.repository.RequestContractorRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
  * 운영 반영 시 확인 필요: fixedDelay 주기는 우선 10분으로 잡아뒀습니다. 트래픽/서버 스펙에 맞게 조정하세요.
  */
 @Component
+@ConditionalOnProperty(name = "app.scheduling.request-auto-cancel.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 @Slf4j
 public class RequestAutoCancelScheduler {
@@ -35,6 +38,7 @@ public class RequestAutoCancelScheduler {
 			RequestStatus.QUOTE_REQUESTED, RequestStatus.APPROVED);
 
 	private final QuoteRequestRepository quoteRequestRepository;
+	private final RequestContractorRepository requestContractorRepository;
 	private final NotificationService notificationService;
 
 	@Scheduled(fixedDelay = 10 * 60 * 1000L) // 10분마다 실행
@@ -52,11 +56,11 @@ public class RequestAutoCancelScheduler {
 			request.markWarningSent();
 			notificationService.notify(request.getOwner().getId(), NotificationType.REQUEST, "의뢰 자동 취소 D-1 안내",
 					String.format("%s 의뢰가 24시간 내 유효 활동이 없으면 자동 취소됩니다.", request.getRequestCode()));
-			if (request.getContractor() != null) {
-				notificationService.notify(request.getContractor().getId(), NotificationType.REQUEST,
+			requestContractorRepository.findByRequestId(request.getId()).stream()
+					.filter(participation -> participation.canContact())
+					.forEach(participation -> notificationService.notify(participation.getContractor().getId(), NotificationType.REQUEST,
 						"의뢰 자동 취소 D-1 안내",
-						String.format("%s 의뢰가 24시간 내 유효 활동이 없으면 자동 취소됩니다.", request.getRequestCode()));
-			}
+						String.format("%s 의뢰가 24시간 내 유효 활동이 없으면 자동 취소됩니다.", request.getRequestCode())));
 			log.info("[Request 자동취소 D-1 경고] requestId={}, code={}", request.getId(), request.getRequestCode());
 		}
 	}
@@ -69,11 +73,11 @@ public class RequestAutoCancelScheduler {
 			request.cancel();
 			notificationService.notify(request.getOwner().getId(), NotificationType.REQUEST, "의뢰가 자동 취소되었습니다",
 					String.format("%s 의뢰가 168시간 동안 유효 활동이 없어 자동 취소되었습니다.", request.getRequestCode()));
-			if (request.getContractor() != null) {
-				notificationService.notify(request.getContractor().getId(), NotificationType.REQUEST,
+			requestContractorRepository.findByRequestId(request.getId()).stream()
+					.filter(participation -> participation.canContact())
+					.forEach(participation -> notificationService.notify(participation.getContractor().getId(), NotificationType.REQUEST,
 						"의뢰가 자동 취소되었습니다",
-						String.format("%s 의뢰가 168시간 동안 유효 활동이 없어 자동 취소되었습니다.", request.getRequestCode()));
-			}
+						String.format("%s 의뢰가 168시간 동안 유효 활동이 없어 자동 취소되었습니다.", request.getRequestCode())));
 			log.info("[Request 자동취소] requestId={}, code={}", request.getId(), request.getRequestCode());
 		}
 	}
