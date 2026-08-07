@@ -27,6 +27,12 @@
 - 조치: localhost에서만 로컬 백엔드를 사용하고, 배포 도메인에서는 현재 origin의 `/api` Nginx reverse proxy를 사용한다.
 - 영향: 화면 디자인과 API 경로는 변경하지 않는다. 로그인, 회원가입 API, 이미지 업로드를 포함한 모든 브라우저 API 요청이 배포 백엔드로 향한다.
 
+## 배포 CORS 보완
+
+- 원인: 브라우저는 HTTPS 도메인에서 POST 요청 시 Origin 헤더를 포함한다. 기존 보안 설정은 localhost Origin만 하드코딩해 로그인 요청을 403으로 차단했다.
+- 조치: `app.cors.allowed-origins` 설정값을 읽도록 변경하고, 로컬 개발 주소와 현재 HTTPS 도메인을 기본 허용 목록에 포함한다.
+- 영향: 인증·이미지 업로드 등 브라우저 POST 요청이 Nginx 경유 백엔드로 정상 전달된다. DB 변경은 없다.
+
 ## 사설 서버 비밀 환경변수
 
 `/home/ubuntu/spaceup-secret.env`에만 다음 값을 둔다. Access Key와 Secret Key는 Git, Docker 이미지, 채팅에 기록하지 않는다.
