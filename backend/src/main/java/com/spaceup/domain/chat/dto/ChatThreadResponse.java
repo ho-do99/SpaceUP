@@ -8,6 +8,7 @@ import com.spaceup.domain.request.entity.RequestStatus;
 // 임대인 입장이면 시공사 이름입니다.
 public record ChatThreadResponse(
 		Long requestId,
+		Long contractorId,
 		String requestCode,
 		String counterpartName,
 		RequestStatus requestStatus,

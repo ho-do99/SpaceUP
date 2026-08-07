@@ -1,0 +1,36 @@
+import { useEffect, useState } from 'react'
+import { getAnalysis } from '@/api/analysisApi'
+import { getRequest, getRequestImages } from '@/api/requestApi'
+import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
+import type { ContractorRequestDetail } from '@/types/contractorPortal'
+import { requestToContractorDetail } from '@/utils/contractorRequestAdapter'
+
+export default function useContractorRequest(requestId?: string) {
+  const [request, setRequest] = useState<ContractorRequestDetail | null>(() => findContractorRequestDetail(requestId) ?? null)
+  const [loading, setLoading] = useState(Boolean(requestId && /^\d+$/.test(requestId)))
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!requestId || !/^\d+$/.test(requestId)) return
+    let active = true
+    const id = Number(requestId)
+    setLoading(true)
+    Promise.all([
+      getRequest(id),
+      getRequestImages(id).catch(() => []),
+      getAnalysis(id).catch(() => null),
+    ]).then(([response, images, analysis]) => {
+      if (active) setRequest(requestToContractorDetail(response, images, analysis))
+    }).catch((caught) => {
+      if (active) {
+        setRequest(null)
+        setError(caught instanceof Error ? caught.message : '의뢰 조회에 실패했습니다.')
+      }
+    }).finally(() => {
+      if (active) setLoading(false)
+    })
+    return () => { active = false }
+  }, [requestId])
+
+  return { request, loading, error }
+}

@@ -33,6 +33,13 @@ public class ContractorQuoteController {
 		return ResponseEntity.ok(ApiResponse.success("견적이 임시 저장되었습니다.", quoteId));
 	}
 
+	@PatchMapping("/{quoteId}")
+	public ResponseEntity<ApiResponse<Void>> updateDraft(@PathVariable Long quoteId,
+			@Valid @RequestBody ContractorQuoteCreateRequest request, Authentication authentication) {
+		contractorQuoteService.updateDraft(quoteId, getMemberId(authentication), request);
+		return ResponseEntity.ok(ApiResponse.success("임시 견적이 수정되었습니다.", null));
+	}
+
 	@GetMapping("/{quoteId}")
 	public ResponseEntity<ApiResponse<ContractorQuoteResponse>> getQuote(@PathVariable Long quoteId,
 			Authentication authentication) {

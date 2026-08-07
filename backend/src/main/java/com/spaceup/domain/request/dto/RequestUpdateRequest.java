@@ -1,5 +1,7 @@
 package com.spaceup.domain.request.dto;
 
+import com.spaceup.domain.material.entity.MaterialTheme;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,4 +24,9 @@ public class RequestUpdateRequest {
 	private Long budgetMax;
 	private String desiredDate;
 	private String requestedItems;
+
+	private MaterialTheme selectedTheme;
+	private Long selectedWallpaperProductId;
+	private Long selectedFlooringProductId;
+	private Long selectedLightingProductId;
 }

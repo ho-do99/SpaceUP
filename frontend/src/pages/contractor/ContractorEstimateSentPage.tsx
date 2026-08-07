@@ -17,13 +17,14 @@ import useContractorPortalFlow from '@/components/contractor/useContractorPortal
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
+import useContractorRequest from '@/hooks/useContractorRequest'
 
 export default function ContractorEstimateSentPage() {
   const { requestId } = useParams()
   const [searchParams] = useSearchParams()
 
-  const request =
-    findContractorRequestDetail(requestId)
+  const liveRequest = useContractorRequest(requestId)
+  const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
 
   const {
     visitStatus,

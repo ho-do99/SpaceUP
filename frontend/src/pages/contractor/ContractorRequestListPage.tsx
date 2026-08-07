@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { getAssignedRequests } from '@/api/contractorApi'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorEmptyState from '@/components/contractor/ContractorEmptyState'
@@ -6,6 +7,8 @@ import ContractorMobileShell from '@/components/contractor/ContractorMobileShell
 import ContractorRequestCard from '@/components/contractor/ContractorRequestCard'
 import { contractorRequests } from '@/mocks/contractorPortalMockData'
 import type { ContractorRequestFilter } from '@/types/contractorPortal'
+import type { ContractorRequest } from '@/types/contractorPortal'
+import { requestToContractorCard } from '@/utils/contractorRequestAdapter'
 
 const filters: readonly { id: ContractorRequestFilter; label: string }[] = [
   { id: 'all', label: '전체' },
@@ -17,11 +20,20 @@ const filters: readonly { id: ContractorRequestFilter; label: string }[] = [
 export default function ContractorRequestListPage() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<ContractorRequestFilter>('all')
+  const [requests, setRequests] = useState<readonly ContractorRequest[]>(contractorRequests)
+  const [loadNotice, setLoadNotice] = useState('')
+
+  useEffect(() => {
+    getAssignedRequests({ size: 100 }).then((page) => {
+      const content = Array.isArray(page) ? page : page.content
+      setRequests(content.map(requestToContractorCard))
+    }).catch(() => setLoadNotice('실제 의뢰를 불러오지 못해 예시 데이터를 표시합니다.'))
+  }, [])
 
   const visibleRequests = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ko-KR').replace(/\s+/g, '')
 
-    return contractorRequests.filter((request) => {
+    return requests.filter((request) => {
       const searchable = `${request.requestId}${request.property.region}${request.property.propertyType}`.toLocaleLowerCase('ko-KR').replace(/\s+/g, '')
       const matchesSearch = !normalizedQuery || searchable.includes(normalizedQuery)
       const matchesFilter = filter === 'all'
@@ -31,7 +43,7 @@ export default function ContractorRequestListPage() {
 
       return matchesSearch && matchesFilter
     })
-  }, [filter, query])
+  }, [filter, query, requests])
 
   return (
     <ContractorMobileShell>
@@ -50,6 +62,7 @@ export default function ContractorRequestListPage() {
         <div className="mt-4 space-y-3">
           {visibleRequests.length ? visibleRequests.map((request) => <ContractorRequestCard key={request.requestId} request={request} />) : <ContractorEmptyState title="검색 결과가 없습니다" description="검색어나 상태 필터를 변경해 다시 확인해 주세요." />}
         </div>
+        <p role="status" className="mt-3 text-center text-[10px] text-[#64748b]">{loadNotice}</p>
       </main>
       <ContractorBottomNavigation />
     </ContractorMobileShell>

@@ -5,7 +5,6 @@ import type { LoginRequest, LoginResponse, UserRole } from '@/types/auth'
 const userRoles: readonly UserRole[] = [
   'LANDLORD',
   'CONTRACTOR',
-  'MATERIAL_VENDOR',
   'ADMIN',
 ]
 

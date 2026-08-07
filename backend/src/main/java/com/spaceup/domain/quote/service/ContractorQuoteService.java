@@ -21,6 +21,9 @@ import com.spaceup.domain.quote.entity.ContractorQuoteItem;
 import com.spaceup.domain.quote.entity.QuoteStatus;
 import com.spaceup.domain.quote.repository.ContractorQuoteRepository;
 import com.spaceup.domain.request.entity.QuoteRequest;
+import com.spaceup.domain.request.entity.RequestContractor;
+import com.spaceup.domain.request.entity.RequestContractorStatus;
+import com.spaceup.domain.request.repository.RequestContractorRepository;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
 import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.InvalidStatusTransitionException;
@@ -39,6 +42,7 @@ public class ContractorQuoteService {
 	private static final int DEFAULT_VALIDITY_DAYS = 14;
 
 	private final ContractorQuoteRepository contractorQuoteRepository;
+	private final RequestContractorRepository requestContractorRepository;
 	private final QuoteRequestRepository quoteRequestRepository;
 	private final MemberRepository memberRepository;
 	private final NotificationService notificationService;
@@ -50,10 +54,11 @@ public class ContractorQuoteService {
 	public Long createDraft(Long contractorId, ContractorQuoteCreateRequest dto) {
 		QuoteRequest request = quoteRequestRepository.findById(dto.getRequestId())
 				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + dto.getRequestId()));
-		// ⭐ [보안 수정] 배정받지 않은 시공사가 견적을 작성하면 이후 계약전환/프로젝트 진행 단계에서
-		// request.getContractor()가 이 견적의 작성자와 달라 NPE가 나던 문제를 원천 차단합니다.
-		if (request.getContractor() == null || !request.getContractor().getId().equals(contractorId)) {
-			throw new ForbiddenAccessException("본인에게 배정된 의뢰에만 견적을 작성할 수 있습니다.");
+		RequestContractor participation = requestContractorRepository
+				.findByRequestIdAndContractorId(request.getId(), contractorId)
+				.orElseThrow(() -> new ForbiddenAccessException("견적 참여를 요청받은 의뢰에만 견적을 작성할 수 있습니다."));
+		if (participation.getStatus() != RequestContractorStatus.APPROVED) {
+			throw new InvalidStatusTransitionException("참여를 승인한 뒤 견적을 작성할 수 있습니다.");
 		}
 		Member contractor = memberRepository.findById(contractorId)
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 시공사입니다: " + contractorId));
@@ -73,6 +78,23 @@ public class ContractorQuoteService {
 		quote.recalculateTotal();
 		contractorQuoteRepository.save(quote);
 		return quote.getId();
+	}
+
+	@Transactional
+	public void updateDraft(Long quoteId, Long contractorId, ContractorQuoteCreateRequest dto) {
+		ContractorQuote quote = findQuoteOrThrow(quoteId);
+		validateContractorOwnership(quote, contractorId);
+		if (!quote.getRequest().getId().equals(dto.getRequestId())) {
+			throw new InvalidStatusTransitionException("견적이 속한 의뢰 번호는 변경할 수 없습니다.");
+		}
+		long itemTotal = sumByCategory(dto.getItems());
+		List<ContractorQuoteItem> items = dto.getItems().stream()
+				.map(item -> ContractorQuoteItem.builder().category(item.getCategory())
+						.description(item.getDescription()).amount(item.getAmount()).build())
+				.toList();
+		quote.updateDraft(dto.getTitle(), dto.getStartDate(), dto.getDurationDays(),
+				dto.getMaterialCost() != null ? dto.getMaterialCost() : itemTotal,
+				dto.getLaborCost(), dto.getVat(), dto.getDiscount(), dto.getDetailContent(), items);
 	}
 
 	// ⭐ PDF "견적 제안 보내기" 버튼 - 작성한 시공사 본인만 발송 가능. 임대인에게 알림
@@ -95,6 +117,8 @@ public class ContractorQuoteService {
 	public void accept(Long quoteId, Long landlordId) {
 		ContractorQuote quote = findQuoteOrThrow(quoteId);
 		validateLandlordOwnership(quote, landlordId);
+		quoteRequestRepository.findByIdForUpdate(quote.getRequest().getId())
+				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + quote.getRequest().getId()));
 		// ⭐ [보안 수정] 이미 이 의뢰에 수락된 견적이 있으면 중복 수락을 막습니다(두 시공사가 모두 낙찰됐다고
 		// 알림을 받는 것을 방지).
 		contractorQuoteRepository
@@ -103,6 +127,14 @@ public class ContractorQuoteService {
 					throw new InvalidStatusTransitionException("이미 이 의뢰에 수락된 견적이 있습니다.");
 				});
 		quote.accept();
+		RequestContractor selected = requestContractorRepository
+				.findByRequestIdAndContractorId(quote.getRequest().getId(), quote.getContractor().getId())
+				.orElseThrow(() -> new InvalidStatusTransitionException("견적 참여 정보가 없어 시공사를 확정할 수 없습니다."));
+		selected.select();
+		requestContractorRepository.findByRequestId(quote.getRequest().getId()).stream()
+				.filter(participation -> !participation.getId().equals(selected.getId()))
+				.forEach(RequestContractor::close);
+		quote.getRequest().selectContractor(quote.getContractor());
 		applyConfirmedRentalValue(quote);
 
 		notificationService.notify(quote.getContractor().getId(), NotificationType.QUOTE, "견적이 선택되었습니다",

@@ -7,6 +7,9 @@ import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import SpaceSelectionCard from '@/components/user/SpaceSelectionCard'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { uploadImage } from '@/api/fileApi'
+import { attachRequestImage } from '@/api/requestApi'
+import { getActiveRequestId } from '@/utils/requestFlow'
 import {
   analyzedSpaceOptions,
   analyzedSpaceSummary,
@@ -24,6 +27,7 @@ export default function SpaceInformationPage() {
   )
   const [photos, setPhotos] = useState<ReadonlyArray<File>>([])
   const [photoError, setPhotoError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
 
   const photoPreviews = useMemo(
     () => photos.map((photo) => URL.createObjectURL(photo)),
@@ -72,14 +76,32 @@ export default function SpaceInformationPage() {
     setPhotoError('')
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     if (!canContinue) {
       return
     }
 
-    navigate('/analysis/style')
+    const requestId = getActiveRequestId()
+    setIsSaving(true)
+    setPhotoError('')
+    try {
+      if (requestId && photos.length > 0) {
+        for (const photo of photos) {
+          const uploaded = await uploadImage(photo)
+          await attachRequestImage(requestId, {
+            imageType: 'PHOTO',
+            imageUrl: uploaded.imageUrl,
+          })
+        }
+      }
+      navigate('/analysis/style')
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : '공간 사진 저장에 실패했습니다.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -253,7 +275,8 @@ export default function SpaceInformationPage() {
         <footer className="shrink-0 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
           <Button
             type="submit"
-            disabled={!canContinue}
+            disabled={!canContinue || isSaving}
+            isLoading={isSaving}
             className={`h-12 w-full !rounded-[5px] !border !px-4 !py-0 !text-[12px] !font-bold !shadow-none hover:!translate-y-0 hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] ${
               canContinue
                 ? '!border-[#2563eb] !bg-[#2563eb] hover:!bg-[#2563eb]'

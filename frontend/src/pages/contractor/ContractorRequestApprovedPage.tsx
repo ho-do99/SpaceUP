@@ -5,10 +5,12 @@ import ContractorMobileShell from '@/components/contractor/ContractorMobileShell
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import ContractorRequestNotFound from './ContractorRequestNotFound'
+import useContractorRequest from '@/hooks/useContractorRequest'
 
 export default function ContractorRequestApprovedPage() {
   const { requestId } = useParams()
-  const request = findContractorRequestDetail(requestId)
+  const liveRequest = useContractorRequest(requestId)
+  const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
 
   if (!request) return <ContractorRequestNotFound />
 

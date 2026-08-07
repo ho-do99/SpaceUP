@@ -29,7 +29,7 @@ public class NotificationService {
 	private static final int CONTENT_MAX_LENGTH = 300;
 
 	// ⭐ 이 메서드가 핵심 확장 지점입니다. RequestService.assignContractor(), QuoteService.submit(),
-	// ScheduleEvent 생성 시점 등에서 이 메서드를 호출해 알림을 자동 발생시키면 됩니다.
+	// 견적·현장 방문·프로젝트 상태가 바뀌는 시점에 이 메서드로 알림을 생성합니다.
 	// 예: notificationService.notify(contractor.getId(), NotificationType.REQUEST, "새 의뢰가 도착했습니다", ...)
 	// ⭐ [버그 수정] 호출부가 사용자 입력값(견적 수정요청 메모 등)을 그대로 String.format에 끼워 넣는 경우가
 	// 있어서, 합쳐진 문자열이 title/content 컬럼 길이(100/300자)를 넘으면 DataIntegrityViolationException으로

@@ -76,10 +76,10 @@ public class Member {
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "user_role", nullable = false, length = 20)
-	private MemberRole role; // ⭐ 로그인 유형(임대인/시공사/자재업체/관리자) - PDF 로그인 화면의 역할 탭에 대응
+	private MemberRole role; // 로그인 유형(임대인/시공사/관리자)
 
 	// ⭐ [Figma 반영] 기존 boolean approved를 심사 워크플로우(대기/보완요청/승인)로 승격했습니다.
-	// LANDLORD/ADMIN은 가입 즉시 APPROVED, CONTRACTOR/MATERIAL_VENDOR는 PENDING으로 시작합니다.
+	// LANDLORD/ADMIN은 가입 즉시 APPROVED, CONTRACTOR는 PENDING으로 시작합니다.
 	@Builder.Default
 	@Enumerated(EnumType.STRING)
 	@Column(name = "approval_status", nullable = false, length = 20)
@@ -166,7 +166,7 @@ public class Member {
 		this.applicationNumber = applicationNumber;
 	}
 
-	// ⭐ [상태 가드 추가] 관리자 승인 처리(시공사/자재업체 전용). 승인번호를 발급하고 보완요청 관련 필드는 비웁니다.
+	// ⭐ [상태 가드 추가] 관리자 승인 처리(시공사 전용). 승인번호를 발급하고 보완요청 관련 필드는 비웁니다.
 	// 탈퇴한 회원이나 이미 승인된 회원을 다시 승인하면(중복 클릭 등) 승인번호가 조용히 덮어써지던 문제를 막습니다.
 	public void approve(String approvalNumber) {
 		if (this.withdrawn) {
@@ -195,7 +195,7 @@ public class Member {
 
 	/**
 	 * 소프트 삭제: 계정을 비활성화하고 개인정보를 익명화합니다. username은 유니크 제약 때문에 그대로 두어 재사용을 막고(예약 처리),
-	 * 작성한 글/댓글은 이 회원의 name이 바뀌므로 자동으로 "탈퇴한 회원"으로 표시됩니다.
+	 * 과거 업무 이력은 유지하되 개인정보 노출을 줄이기 위해 표시 이름과 이메일을 익명화합니다.
 	 */
 	public void withdraw() {
 		this.name = "탈퇴한 회원";

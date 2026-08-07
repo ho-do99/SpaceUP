@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorEmptyState from '@/components/contractor/ContractorEmptyState'
@@ -6,6 +6,9 @@ import ContractorMobileShell from '@/components/contractor/ContractorMobileShell
 import ContractorProjectCard from '@/components/contractor/ContractorProjectCard'
 import useContractorPortalFlow from '@/components/contractor/useContractorPortalFlow'
 import type { ContractorProjectFilter, ContractorProjectStatus } from '@/types/contractorPortal'
+import type { ContractorProject } from '@/types/contractorPortal'
+import { getContractorProjects } from '@/api/projectApi'
+import { projectToPortal } from '@/utils/projectAdapter'
 
 const filters: readonly { id: ContractorProjectFilter; label: string; statuses?: readonly ContractorProjectStatus[] }[] = [
   { id: 'all', label: '전체' }, { id: 'visit_scheduled', label: '방문 예정', statuses: ['VISIT_SCHEDULED'] },
@@ -15,7 +18,14 @@ const filters: readonly { id: ContractorProjectFilter; label: string; statuses?:
 ]
 
 export default function ContractorProjectListPage() {
-  const { projects } = useContractorPortalFlow()
+  const { projects: mockProjects } = useContractorPortalFlow()
+  const [projects, setProjects] = useState<readonly ContractorProject[]>(mockProjects)
+  useEffect(() => {
+    getContractorProjects().then((page) => {
+      const content = Array.isArray(page) ? page : page.content
+      setProjects(content.map(projectToPortal))
+    }).catch(() => setProjects(mockProjects))
+  }, [mockProjects])
   const [filter, setFilter] = useState<ContractorProjectFilter>('all')
   const selected = filters.find((item) => item.id === filter)
   const visible = useMemo(() => selected?.statuses ? projects.filter((project) => selected.statuses?.includes(project.status)) : projects, [projects, selected])

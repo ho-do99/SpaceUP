@@ -1,26 +1,70 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { updateRequest } from '@/api/requestApi'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import MaterialSummaryCard from '@/components/user/MaterialSummaryCard'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import useEstimateFlow from '@/contexts/useEstimateFlow'
+import { useLightingProducts, useMaterialProducts } from '@/hooks/useMaterialCatalog'
 import {
   floorMaterialProducts,
   getMaterialProduct,
   lightingProducts,
   wallpaperMaterialProducts,
 } from '@/mocks/estimateMaterials'
+import { getMaterialTheme } from '@/utils/materialTheme'
+import { getActiveRequestId } from '@/utils/requestFlow'
 
 export default function EstimateSummaryPage() {
   const navigate = useNavigate()
-  const { selectedFloorId, selectedLightingId, selectedWallpaperId } = useEstimateFlow()
-  const selectedFloor = getMaterialProduct(floorMaterialProducts, selectedFloorId)
-  const selectedWallpaper = getMaterialProduct(wallpaperMaterialProducts, selectedWallpaperId)
-  const selectedLighting = getMaterialProduct(lightingProducts, selectedLightingId)
+  const {
+    selectedFloorId, selectedLightingId, selectedWallpaperId,
+    selectFloor, selectLighting, selectWallpaper,
+  } = useEstimateFlow()
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const theme = getMaterialTheme()
+  const floorProducts = useMaterialProducts(theme, 'FLOORING', floorMaterialProducts)
+  const wallpaperProducts = useMaterialProducts(theme, 'WALLPAPER', wallpaperMaterialProducts)
+  const availableLightingProducts = useLightingProducts(theme, lightingProducts)
+  const selectedFloor = getMaterialProduct(floorProducts, selectedFloorId)
+  const selectedWallpaper = getMaterialProduct(wallpaperProducts, selectedWallpaperId)
+  const selectedLighting = getMaterialProduct(availableLightingProducts, selectedLightingId)
   const hasRequiredMaterials = Boolean(
-    selectedFloorId && selectedWallpaperId && selectedLightingId,
+    selectedFloor.id && selectedWallpaper.id && selectedLighting.id,
   )
+
+  const completeSelection = async () => {
+    const requestId = getActiveRequestId()
+    const flooringId = Number(selectedFloor.id)
+    const wallpaperId = Number(selectedWallpaper.id)
+    const lightingId = Number(selectedLighting.id)
+
+    selectFloor(selectedFloor.id)
+    selectWallpaper(selectedWallpaper.id)
+    selectLighting(selectedLighting.id)
+
+    if (requestId && [flooringId, wallpaperId, lightingId].every(Number.isSafeInteger)) {
+      setIsSaving(true)
+      setSaveError('')
+      try {
+        await updateRequest(requestId, {
+          selectedTheme: theme,
+          selectedFlooringProductId: flooringId,
+          selectedWallpaperProductId: wallpaperId,
+          selectedLightingProductId: lightingId,
+        })
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : '선택 자재 저장에 실패했습니다.')
+        setIsSaving(false)
+        return
+      }
+      setIsSaving(false)
+    }
+    navigate('/report/value-increase')
+  }
 
   return (
     <UserScreenShell className="h-dvh">
@@ -95,13 +139,15 @@ export default function EstimateSummaryPage() {
           </Button>
           <Button
             type="button"
-            disabled={!hasRequiredMaterials}
+            disabled={!hasRequiredMaterials || isSaving}
+            isLoading={isSaving}
             className="h-12 w-full !rounded-[5px] !border !border-[#2563eb] !bg-[#2563eb] !px-2 !py-0 !text-[12px] !font-semibold !shadow-none hover:!translate-y-0 hover:!bg-[#2563eb] hover:!shadow-none active:!translate-y-0"
-            onClick={() => navigate('/report/value-increase')}
+            onClick={completeSelection}
           >
             추천 자재 선택 완료
           </Button>
         </footer>
+        <p role="alert" className="shrink-0 bg-white px-[15px] pb-2 text-center text-[10px] text-[#ef4444]">{saveError}</p>
       </div>
     </UserScreenShell>
   )

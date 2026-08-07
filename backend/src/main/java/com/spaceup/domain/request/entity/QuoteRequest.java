@@ -15,6 +15,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import com.spaceup.domain.member.entity.Member;
+import com.spaceup.domain.material.entity.MaterialProduct;
+import com.spaceup.domain.material.entity.MaterialTheme;
 import com.spaceup.global.entity.BaseTimeEntity;
 
 import lombok.AccessLevel;
@@ -84,6 +86,22 @@ public class QuoteRequest extends BaseTimeEntity {
 	private String requestedItems; // 요청 항목 (예: "도배,장판,조명" - 콤마 구분)
 
 	@Enumerated(EnumType.STRING)
+	@Column(name = "selected_theme", length = 20)
+	private MaterialTheme selectedTheme;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "selected_wallpaper_product_id")
+	private MaterialProduct selectedWallpaperProduct;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "selected_flooring_product_id")
+	private MaterialProduct selectedFlooringProduct;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "selected_lighting_product_id")
+	private MaterialProduct selectedLightingProduct;
+
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private RequestStatus status;
 
@@ -110,6 +128,23 @@ public class QuoteRequest extends BaseTimeEntity {
 	public void assignContractor(Member contractor) {
 		this.contractor = contractor;
 		this.status = RequestStatus.REVIEWING;
+	}
+
+	public void markReviewing() {
+		if (this.status == RequestStatus.NEW) {
+			this.status = RequestStatus.REVIEWING;
+		}
+	}
+
+	public void markQuoteRequested() {
+		if (this.status == RequestStatus.NEW || this.status == RequestStatus.REVIEWING) {
+			this.status = RequestStatus.QUOTE_REQUESTED;
+		}
+	}
+
+	public void selectContractor(Member contractor) {
+		this.contractor = contractor;
+		this.status = RequestStatus.APPROVED;
 	}
 
 	public void approve() {
@@ -166,6 +201,22 @@ public class QuoteRequest extends BaseTimeEntity {
 		}
 		if (requestedItems != null) {
 			this.requestedItems = requestedItems;
+		}
+	}
+
+	public void updateMaterialSelection(MaterialTheme selectedTheme, MaterialProduct wallpaper,
+			MaterialProduct flooring, MaterialProduct lighting) {
+		if (selectedTheme != null) {
+			this.selectedTheme = selectedTheme;
+		}
+		if (wallpaper != null) {
+			this.selectedWallpaperProduct = wallpaper;
+		}
+		if (flooring != null) {
+			this.selectedFlooringProduct = flooring;
+		}
+		if (lighting != null) {
+			this.selectedLightingProduct = lighting;
 		}
 	}
 

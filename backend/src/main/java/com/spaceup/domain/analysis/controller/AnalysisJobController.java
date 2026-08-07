@@ -18,8 +18,9 @@ import com.spaceup.domain.analysis.dto.AnalysisSpaceRequest;
 import com.spaceup.domain.analysis.dto.AnalysisSpaceResponse;
 import com.spaceup.domain.analysis.service.AnalysisJobService;
 import com.spaceup.domain.member.security.MemberPrincipal;
-import com.spaceup.domain.product.dto.RecommendedProductResponse;
-import com.spaceup.domain.product.service.ProductRecommendationService;
+import com.spaceup.domain.material.dto.RecommendedMaterialResponse;
+import com.spaceup.domain.material.entity.MaterialTheme;
+import com.spaceup.domain.material.service.MaterialRecommendationService;
 import com.spaceup.global.util.ApiResponse;
 
 import lombok.RequiredArgsConstructor;
@@ -33,7 +34,7 @@ import lombok.RequiredArgsConstructor;
 public class AnalysisJobController {
 
 	private final AnalysisJobService analysisJobService;
-	private final ProductRecommendationService productRecommendationService;
+	private final MaterialRecommendationService materialRecommendationService;
 	private final AiFloorplanAnalysisService aiFloorplanAnalysisService;
 
 	// ⭐ PDF "02 임대 정보 입력" 완료 직후 - 분석을 PENDING 상태로 요청
@@ -102,10 +103,11 @@ public class AnalysisJobController {
 
 	// ⭐ [프론트 연동] "추천 상품" 화면 - 분석 결과 기반 바닥재/벽지 추천 (카테고리별 상위 3개)
 	@GetMapping("/request/{requestId}/recommended-products")
-	public ResponseEntity<ApiResponse<List<RecommendedProductResponse>>> getRecommendedProducts(
-			@PathVariable Long requestId, Authentication authentication) {
+	public ResponseEntity<ApiResponse<List<RecommendedMaterialResponse>>> getRecommendedProducts(
+			@PathVariable Long requestId, @RequestParam(required = false) MaterialTheme theme,
+			Authentication authentication) {
 		return ResponseEntity.ok(ApiResponse.success("추천 상품 조회 완료",
-				productRecommendationService.recommend(requestId, getMemberId(authentication))));
+				materialRecommendationService.recommend(requestId, getMemberId(authentication), theme)));
 	}
 
 	private Long getMemberId(Authentication authentication) {

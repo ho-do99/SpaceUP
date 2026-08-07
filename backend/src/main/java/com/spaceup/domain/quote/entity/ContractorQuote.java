@@ -160,4 +160,21 @@ public class ContractorQuote extends BaseTimeEntity {
 		long discountAmount = discount != null ? discount : 0;
 		this.totalAmount = Math.max(0, material + labor + vatAmount - discountAmount);
 	}
+
+	public void updateDraft(String title, String startDate, Integer durationDays, Long materialCost,
+			Long laborCost, Long vat, Long discount, String detailContent,
+			List<ContractorQuoteItem> replacementItems) {
+		validateStatus(QuoteStatus.DRAFT);
+		this.title = title;
+		this.startDate = startDate;
+		this.durationDays = durationDays;
+		this.materialCost = materialCost;
+		this.laborCost = laborCost;
+		this.vat = vat;
+		this.discount = discount;
+		this.detailContent = detailContent;
+		this.items.clear();
+		replacementItems.forEach(this::addItem);
+		recalculateTotal();
+	}
 }

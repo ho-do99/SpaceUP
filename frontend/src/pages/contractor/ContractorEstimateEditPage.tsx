@@ -32,6 +32,9 @@ import type {
 } from '@/types/contractorPortal'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
+import { createQuote, updateQuote } from '@/api/estimateApi'
+import { estimateDraftToQuoteInput, getStoredQuoteId, storeQuoteId } from '@/utils/quoteDraft'
+import useContractorRequest from '@/hooks/useContractorRequest'
 
 const fieldOrder: readonly ContractorEstimateField[] = [
   'floorArea',
@@ -75,8 +78,8 @@ export default function ContractorEstimateEditPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
-  const request =
-    findContractorRequestDetail(requestId)
+  const liveRequest = useContractorRequest(requestId)
+  const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
 
   const {
     visitStatus,
@@ -109,6 +112,8 @@ export default function ContractorEstimateEditPage() {
 
   const [saveNotice, setSaveNotice] =
     useState(false)
+  const [apiError, setApiError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
 
   if (!request) {
     return <ContractorRequestNotFound />
@@ -202,25 +207,56 @@ export default function ContractorEstimateEditPage() {
     return normalized
   }
 
-  const save = () => {
-    const validDraft = validateDraft()
-
-    if (!validDraft) {
-      return
+  const persist = async (validDraft: ContractorEstimateDraft) => {
+    if (!requestId || !/^\d+$/.test(requestId)) return
+    const numericRequestId = Number(requestId)
+    const input = estimateDraftToQuoteInput(numericRequestId, validDraft)
+    const quoteId = getStoredQuoteId(numericRequestId)
+    if (quoteId) {
+      await updateQuote(quoteId, input)
+    } else {
+      storeQuoteId(numericRequestId, await createQuote(input))
     }
-
-    saveEstimateDraft(validDraft)
-    setSaveNotice(true)
   }
 
-  const preview = () => {
+  const save = async () => {
     const validDraft = validateDraft()
 
     if (!validDraft) {
       return
     }
 
-    prepareEstimatePreview(validDraft)
+    setIsSaving(true)
+    setApiError('')
+    try {
+      await persist(validDraft)
+      saveEstimateDraft(validDraft)
+      setSaveNotice(true)
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : '견적 임시 저장에 실패했습니다.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const preview = async () => {
+    const validDraft = validateDraft()
+
+    if (!validDraft) {
+      return
+    }
+
+    setIsSaving(true)
+    setApiError('')
+    try {
+      await persist(validDraft)
+      prepareEstimatePreview(validDraft)
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : '견적 임시 저장에 실패했습니다.')
+      setIsSaving(false)
+      return
+    }
+    setIsSaving(false)
 
     navigate(
       `/contractor/requests/${request.requestId}/estimate/preview${completedQuery}`,
@@ -255,6 +291,7 @@ export default function ContractorEstimateEditPage() {
             ? '사용자 요청 확인 → 수정 견적 작성 → 재전송'
             : '현장방문 완료 → 견적 작성 중 → 제출 완료'}
         </p>
+        {apiError ? <p role="alert" className="mb-3 rounded-lg bg-[#fef2f2] px-3 py-2 text-xs text-[#b91c1c]">{apiError}</p> : null}
 
         {isRevision ? (
           <div className="mb-4 rounded-xl border border-[#e2e8f0] bg-white p-4">
@@ -871,8 +908,8 @@ export default function ContractorEstimateEditPage() {
       </main>
 
       <ContractorEstimateFixedActions
-        onSave={save}
-        onPreview={preview}
+        onSave={() => { if (!isSaving) void save() }}
+        onPreview={() => { if (!isSaving) void preview() }}
       />
     </ContractorMobileShell>
   )

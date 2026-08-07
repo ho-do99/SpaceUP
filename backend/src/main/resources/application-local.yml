@@ -5,6 +5,12 @@ spring:
   jpa:
     show-sql: true
 
+app:
+  scheduling:
+    request-auto-cancel:
+      # 로컬 샘플 의뢰가 서버 시작 즉시 만료되지 않도록 자동취소 배치는 비활성화합니다.
+      enabled: false
+
 logging:
   level:
     com.spaceup: DEBUG

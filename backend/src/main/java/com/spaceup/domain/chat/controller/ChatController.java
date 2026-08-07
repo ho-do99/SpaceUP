@@ -32,21 +32,25 @@ public class ChatController {
 
 	@GetMapping("/{requestId}/messages")
 	public ResponseEntity<ApiResponse<List<ChatMessageResponse>>> getMessages(@PathVariable Long requestId,
+			@RequestParam(required = false) Long contractorId,
 			Authentication authentication) {
 		return ResponseEntity.ok(
-				ApiResponse.success("메시지 조회 완료", chatService.getMessages(requestId, getMemberId(authentication))));
+				ApiResponse.success("메시지 조회 완료",
+						chatService.getMessages(requestId, contractorId, getMemberId(authentication))));
 	}
 
 	@PostMapping("/{requestId}/messages")
 	public ResponseEntity<ApiResponse<ChatMessageResponse>> sendMessage(@PathVariable Long requestId,
+			@RequestParam(required = false) Long contractorId,
 			@Valid @RequestBody ChatMessageSendRequest request, Authentication authentication) {
 		return ResponseEntity.ok(ApiResponse.success("메시지를 전송했습니다.",
-				chatService.sendMessage(requestId, getMemberId(authentication), request.getContent())));
+				chatService.sendMessage(requestId, contractorId, getMemberId(authentication), request.getContent())));
 	}
 
 	@PostMapping("/{requestId}/read")
-	public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable Long requestId, Authentication authentication) {
-		chatService.markThreadAsRead(requestId, getMemberId(authentication));
+	public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable Long requestId,
+			@RequestParam(required = false) Long contractorId, Authentication authentication) {
+		chatService.markThreadAsRead(requestId, contractorId, getMemberId(authentication));
 		return ResponseEntity.ok(ApiResponse.success("읽음 처리했습니다.", null));
 	}
 

@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button from '@/components/Button'
 import LightingProductCard from '@/components/user/LightingProductCard'
@@ -10,20 +10,32 @@ import {
   lightingProducts,
   type LightingFilterId,
 } from '@/mocks/estimateMaterials'
+import { useLightingProducts } from '@/hooks/useMaterialCatalog'
+import { getMaterialTheme } from '@/utils/materialTheme'
 
 export default function LightingMaterialSelectionPage() {
   const navigate = useNavigate()
   const { selectedLightingId, selectLighting } = useEstimateFlow()
   const [selectedFilter, setSelectedFilter] = useState<LightingFilterId>('recommended')
   const [selectedProductId, setSelectedProductId] = useState(selectedLightingId)
+  const catalogProducts = useLightingProducts(getMaterialTheme(), lightingProducts)
+
+  useEffect(() => {
+    if (
+      catalogProducts.length > 0 &&
+      !catalogProducts.some((product) => product.id === selectedProductId)
+    ) {
+      setSelectedProductId(catalogProducts[0].id)
+    }
+  }, [catalogProducts, selectedProductId])
 
   const filteredProducts = useMemo(() => {
     if (selectedFilter === 'recommended' || selectedFilter === 'all') {
-      return lightingProducts
+      return catalogProducts
     }
 
-    return lightingProducts.filter((product) => product.filterId === selectedFilter)
-  }, [selectedFilter])
+    return catalogProducts.filter((product) => product.filterId === selectedFilter)
+  }, [catalogProducts, selectedFilter])
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()

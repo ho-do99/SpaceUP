@@ -42,13 +42,13 @@ public class AdminController {
 		return ResponseEntity.ok(ApiResponse.success("회원 목록 조회 완료", adminService.getMembers(role, pageable)));
 	}
 
-	// ⭐ PDF "시공사관리 / 자재업체관리" 화면의 승인 대기 목록 (PENDING + NEEDS_REVISION)
+	// ⭐ 시공사 관리 화면의 승인 대기 목록 (PENDING + NEEDS_REVISION)
 	@GetMapping("/members/pending")
 	public ResponseEntity<ApiResponse<List<MemberResponse>>> getPendingApprovals(@RequestParam MemberRole role) {
 		return ResponseEntity.ok(ApiResponse.success("승인 대기 목록 조회 완료", adminService.getPendingApprovals(role)));
 	}
 
-	// ⭐ PDF "시공사관리 / 자재업체관리" 화면의 "승인" 버튼
+	// ⭐ 시공사 관리 화면의 "승인" 버튼
 	@PostMapping("/members/{memberId}/approve")
 	public ResponseEntity<ApiResponse<Void>> approveMember(@PathVariable Long memberId) {
 		adminService.approveMember(memberId);

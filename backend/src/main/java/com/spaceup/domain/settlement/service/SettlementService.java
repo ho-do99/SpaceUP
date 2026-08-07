@@ -41,7 +41,7 @@ public class SettlementService {
 	private static final double FALLBACK_COMMISSION_RATE = 0.10;
 
 	// ⭐ PDF "정산/수수료 관리(관리자)" - 거래 1건에 대한 정산 레코드 생성. 거래금액에서 수수료를 뗀 정산액을 계산합니다.
-	// ⭐ [Figma 반영] 생성 시점에 정산 대상자(시공사/자재업체)에게 알림을 보냅니다.
+	// ⭐ [Figma 반영] 생성 시점에 정산 대상 시공사에게 알림을 보냅니다.
 	@Transactional
 	public Long createSettlement(SettlementCreateRequest dto) {
 		Member partner = memberRepository.findById(dto.getPartnerId())
@@ -68,7 +68,7 @@ public class SettlementService {
 				.map(setting -> Double.parseDouble(setting.getSettingValue())).orElse(FALLBACK_COMMISSION_RATE);
 	}
 
-	// ⭐ PDF "정산 관리(자재업체/시공사)" - 정산 완료 처리
+	// ⭐ 시공사 정산 관리 - 정산 완료 처리
 	// ⭐ [Figma 반영] 완료 시점에 정산 대상자에게 알림을 보냅니다.
 	@Transactional
 	public void complete(Long settlementId) {
@@ -92,7 +92,7 @@ public class SettlementService {
 		return new SettlementResponse(settlement);
 	}
 
-	// ⭐ 정산 대상(시공사/자재업체) 로그인 기준 - 본인 정산 내역 조회 (페이지네이션)
+	// ⭐ 정산 대상 시공사 로그인 기준 - 본인 정산 내역 조회 (페이지네이션)
 	public Page<SettlementResponse> getSettlementsByPartner(Long partnerId, Pageable pageable) {
 		return settlementRepository.findByPartnerId(partnerId, pageable).map(SettlementResponse::new);
 	}

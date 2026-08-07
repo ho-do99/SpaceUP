@@ -11,7 +11,8 @@ spring:
                     schema-generation:
                         scripts:
                             action: create
-                            create-target: src/main/resources/db/migration/V1__init.sql
+                            # 이미 커밋된 Flyway 파일을 덮어쓰지 않도록 비교용 DDL은 build 아래에만 생성합니다.
+                            create-target: build/schema-export.sql
             hibernate:
                 hbm2ddl:
                     delimiter: ";"

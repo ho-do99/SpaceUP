@@ -9,7 +9,7 @@ spring:
     password: ${DB_PASSWORD:spaceup_password}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
   servlet:
     multipart:
@@ -19,7 +19,10 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
-    baseline-version: 0
+    # 기존 25개 실DB는 V1/V2 상당 구조와 기준 데이터를 이미 보유하므로 2에서 시작합니다.
+    # 빈 DB에서는 baseline이 생성되지 않고 V1부터 정상 실행됩니다.
+    baseline-version: 2
+    clean-disabled: true
 
 server:
   port: ${SERVER_PORT:8080}
@@ -31,6 +34,9 @@ management:
         include: health,info
 
 app:
+  scheduling:
+    request-auto-cancel:
+      enabled: ${REQUEST_AUTO_CANCEL_ENABLED:true}
   ai:
     base-url: ${AI_BASE_URL:http://localhost:8000}
   cors:

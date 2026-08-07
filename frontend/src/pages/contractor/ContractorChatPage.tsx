@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { getChatMessages, getChatThreads, sendChatMessage } from '@/api/chatApi'
 
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorChatBubble from '@/components/contractor/ContractorChatBubble'
@@ -7,6 +8,8 @@ import ContractorChatComposer from '@/components/contractor/ContractorChatCompos
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import useContractorPortalFlow from '@/components/contractor/useContractorPortalFlow'
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
+import type { ContractorChatMessage } from '@/types/contractorPortal'
+import type { ChatThread } from '@/types/backendContractor'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 
@@ -18,12 +21,55 @@ export default function ContractorChatPage({
   completed = false,
 }: ContractorChatPageProps) {
   const { requestId } = useParams()
+  const numericRequestId = Number(requestId)
+  const liveRequestId = Number.isInteger(numericRequestId) && numericRequestId > 0
 
   const request =
     findContractorRequestDetail(requestId)
 
-  const { messages, addMessage } =
+  const { messages: mockMessages, addMessage: addMockMessage } =
     useContractorPortalFlow()
+  const [liveMessages, setLiveMessages] = useState<ContractorChatMessage[]>([])
+  const [liveThread, setLiveThread] = useState<ChatThread | null>(null)
+  const [liveError, setLiveError] = useState<string | null>(null)
+  const messages = liveRequestId ? liveMessages : mockMessages
+
+  useEffect(() => {
+    if (!liveRequestId) return
+    let active = true
+    Promise.all([getChatMessages(numericRequestId), getChatThreads()])
+      .then(([chatMessages, threads]) => {
+        if (!active) return
+        setLiveMessages(chatMessages.map((message) => ({
+          id: String(message.id),
+          sender: message.senderType === 'SYSTEM' ? 'system' : message.senderType === 'CONTRACTOR' ? 'contractor' : 'customer',
+          text: message.content,
+          timeLabel: message.createdAt?.slice(11, 16) || '',
+        })))
+        setLiveThread(threads.find((thread) => thread.requestId === numericRequestId) ?? null)
+      })
+      .catch(() => {
+        if (active) setLiveError('채팅 내용을 불러오지 못했습니다.')
+      })
+    return () => { active = false }
+  }, [liveRequestId, numericRequestId])
+
+  const addMessage = async (content: string) => {
+    if (!liveRequestId) {
+      addMockMessage(content)
+      return
+    }
+    try {
+      const message = await sendChatMessage(numericRequestId, content)
+      setLiveMessages((current) => [...current, {
+        id: String(message.id), sender: 'contractor', text: message.content,
+        timeLabel: message.createdAt?.slice(11, 16) || '',
+      }])
+      setLiveError(null)
+    } catch {
+      setLiveError('메시지를 보내지 못했습니다. 종료된 채팅방인지 확인해주세요.')
+    }
+  }
 
   const messagesRef =
     useRef<HTMLDivElement>(null)
@@ -37,18 +83,18 @@ export default function ContractorChatPage({
     }
   }, [messages.length])
 
-  if (!request) {
+  if (!request && !liveRequestId) {
     return <ContractorRequestNotFound />
   }
 
   const visitPagePath = completed
-    ? `/contractor/requests/${request.requestId}/visit?mode=completed`
-    : `/contractor/requests/${request.requestId}/visit`
+    ? `/contractor/requests/${request?.requestId}/visit?mode=completed`
+    : `/contractor/requests/${request?.requestId}/visit`
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
       <ContractorAppBar
-        title={request.customerName}
+        title={request?.customerName ?? liveThread?.counterpartName ?? '채팅'}
         back
       />
 
@@ -59,7 +105,7 @@ export default function ContractorChatPage({
             : 'border-[#bfdbfe] bg-[#eff6ff] text-[#2563eb]'
         }`}
       >
-        <p>{request.requestId}</p>
+        <p>{request?.requestId ?? liveThread?.requestCode ?? requestId}</p>
 
         <p>
           {completed
@@ -91,6 +137,8 @@ export default function ContractorChatPage({
           ))}
         </div>
 
+        {liveError ? <p role="alert" className="mt-4 text-center text-xs font-bold text-[#dc2626]">{liveError}</p> : null}
+
         {completed ? (
           <div className="mt-4 rounded-xl border border-[#a7f3d0] bg-[#ecfdf5] p-3 text-xs leading-5 text-[#047857]">
             <p className="font-bold">
@@ -105,7 +153,7 @@ export default function ContractorChatPage({
         ) : null}
       </div>
 
-      <div className="grid shrink-0 grid-cols-2 gap-2 bg-[#f8fafc] px-4 py-3">
+      {!liveRequestId ? <div className="grid shrink-0 grid-cols-2 gap-2 bg-[#f8fafc] px-4 py-3">
         <Link
           to={visitPagePath}
           className="flex h-11 items-center justify-center rounded-lg border border-[#2563eb] bg-white text-xs font-bold text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
@@ -117,7 +165,7 @@ export default function ContractorChatPage({
 
         {completed ? (
           <Link
-            to={`/contractor/requests/${request.requestId}/estimate-ready?mode=completed`}
+            to={`/contractor/requests/${request?.requestId}/estimate-ready?mode=completed`}
             className="flex h-11 items-center justify-center rounded-lg bg-[#2563eb] text-xs font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
           >
             견적서 작성
@@ -132,10 +180,10 @@ export default function ContractorChatPage({
             견적서 작성
           </button>
         )}
-      </div>
+      </div> : <div className="shrink-0 bg-[#f8fafc] px-4 py-2 text-center text-[10px] text-[#64748b]">현장방문·견적 작성 화면은 기존 흐름을 유지하며 다음 단계에서 연결합니다.</div>}
 
       <ContractorChatComposer
-        onSend={addMessage}
+        onSend={(message) => void addMessage(message)}
       />
     </ContractorMobileShell>
   )

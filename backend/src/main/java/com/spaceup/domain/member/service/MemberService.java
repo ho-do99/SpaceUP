@@ -79,10 +79,9 @@ public class MemberService {
 
 		String encodedPassword = passwordEncoder.encode(member.getPassword());
 
-		// ⭐ 시공사/자재업체는 관리자 승인 전까지 PENDING으로 가입시킵니다(PDF "심사 대기" 화면 시작점).
+		// ⭐ 시공사는 관리자 승인 전까지 PENDING으로 가입시킵니다(Figma "심사 대기" 화면 시작점).
 		// 임대인은 가입 즉시 이용 가능해야 하므로 APPROVED.
-		boolean needsAdminApproval = member.getRole() == MemberRole.CONTRACTOR
-				|| member.getRole() == MemberRole.MATERIAL_VENDOR;
+		boolean needsAdminApproval = member.getRole() == MemberRole.CONTRACTOR;
 		MemberApprovalStatus initialStatus = needsAdminApproval ? MemberApprovalStatus.PENDING
 				: MemberApprovalStatus.APPROVED;
 
@@ -159,7 +158,7 @@ public class MemberService {
 			throw new WithdrawnMemberException("이미 탈퇴 처리된 계정입니다: " + memberId);
 		}
 		// ⭐ 소프트 삭제: 직접 삭제(delete) 대신 상태만 변경합니다.
-		// 작성한 글/댓글이 Member를 FK로 참조하고 있어 하드 삭제 시 제약조건 위반이 발생하기 때문이며,
+		// 견적·채팅·프로젝트 같은 업무 이력이 Member를 참조하므로 하드 삭제를 피하며,
 		// 변경 감지(dirty checking)로 트랜잭션 커밋 시점에 자동 반영되므로 별도 save() 호출이 불필요합니다.
 		member.withdraw();
 	}

@@ -10,6 +10,7 @@ import com.spaceup.domain.visit.entity.SiteVisitStatus;
 public record SiteVisitResponse(
 		Long id,
 		Long requestId,
+		Long contractorId,
 		SiteVisitStatus status,
 		LocalDate visitDate,
 		LocalTime visitTime,
@@ -22,7 +23,8 @@ public record SiteVisitResponse(
 		String requestReason) {
 
 	public SiteVisitResponse(SiteVisit visit) {
-		this(visit.getId(), visit.getRequest().getId(), visit.getStatus(), visit.getVisitDate(), visit.getVisitTime(),
+		this(visit.getId(), visit.getRequest().getId(), visit.getContractor().getId(), visit.getStatus(),
+				visit.getVisitDate(), visit.getVisitTime(),
 				visit.getRequest().getProperty().getRegion(), visit.getManagerName(), visit.getNote(),
 				visit.getCompletedAt(), visit.getRequestedDate(), visit.getRequestedTime(), visit.getRequestReason());
 	}

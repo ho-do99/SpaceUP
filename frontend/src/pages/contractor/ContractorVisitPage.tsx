@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState,
   type FormEvent,
 } from 'react'
@@ -27,6 +28,9 @@ import type {
 } from '@/types/contractorPortal'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
+import useContractorRequest from '@/hooks/useContractorRequest'
+import type { SiteVisit } from '@/types/backendContractor'
+import { acceptVisitChange, completeVisit as completeVisitApi, getVisit, proposeVisitChange, registerVisit as registerVisitApi, rejectVisitChange } from '@/api/visitApi'
 
 export default function ContractorVisitPage() {
   const { requestId } = useParams()
@@ -35,8 +39,10 @@ export default function ContractorVisitPage() {
 
   const navigate = useNavigate()
 
-  const request =
-    findContractorRequestDetail(requestId)
+  const liveRequest = useContractorRequest(requestId)
+  const isLive = /^\d+$/.test(requestId ?? '')
+  const request = isLive ? liveRequest.request : findContractorRequestDetail(requestId)
+  const [liveVisit, setLiveVisit] = useState<SiteVisit | null>(null)
 
   const {
     visitStatus,
@@ -72,6 +78,11 @@ export default function ContractorVisitPage() {
   const [completionOpen, setCompletionOpen] =
     useState(false)
 
+  useEffect(() => {
+    if (!isLive || !requestId) return
+    getVisit(Number(requestId)).then(setLiveVisit).catch(() => setLiveVisit(null))
+  }, [isLive, requestId])
+
   if (!request) {
     return <ContractorRequestNotFound />
   }
@@ -82,7 +93,7 @@ export default function ContractorVisitPage() {
   const effectiveVisitStatus: ContractorVisitStatus =
     isCompletedView
       ? 'COMPLETED'
-      : visitStatus
+      : (liveVisit?.status as ContractorVisitStatus | undefined) ?? visitStatus
 
   const completedPreviewSchedule: ContractorVisitSchedule =
     {
@@ -96,15 +107,24 @@ export default function ContractorVisitPage() {
         `${contractorDefaultVisitSchedule.date} ${contractorDefaultVisitSchedule.time}`,
     }
 
+  const liveSchedule: ContractorVisitSchedule | null = liveVisit?.visitDate && liveVisit.visitTime ? {
+    date: liveVisit.visitDate,
+    time: liveVisit.visitTime,
+    address: liveVisit.address || request.property.address,
+    managerName: liveVisit.managerName || '',
+    note: liveVisit.note || '',
+    completedAt: liveVisit.completedAt,
+  } : null
+
   const currentSchedule =
     isCompletedView
-      ? visitSchedule?.completedAt
-        ? visitSchedule
+      ? (liveSchedule?.completedAt || visitSchedule?.completedAt)
+        ? (liveSchedule ?? visitSchedule!)
         : completedPreviewSchedule
-      : visitSchedule ??
+      : liveSchedule ?? visitSchedule ??
         contractorDefaultVisitSchedule
 
-  const register = (
+  const register = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault()
@@ -118,13 +138,25 @@ export default function ContractorVisitPage() {
 
     setErrorMessage('')
 
-    registerVisit({
+    const schedule = {
       ...contractorDefaultVisitSchedule,
       date,
       time,
       address: request.property.address,
       note: note.trim(),
-    })
+    }
+    if (isLive && requestId) {
+      try {
+        setLiveVisit(await registerVisitApi(Number(requestId), {
+          visitDate: date, visitTime: time, managerName: schedule.managerName, note: schedule.note,
+        }))
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : '방문 일정 등록에 실패했습니다.')
+        return
+      }
+    } else {
+      registerVisit(schedule)
+    }
   }
 
   const availableStatuses: readonly ContractorVisitStatus[] =
@@ -142,15 +174,59 @@ export default function ContractorVisitPage() {
     }
 
     if (status === 'CHANGE_REQUESTED') {
-      showChangeRequest()
+      if (!isLive) showChangeRequest()
     }
 
     if (
       status === 'SCHEDULED' &&
       visitStatus === 'CHANGE_REQUESTED'
     ) {
-      rejectChangeRequest()
+      if (!isLive) rejectChangeRequest()
     }
+  }
+
+  const acceptChange = async () => {
+    if (isLive && liveVisit) {
+      try { setLiveVisit(await acceptVisitChange(liveVisit.id)) } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : '일정 변경 승인에 실패했습니다.')
+      }
+    } else acceptChangeRequest()
+  }
+
+  const proposeChange = async (schedule: ContractorVisitSchedule) => {
+    if (isLive && liveVisit) {
+      try {
+        setLiveVisit(await proposeVisitChange(liveVisit.id, {
+          visitDate: schedule.date, visitTime: schedule.time,
+          managerName: schedule.managerName, note: schedule.note,
+        }))
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : '새 일정 제안에 실패했습니다.')
+        return
+      }
+    } else proposeVisit(schedule)
+    setProposalOpen(false)
+  }
+
+  const rejectChange = async () => {
+    if (isLive && liveVisit) {
+      try { setLiveVisit(await rejectVisitChange(liveVisit.id)) } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : '일정 변경 거절에 실패했습니다.')
+        return
+      }
+    } else rejectChangeRequest()
+    setRejectOpen(false)
+  }
+
+  const finishVisit = async () => {
+    if (isLive && liveVisit) {
+      try { setLiveVisit(await completeVisitApi(liveVisit.id, currentSchedule.note)) } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : '방문 완료 처리에 실패했습니다.')
+        return
+      }
+    } else completeVisit()
+    setCompletionOpen(false)
+    navigate(`/contractor/requests/${request.requestId}/chat/completed`)
   }
 
   return (
@@ -314,13 +390,13 @@ export default function ContractorVisitPage() {
                 schedule={currentSchedule}
               />
 
-              <button
+              {!isLive ? <button
                 type="button"
                 onClick={showChangeRequest}
                 className="h-12 w-full rounded-lg border border-[#2563eb] bg-white text-sm font-bold text-[#2563eb]"
               >
                 일정 변경 요청 확인
-              </button>
+              </button> : null}
 
               <button
                 type="button"
@@ -391,7 +467,7 @@ export default function ContractorVisitPage() {
 
               <button
                 type="button"
-                onClick={acceptChangeRequest}
+                onClick={() => { void acceptChange() }}
                 className="h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white"
               >
                 변경 일정 승인
@@ -488,19 +564,13 @@ export default function ContractorVisitPage() {
         onClose={() =>
           setProposalOpen(false)
         }
-        onSubmit={(schedule) => {
-          proposeVisit(schedule)
-          setProposalOpen(false)
-        }}
+        onSubmit={(schedule) => { void proposeChange(schedule) }}
       />
 
       <ContractorVisitChangeRejectDialog
         open={rejectOpen}
         onClose={() => setRejectOpen(false)}
-        onConfirm={() => {
-          rejectChangeRequest()
-          setRejectOpen(false)
-        }}
+        onConfirm={() => { void rejectChange() }}
       />
 
       <ContractorVisitCompletionDialog
@@ -508,14 +578,7 @@ export default function ContractorVisitPage() {
         onClose={() =>
           setCompletionOpen(false)
         }
-        onConfirm={() => {
-          completeVisit()
-          setCompletionOpen(false)
-
-          navigate(
-            `/contractor/requests/${request.requestId}/chat/completed`,
-          )
-        }}
+        onConfirm={() => { void finishVisit() }}
       />
     </>
   )

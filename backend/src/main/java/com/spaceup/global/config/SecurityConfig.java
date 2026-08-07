@@ -76,7 +76,8 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/api/portfolios/me").authenticated()
 						.requestMatchers(HttpMethod.GET, "/api/portfolios/*", "/api/portfolios/contractor/*")
 						.permitAll()
-						.requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/material-products", "/api/material-products/*")
+						.permitAll()
 						// ⭐ [프론트 연동] "아파트/평면도 검색"은 로그인 없이 조회 가능, 등록은 관리자만
 						.requestMatchers(HttpMethod.GET, "/api/floorplans/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/floorplans/**").hasRole("ADMIN")

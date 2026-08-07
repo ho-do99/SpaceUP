@@ -4,6 +4,8 @@ import Button from '@/components/Button'
 import SegmentedControl from '@/components/user/SegmentedControl'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { createRequest } from '@/api/requestApi'
+import { clearRequestFlow, parseManwon, saveRequestDraft, setActiveRequestId } from '@/utils/requestFlow'
 
 export type PropertyType = 'villa' | 'apartment'
 export type ContractType = 'monthly' | 'jeonse'
@@ -98,6 +100,8 @@ export default function PropertyInformationPage() {
   const [propertyType, setPropertyType] = useState<PropertyType | null>('villa')
   const [contractType, setContractType] = useState<ContractType | null>('monthly')
   const [formState, setFormState] = useState<PropertyFormState>(initialFormState)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const isVilla = propertyType === 'villa'
   const isMonthly = contractType === 'monthly'
@@ -107,14 +111,46 @@ export default function PropertyInformationPage() {
     setFormState((current) => ({ ...current, [field]: event.target.value }))
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     if (!propertyType || !contractType) {
       return
     }
 
-    navigate(propertyType === 'apartment' ? '/analysis/new/address' : '/upload')
+    const deposit = contractType === 'monthly'
+      ? parseManwon(formState.monthlyDeposit)
+      : parseManwon(isVilla ? formState.villaJeonseDeposit : formState.apartmentJeonseDeposit)
+    const budget = parseManwon(formState.budget)
+    const draft = {
+      region: formState.region.trim(),
+      propertyType: propertyType.toUpperCase(),
+      areaM2: Number(formState.exclusiveArea.replace(/,/g, '')) || 0,
+      deposit,
+      monthlyRent: contractType === 'monthly' ? parseManwon(formState.monthlyRent) : undefined,
+      budgetMin: budget,
+      budgetMax: budget,
+      desiredDate: formState.desiredDate || undefined,
+    }
+    clearRequestFlow()
+    saveRequestDraft(draft)
+
+    if (propertyType === 'apartment') {
+      navigate('/analysis/new/address')
+      return
+    }
+
+    setIsSubmitting(true)
+    setSubmitError('')
+    try {
+      const requestId = await createRequest(draft)
+      setActiveRequestId(requestId)
+      navigate('/upload')
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '의뢰 생성에 실패했습니다.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -315,11 +351,13 @@ export default function PropertyInformationPage() {
         <footer className="shrink-0 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))] pt-0">
           <Button
             type="submit"
-            disabled={!canContinue}
+            disabled={!canContinue || isSubmitting}
+            isLoading={isSubmitting}
             className="h-12 w-full !rounded-[5px] !border !border-[#2563eb] !bg-[#2563eb] !px-4 !py-0 !text-[12px] !font-bold !shadow-none hover:!translate-y-0 hover:!bg-[#2563eb] hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
           >
             다음
           </Button>
+          <p role="alert" className="mt-2 min-h-4 text-center text-[10px] text-[#ef4444]">{submitError}</p>
         </footer>
       </form>
     </UserScreenShell>

@@ -45,6 +45,7 @@ export interface RecommendedProduct {
   category?: string
   spec?: string | null
   brand?: string | null
+  /** @deprecated 자재업체명이 아니며 현재 brand와 같은 호환 값이다. */
   vendorName?: string | null
   imageUrl?: string | null
   unit?: string | null

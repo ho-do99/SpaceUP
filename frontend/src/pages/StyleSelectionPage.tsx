@@ -6,6 +6,7 @@ import StyleOptionCard from '@/components/user/StyleOptionCard'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import { interiorStyleOptions, type InteriorStyleId } from '@/mocks/interiorStyles'
+import { saveMaterialTheme } from '@/utils/materialTheme'
 
 export default function StyleSelectionPage() {
   const navigate = useNavigate()
@@ -18,6 +19,7 @@ export default function StyleSelectionPage() {
       return
     }
 
+    saveMaterialTheme(selectedStyle)
     navigate('/analysis/simulation/photo', { state: { styleId: selectedStyle } })
   }
 

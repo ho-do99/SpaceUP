@@ -17,6 +17,10 @@ import com.spaceup.domain.analysis.repository.AnalysisJobRepository;
 import com.spaceup.domain.analysis.service.AnalysisJobService;
 import com.spaceup.domain.contractor.repository.ContractorProfileRepository;
 import com.spaceup.domain.matching.service.MatchingScoreCalculator;
+import com.spaceup.domain.material.entity.MaterialProduct;
+import com.spaceup.domain.material.entity.MaterialTheme;
+import com.spaceup.domain.material.entity.MaterialWorkType;
+import com.spaceup.domain.material.repository.MaterialProductRepository;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.repository.MemberRepository;
 import com.spaceup.domain.notification.entity.NotificationType;
@@ -30,9 +34,12 @@ import com.spaceup.domain.request.dto.RequestUpdateRequest;
 import com.spaceup.domain.request.entity.Property;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.entity.RejectReason;
+import com.spaceup.domain.request.entity.RequestContractor;
+import com.spaceup.domain.request.entity.RequestContractorStatus;
 import com.spaceup.domain.request.entity.RequestStatus;
 import com.spaceup.domain.request.repository.PropertyRepository;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
+import com.spaceup.domain.request.repository.RequestContractorRepository;
 import com.spaceup.domain.visit.service.SiteVisitService;
 import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.InvalidStatusTransitionException;
@@ -47,6 +54,7 @@ import lombok.RequiredArgsConstructor;
 public class RequestService {
 
 	private final QuoteRequestRepository quoteRequestRepository;
+	private final RequestContractorRepository requestContractorRepository;
 	private final PropertyRepository propertyRepository;
 	private final MemberRepository memberRepository;
 	private final MatchingScoreCalculator matchingScoreCalculator;
@@ -56,6 +64,7 @@ public class RequestService {
 	private final ContractorQuoteRepository contractorQuoteRepository;
 	private final NotificationService notificationService;
 	private final SiteVisitService siteVisitService;
+	private final MaterialProductRepository materialProductRepository;
 
 	// ⭐ PDF "02 임대 정보 입력" 완료 시 호출. AI 분석은 domain/analysis 쪽에서 별도로 요청합니다
 	// (AnalysisJobService.requestAnalysis - 컨트롤러 레벨에서 이어 호출). 매물(Property)과 견적요청
@@ -96,24 +105,55 @@ public class RequestService {
 				dto.getMonthlyRent());
 		request.updatePartial(dto.getTargetRent(), dto.getBudgetMin(), dto.getBudgetMax(), dto.getDesiredDate(),
 				dto.getRequestedItems());
+		MaterialProduct wallpaper = resolveSelectedMaterial(dto.getSelectedWallpaperProductId(),
+				MaterialWorkType.WALLPAPER, dto.getSelectedTheme());
+		MaterialProduct flooring = resolveSelectedMaterial(dto.getSelectedFlooringProductId(),
+				MaterialWorkType.FLOORING, dto.getSelectedTheme());
+		MaterialProduct lighting = resolveSelectedMaterial(dto.getSelectedLightingProductId(),
+				MaterialWorkType.LIGHTING, dto.getSelectedTheme());
+		request.updateMaterialSelection(dto.getSelectedTheme(), wallpaper, flooring, lighting);
 		request.touch();
+	}
+
+	private MaterialProduct resolveSelectedMaterial(Long productId, MaterialWorkType expectedWorkType,
+			MaterialTheme selectedTheme) {
+		if (productId == null) {
+			return null;
+		}
+		MaterialProduct product = materialProductRepository.findById(productId)
+				.orElseThrow(() -> new IllegalArgumentException("존재하지 않는 자재입니다: " + productId));
+		if (!product.isActive()) {
+			throw new IllegalArgumentException("현재 선택할 수 없는 자재입니다: " + productId);
+		}
+		if (product.getWorkType() != expectedWorkType) {
+			throw new IllegalArgumentException("선택한 자재의 시공 종류가 올바르지 않습니다: " + productId);
+		}
+		if (selectedTheme != null && product.getTheme() != selectedTheme) {
+			throw new IllegalArgumentException("선택한 테마와 자재 테마가 일치하지 않습니다: " + productId);
+		}
+		return product;
 	}
 
 	// ⭐ [보안 수정] 의뢰의 임대인 본인 또는 배정된 시공사만 상세를 조회할 수 있습니다.
 	public RequestResponse getRequest(Long requestId, Long memberId) {
 		QuoteRequest request = findRequestOrThrow(requestId);
 		boolean isOwner = request.getOwner().getId().equals(memberId);
-		boolean isContractor = request.getContractor() != null && request.getContractor().getId().equals(memberId);
+		RequestContractor participation = requestContractorRepository
+				.findByRequestIdAndContractorId(requestId, memberId).orElse(null);
+		boolean isContractor = participation != null;
 		if (!isOwner && !isContractor) {
 			throw new ForbiddenAccessException("본인이 참여 중인 의뢰만 조회할 수 있습니다.");
 		}
-		return new RequestResponse(request, lookupMatchingScore(requestId), lookupAcceptedQuoteAmount(requestId));
+		return new RequestResponse(request, lookupMatchingScore(requestId), lookupAcceptedQuoteAmount(requestId),
+				participation != null ? participation.getStatus() : null);
 	}
 
 	// ⭐ PDF "의뢰 목록" 화면 - 시공사 관점 (페이지네이션)
 	public Page<RequestResponse> getRequestsForContractor(Long contractorId, Pageable pageable) {
-		return quoteRequestRepository.findByContractorId(contractorId, pageable).map(request -> new RequestResponse(
-				request, lookupMatchingScore(request.getId()), lookupAcceptedQuoteAmount(request.getId())));
+		return requestContractorRepository.findByContractorId(contractorId, pageable)
+				.map(participation -> new RequestResponse(participation.getRequest(),
+						participation.getMatchingScore(),
+						lookupAcceptedQuoteAmount(participation.getRequest().getId()), participation.getStatus()));
 	}
 
 	// ⭐ PDF "마이페이지 - 견적 요청 내역" 화면 - 임대인 관점 (페이지네이션)
@@ -127,7 +167,7 @@ public class RequestService {
 	// ⭐ [보안 수정] 견적요청/시공진행/완료 단계로 넘어간 의뢰를 다시 배정해 상태를 되돌리는 것을 막습니다.
 	// 아직 시공사가 응답하지 않았거나(NEW/REVIEWING) 거절/취소된 의뢰는 다른 시공사로 재배정할 수 있습니다.
 	private static final Set<RequestStatus> ASSIGNABLE_STATUSES = EnumSet.of(RequestStatus.NEW,
-			RequestStatus.REVIEWING, RequestStatus.REJECTED, RequestStatus.CANCELED);
+			RequestStatus.REVIEWING, RequestStatus.QUOTE_REQUESTED);
 
 	@Transactional
 	public void assignContractor(Long requestId, Long contractorId, Long landlordId) {
@@ -141,7 +181,13 @@ public class RequestService {
 		}
 		Member contractor = memberRepository.findById(contractorId)
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 시공사입니다: " + contractorId));
-		request.assignContractor(contractor);
+		if (requestContractorRepository.existsByRequestIdAndContractorId(requestId, contractorId)) {
+			throw new InvalidStatusTransitionException("이미 견적 참여를 요청한 시공사입니다.");
+		}
+		RequestContractor participation = RequestContractor.builder().request(request).contractor(contractor)
+				.status(RequestContractorStatus.INVITED).build();
+		requestContractorRepository.save(participation);
+		request.markReviewing();
 		request.touch();
 
 		// ⭐ [시공사 추천 점수 고도화] 프로필을 아직 등록 안 한 시공사(견적범위/가능일 미입력)는 점수를 매길 근거가
@@ -150,6 +196,7 @@ public class RequestService {
 				.map(profile -> matchingScoreCalculator.calculate(request, profile).matchScore())
 				.orElse(BigDecimal.ZERO);
 		int score = matchScore.setScale(0, RoundingMode.HALF_UP).intValue();
+		participation.updateMatchingScore(score);
 		analysisJobService.updateMatchingScoreIfExists(requestId, score);
 
 		notificationService.notify(contractorId, NotificationType.REQUEST, "새 의뢰가 도착했습니다",
@@ -161,11 +208,11 @@ public class RequestService {
 	@Transactional
 	public void approve(Long requestId, Long contractorId) {
 		QuoteRequest request = findRequestOrThrow(requestId);
-		validateAssignedContractor(request, contractorId);
-		validateTransitionable(request, RequestStatus.REVIEWING);
-		request.approve();
+		RequestContractor participation = findParticipation(requestId, contractorId);
+		participation.approve();
+		request.markQuoteRequested();
 		request.touch();
-		siteVisitService.createIfAbsent(request); // ⭐ 승인 직후부터 "현장방문 예약" 흐름이 시작됩니다 (UNSCHEDULED로 생성)
+		siteVisitService.createIfAbsent(request, participation.getContractor());
 
 		notificationService.notify(request.getOwner().getId(), NotificationType.REQUEST, "의뢰가 승인되었습니다",
 				String.format("%s 의뢰를 시공사가 승인했습니다. 견적을 확인해 주세요.", request.getRequestCode()));
@@ -176,9 +223,8 @@ public class RequestService {
 	@Transactional
 	public void reject(Long requestId, Long contractorId, RejectReason reason, String detail) {
 		QuoteRequest request = findRequestOrThrow(requestId);
-		validateAssignedContractor(request, contractorId);
-		validateTransitionable(request, RequestStatus.REVIEWING);
-		request.reject(reason, detail);
+		RequestContractor participation = findParticipation(requestId, contractorId);
+		participation.reject(reason, detail);
 		request.touch();
 
 		notificationService.notify(request.getOwner().getId(), NotificationType.REQUEST, "의뢰가 거절되었습니다",
@@ -192,17 +238,9 @@ public class RequestService {
 		quoteRequestRepository.findById(requestId).ifPresent(QuoteRequest::touch);
 	}
 
-	private void validateAssignedContractor(QuoteRequest request, Long contractorId) {
-		if (request.getContractor() == null || !request.getContractor().getId().equals(contractorId)) {
-			throw new ForbiddenAccessException("본인에게 배정된 의뢰만 처리할 수 있습니다.");
-		}
-	}
-
-	private void validateTransitionable(QuoteRequest request, RequestStatus expected) {
-		if (request.getStatus() != expected) {
-			throw new InvalidStatusTransitionException(
-					String.format("현재 상태(%s)에서는 처리할 수 없습니다. 예상 상태: %s", request.getStatus(), expected));
-		}
+	private RequestContractor findParticipation(Long requestId, Long contractorId) {
+		return requestContractorRepository.findByRequestIdAndContractorId(requestId, contractorId)
+				.orElseThrow(() -> new ForbiddenAccessException("견적 참여를 요청받은 시공사만 처리할 수 있습니다."));
 	}
 
 	private Integer lookupMatchingScore(Long requestId) {

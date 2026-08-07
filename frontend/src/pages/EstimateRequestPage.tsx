@@ -1,9 +1,14 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Button from '@/components/Button'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import { getContractorById } from '@/mocks/contractors'
+import type { ContractorSummary } from '@/mocks/contractors'
+import { getContractor } from '@/api/contractorApi'
+import { inviteContractor, updateRequest } from '@/api/requestApi'
+import { profileToSummary } from '@/utils/contractorAdapter'
+import { getActiveRequestId, parseManwon } from '@/utils/requestFlow'
 
 interface EstimateRequestFormState {
   name: string
@@ -28,7 +33,9 @@ export default function EstimateRequestPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const contractorId = getContractorIdFromNavigationState(location.state as unknown)
-  const contractor = getContractorById(contractorId ?? undefined)
+  const [contractor, setContractor] = useState<ContractorSummary | undefined>(() => getContractorById(contractorId ?? undefined))
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [form, setForm] = useState<EstimateRequestFormState>({
     name: '',
     phone: '',
@@ -39,6 +46,11 @@ export default function EstimateRequestPage() {
     requestMessage: '',
     agreedToPrivacy: false,
   })
+
+  useEffect(() => {
+    if (!contractorId || !/^\d+$/.test(contractorId)) return
+    getContractor(Number(contractorId)).then((profile) => setContractor(profileToSummary(profile))).catch(() => setContractor(undefined))
+  }, [contractorId])
 
   const canSubmit = Boolean(
     contractor &&
@@ -56,12 +68,35 @@ export default function EstimateRequestPage() {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!canSubmit || !contractor) return
 
+    const requestId = getActiveRequestId()
+    const numericContractorId = Number(contractor.id)
+    setIsSubmitting(true)
+    setSubmitError('')
+    try {
+      if (requestId && Number.isSafeInteger(numericContractorId)) {
+        const budget = parseManwon(form.budget)
+        await updateRequest(requestId, {
+          region: form.region.trim(),
+          budgetMin: budget,
+          budgetMax: budget,
+          desiredDate: form.preferredDate || undefined,
+          requestedItems: '바닥재,벽지,조명',
+        })
+        await inviteContractor(requestId, numericContractorId)
+      }
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '견적 요청에 실패했습니다.')
+      setIsSubmitting(false)
+      return
+    }
+    setIsSubmitting(false)
     navigate('/estimate/request/complete', {
       state: {
+        requestId,
         contractorId: contractor.id,
         contractorName: contractor.companyName,
         budget: form.budget,
@@ -241,11 +276,13 @@ export default function EstimateRequestPage() {
         <footer className="shrink-0 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
           <Button
             type="submit"
-            disabled={!canSubmit}
+            disabled={!canSubmit || isSubmitting}
+            isLoading={isSubmitting}
             className="h-12 w-full !rounded-[5px] !border !border-[#2563eb] !bg-[#2563eb] !px-2 !py-0 !text-[12px] !font-bold !shadow-none hover:!translate-y-0 hover:!bg-[#2563eb] hover:!shadow-none active:!translate-y-0"
           >
             견적 요청하기
           </Button>
+          <p role="alert" className="mt-2 min-h-4 text-center text-[10px] text-[#ef4444]">{submitError}</p>
         </footer>
       </form>
     </UserScreenShell>
