@@ -189,10 +189,10 @@ export default function SimulationGeneratingPage() {
             type="button"
             disabled={isGenerating}
             onClick={handleFooterAction}
-            className={`h-12 w-full !rounded-[5px] !border !px-4 !py-0 !text-[12px] !font-bold !opacity-100 !shadow-none ${
+            className={`h-12 w-full !rounded-[5px] !border !border-[#2563eb] !px-4 !py-0 !text-[12px] !font-bold !opacity-100 !shadow-none ${
               isGenerating
-                ? '!border-[#cbd5e1] !bg-[#cbd5e1]'
-                : '!border-[#2563eb] !bg-[#2563eb]'
+                ? '!bg-[#cbd5e1]'
+                : '!bg-[#2563eb]'
             }`}
           >
             {isGenerating ? '이미지 생성 중…' : canGenerate ? '다시 시도하기' : '사진 다시 선택하기'}

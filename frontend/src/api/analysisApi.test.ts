@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { apiRequest } from './axiosInstance'
-import { generateInteriorImages, getAnalysis, replaceAnalysisSpaces } from './analysisApi'
+import { ApiClientError, apiRequest } from './axiosInstance'
+import {
+  generateInteriorImages,
+  getAnalysis,
+  getInteriorImageGenerationErrorMessage,
+  replaceAnalysisSpaces,
+} from './analysisApi'
 
 vi.mock('./axiosInstance', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./axiosInstance')>()
@@ -46,5 +51,15 @@ describe('analysisApi', () => {
       authenticated: true,
       timeout: 75_000,
     }))
+  })
+
+  it.each([
+    [new ApiClientError('unauthorized', 'http', 401), '로그인이 만료되었습니다. 다시 로그인해 주세요.'],
+    [new ApiClientError('forbidden', 'http', 403), '이 의뢰의 AI 이미지를 생성할 권한이 없습니다.'],
+    [new ApiClientError('unavailable', 'http', 503), 'AI 생성 설정을 확인할 수 없습니다.'],
+    [new ApiClientError('network', 'network'), 'AI 생성 응답이 지연되고 있습니다. 다시 시도해 주세요.'],
+    [new Error('unknown'), 'AI 이미지 생성 중 오류가 발생했습니다.'],
+  ])('maps an interior image generation failure to a user-safe message', (error, expected) => {
+    expect(getInteriorImageGenerationErrorMessage(error)).toBe(expected)
   })
 })
