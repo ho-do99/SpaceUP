@@ -32,6 +32,7 @@
 - 원인: 브라우저는 HTTPS 도메인에서 POST 요청 시 Origin 헤더를 포함한다. 기존 보안 설정은 localhost Origin만 하드코딩해 로그인 요청을 403으로 차단했다.
 - 조치: `app.cors.allowed-origins` 설정값을 읽도록 변경하고, 로컬 개발 주소와 현재 HTTPS 도메인을 기본 허용 목록에 포함한다.
 - 추가 조치: Compose에서 빈 `APP_CORS_ALLOWED_ORIGINS`가 애플리케이션 기본값을 덮어쓰지 않도록 같은 기본값을 지정한다.
+- 수정: Compose YAML의 URL 기본값은 반드시 따옴표로 감싸 `http://`의 `:`가 YAML 구분자로 해석되지 않게 한다.
 - 영향: 인증·이미지 업로드 등 브라우저 POST 요청이 Nginx 경유 백엔드로 정상 전달된다. DB 변경은 없다.
 
 ## 사설 서버 비밀 환경변수
