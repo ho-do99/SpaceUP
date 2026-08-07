@@ -11,7 +11,8 @@
 - Bucket: `spaceup-images-20260807` (private)
 - Sub Account: `spaceup-storage-writer`
 - 사용자 정의 정책: `spaceup-object-storage-writer`
-- 허용: 버킷 목록 조회, 해당 버킷 객체 조회, 업로드/교체/삭제
+- 허용: 버킷 목록 조회, 객체 조회, 업로드/교체
+- 현재 사용자 정의 정책은 `Bucket/*` 리소스에 위 액션만 허용한다. NCP의 단일 버킷 리소스 정책이 API 업로드에서 거부되어 적용 범위를 넓힌 상태이며, 삭제 권한은 부여하지 않았다.
 - 차단: 다른 버킷 접근, 버킷 생성/삭제, CORS/공개 설정 변경
 
 ## 백엔드 변경
@@ -42,9 +43,13 @@
 NCP_OBJECT_STORAGE_ENABLED=true
 NCP_OBJECT_STORAGE_ACCESS_KEY=...
 NCP_OBJECT_STORAGE_SECRET_KEY=...
+AWS_REQUEST_CHECKSUM_CALCULATION=WHEN_REQUIRED
+AWS_RESPONSE_CHECKSUM_VALIDATION=WHEN_REQUIRED
 ```
 
 Endpoint, region, bucket은 애플리케이션의 비밀이 아닌 기본 설정으로 관리한다.
+
+AWS SDK 2.30 이상은 S3 업로드에 CRC 체크섬을 자동 추가하지만 NCP Object Storage는 이 선택 헤더가 포함된 요청을 `AccessDenied`로 거부했다. 백엔드의 NCP 전용 `S3Client`에도 `WHEN_REQUIRED`를 명시했으므로 새 배포에서는 코드 설정이 우선 적용되고, 위 환경변수는 CLI 진단과 서버 전체 기본값을 동일하게 유지한다.
 
 ## 검증 순서
 

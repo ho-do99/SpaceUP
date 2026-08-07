@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { getImageUploadErrorMessage, uploadImage, validateImageFile } from '@/api/fileApi'
+import { attachRequestImage } from '@/api/requestApi'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import SimulationPhotoUploadZone from '@/components/user/SimulationPhotoUploadZone'
@@ -8,6 +9,8 @@ import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import { interiorStyleOptions } from '@/mocks/interiorStyles'
 import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
+import { getActiveRequestId } from '@/utils/requestFlow'
+import { clearSimulationResult } from '@/utils/simulationResult'
 
 export default function SimulationPhotoUploadPage() {
   const navigate = useNavigate()
@@ -67,10 +70,17 @@ export default function SimulationPhotoUploadPage() {
       return
     }
 
+    const requestId = getActiveRequestId()
+    if (!requestId) {
+      setErrorMessage('진행 중인 의뢰 정보를 찾을 수 없습니다. 처음부터 다시 진행해 주세요.')
+      return
+    }
+
     const abortController = new AbortController()
     abortControllerRef.current = abortController
     setErrorMessage('')
     setIsUploading(true)
+    clearSimulationResult()
 
     try {
       const uploadResponse = await uploadImage(selectedFile, abortController.signal)
@@ -80,6 +90,11 @@ export default function SimulationPhotoUploadPage() {
         setErrorMessage('서버 응답을 확인할 수 없습니다.')
         return
       }
+
+      await attachRequestImage(requestId, {
+        imageType: 'PHOTO',
+        imageUrl: uploadResponse.imageUrl,
+      })
 
       navigate('/analysis/simulation/generating', {
         state: {

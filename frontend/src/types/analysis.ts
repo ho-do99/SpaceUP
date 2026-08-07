@@ -56,3 +56,12 @@ export interface RecommendedProduct {
   amount: number
   reason: string
 }
+
+export interface InteriorImageGenerateInput {
+  style: string
+  referenceImageUrl?: string
+}
+
+export interface InteriorImageGenerateResponse {
+  imageUrls: string[]
+}

@@ -15,7 +15,10 @@ import com.spaceup.domain.ai.provider.GeneratedImage;
 import com.spaceup.domain.ai.provider.ImageGenerationProvider;
 import com.spaceup.domain.file.service.ImageStoreService;
 import com.spaceup.domain.request.entity.QuoteRequest;
+import com.spaceup.domain.request.dto.RequestImageAddRequest;
+import com.spaceup.domain.request.entity.RequestImageType;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
+import com.spaceup.domain.request.service.RequestImageService;
 import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.RequestNotFoundException;
 
@@ -33,6 +36,7 @@ public class AiInteriorImageService {
 	private final ImageGenerationProvider imageGenerationProvider;
 	private final ImageStoreService imageStoreService;
 	private final QuoteRequestRepository quoteRequestRepository;
+	private final RequestImageService requestImageService;
 
 	@Transactional
 	public InteriorImageGenerateResponse generate(Long requestId, Long landlordId, InteriorImageGenerateRequest dto) {
@@ -47,7 +51,15 @@ public class AiInteriorImageService {
 
 		List<GeneratedImage> results = imageGenerationProvider.generate(prompt, referenceImage);
 		List<String> imageUrls = results.stream().map(this::store).toList();
+		imageUrls.forEach(imageUrl -> connectGeneratedImage(requestId, landlordId, imageUrl));
 		return new InteriorImageGenerateResponse(imageUrls);
+	}
+
+	private void connectGeneratedImage(Long requestId, Long landlordId, String imageUrl) {
+		RequestImageAddRequest request = new RequestImageAddRequest();
+		request.setImageType(RequestImageType.AI_GENERATED);
+		request.setImageUrl(imageUrl);
+		requestImageService.addImage(requestId, landlordId, request);
 	}
 
 	private String buildPrompt(QuoteRequest request, String style) {

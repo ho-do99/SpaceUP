@@ -120,7 +120,8 @@ ceilingHeightM, totalFloorAreaM2, totalWallpaperAreaM2
 
 ### 3-4. AI 인테리어 이미지 생성 (Gemini)
 요청: `{style: "화이트톤 모던 스타일로 바꿔줘", referenceImageUrl?: "/api/files/images/..."}` → 응답: `{imageUrls: [...]}`
-> `GEMINI_API_KEY` 환경변수 미설정 시 503. 현재 미설정 상태(의도된 동작 — 실제 키는 커밋하지 않았습니다).
+> `GEMINI_API_KEY` 환경변수 미설정 시 503. 실제 키는 커밋하지 않고 서버 비밀 환경파일에서만 주입합니다.
+> 생성된 파일은 Object Storage 또는 로컬 저장소에 기록되고, 반환 경로는 같은 의뢰의 `request_image`에 `AI_GENERATED` 유형으로 연결됩니다.
 
 **enum AnalysisStatus**: `PENDING | COMPLETED | FAILED`
 

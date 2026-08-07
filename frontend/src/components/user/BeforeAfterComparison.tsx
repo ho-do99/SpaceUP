@@ -1,17 +1,27 @@
 import afterImage from '@/assets/user/images/simulation-after.png'
 import beforeImage from '@/assets/user/images/simulation-before.png'
 
-export default function BeforeAfterComparison() {
+interface BeforeAfterComparisonProps {
+  beforeImageUrl?: string
+  afterImageUrl?: string
+  styleName?: string
+}
+
+export default function BeforeAfterComparison({
+  beforeImageUrl = beforeImage,
+  afterImageUrl = afterImage,
+  styleName = '모던',
+}: BeforeAfterComparisonProps) {
   return (
     <figure className="relative grid h-[402px] grid-cols-2 overflow-hidden rounded-xl border border-[#cbd5e1] bg-white">
       <img
-        src={beforeImage}
+        src={beforeImageUrl}
         alt="인테리어 적용 전 공간"
         className="h-full w-full object-cover"
       />
       <img
-        src={afterImage}
-        alt="모던 스타일 적용 후 공간"
+        src={afterImageUrl}
+        alt={`${styleName} 스타일 적용 후 공간`}
         className="h-full w-full object-cover"
       />
 
