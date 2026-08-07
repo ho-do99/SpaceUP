@@ -41,6 +41,14 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Let's Encrypt HTTP-01 challenge files. Keep this location outside the
+    # frontend proxy so certificate renewal never needs to stop Nginx.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type "text/plain";
+        try_files $uri =404;
+    }
+
     location / {
         proxy_pass http://frontend_dev;
         proxy_intercept_errors on;

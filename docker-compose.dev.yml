@@ -75,6 +75,7 @@ services:
     volumes:
       - ./nginx/dev.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ${LETSENCRYPT_DIR:-./nginx/certs}:/etc/nginx/certs:ro
+      - ${CERTBOT_WEBROOT_DIR:-./nginx/acme}:/var/www/certbot:ro
     depends_on:
       frontend:
         condition: service_started
