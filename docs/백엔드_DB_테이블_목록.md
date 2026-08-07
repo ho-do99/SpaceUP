@@ -1,32 +1,44 @@
-# 백엔드에서 생성되는 DB 테이블 전체 목록
+# 백엔드·실DB 테이블 목록
 
-> `backend/` 실행 시 `ddl-auto: update` 설정으로 JPA(Hibernate)가 아래 `@Entity` 클래스들을 보고 테이블을 자동 생성/갱신합니다. 별도로 실행해야 하는 SQL은 없습니다. 총 **17개 테이블**.
+> 2026-08-07 기준 `.env` 연결 DB와 현재 백엔드 엔티티를 대조한 목록이다. 현재 총 25개이며, 스키마 변경은 `database/migrations`의 명시적 SQL을 기준으로 한다. `ddl-auto=update`는 남은 마이그레이션이 끝난 뒤 `validate`로 전환할 예정이다.
 
-| 테이블명 | 도메인 | 생성 코드(엔티티 파일) | PK | 주요 컬럼 | 참조(FK) |
-| --- | --- | --- | --- | --- | --- |
-| `user_account` | member | `domain/member/entity/Member.java` | `user_id` | username, password_hash, email, user_name, phone, phone_verified, user_role(LANDLORD/CONTRACTOR/MATERIAL_VENDOR/ADMIN), approval_status, application_number, approval_number, deleted_at | - |
-| `phone_verification` | member | `domain/member/entity/PhoneVerification.java` | `id` | phone_number, code, expires_at, verified | - (회원가입 전 인증용, 특정 회원에 연결 안 됨) |
-| `property` | request | `domain/request/entity/Property.java` | `property_id` | region, housing_type, exclusive_area_m2, current_deposit, current_monthly_rent | `owner_id` → user_account |
-| `quote_request` | request | `domain/request/entity/QuoteRequest.java` | `request_id` | request_code, budget_amount, budget_min, budget_max, target_rent, desired_date, requested_items, status, reject_reason | `owner_id`→user_account, `property_id`→property, `contractor_id`→user_account |
-| `contractor_quote` | quote | `domain/quote/entity/ContractorQuote.java` | `quote_id` | total_amount, estimated_days, available_start_date, valid_until, status | `request_id`→quote_request, `contractor_id`→user_account |
-| `contractor_quote_item` | quote | `domain/quote/entity/ContractorQuoteItem.java` | `quote_item_id` | work_type, description, amount | `quote_id`→contractor_quote |
-| `analysis_job` | analysis | `domain/analysis/entity/AnalysisJob.java` | `analysis_id` | status, room_count, bathroom_count, space_score, matching_score, estimated_quote_min/max, deposit_increase_min/max, preliminary_deposit/rent_increase_min/max | `request_id`→quote_request |
-| `contractor_profiles` | contractor | `domain/contractor/entity/ContractorProfile.java` | `id` | business_reg_no, company_name, activity_regions, specialties, rating, review_count, estimate_min/max, available_from_date, profile_public 등 공개설정 5종 | `member_id`→user_account |
-| `products` | product | `domain/product/entity/Product.java` | `id` | product_code, name, category, spec, color, supply_price, sale_price, stock_qty, status | `vendor_id`→user_account |
-| `material_orders` | order | `domain/order/entity/MaterialOrder.java` | `id` | order_code, quantity, order_amount, payment_completed, status | `product_id`→products, `buyer_id`→user_account |
-| `settlements` | settlement | `domain/settlement/entity/Settlement.java` | `id` | transaction_code, transaction_amount, commission_amount, payout_amount, status | `partner_id`→user_account |
-| `notifications` | notification | `domain/notification/entity/Notification.java` | `id` | type, title, content, is_read | `receiver_id`→user_account |
-| `schedule_events` | schedule | `domain/schedule/entity/ScheduleEvent.java` | `id` | title, scheduled_at, status | `contractor_id`→user_account, `request_id`→quote_request |
-| `portfolios` | portfolio | `domain/portfolio/entity/Portfolio.java` | `id` | project_name, region, property_type, area_m2, work_items, duration_days, amount, main_image_url, photo_urls, is_public | `contractor_id`→user_account |
-| `system_settings` | admin | `domain/admin/entity/SystemSetting.java` | `id` | setting_key(unique), setting_value, description | - |
-| `rental_transaction` | rental | `domain/rental/entity/RentalTransaction.java` | `id` | apartment_name, deal_year/month/day, deposit, monthly_rent, exclusive_use_area, sgg_code, source_key(unique), raw_payload(JSON) | - (외부 국토부 API 수집 데이터) |
-| `rental_api_sync_log` | rental | `domain/rental/entity/RentalApiSyncLog.java` | `id` | lawd_cd, deal_ym, status, 수집/저장/실패 건수 | - |
+| 테이블 | 역할 | 주요 연결 |
+|---|---|---|
+| `user_account` | 임대인·시공사·관리자 계정 | 역할: `LANDLORD`, `CONTRACTOR`, `ADMIN` |
+| `phone_verification` | 가입 전 휴대폰 인증 | 전화번호 기준 |
+| `contractor_profiles` | 시공사 프로필·공개 설정 | `member_id` → `user_account` |
+| `portfolios` | 시공사 포트폴리오 | `contractor_id` → `user_account` |
+| `property` | 사용자 매물 | `owner_id` → `user_account` |
+| `quote_request` | 견적 요청의 중심 데이터 | 사용자·매물 참조 |
+| `request_contractors` | 요청에 참여하는 여러 시공사 | 요청·시공사 조합 |
+| `request_image` | 요청·AI 입력 이미지 | `request_id` → `quote_request` |
+| `analysis_job` | AI 분석 작업·요약 결과 | `request_id` → `quote_request` |
+| `analysis_space` | 공간별 AI 분석 결과 | `analysis_id` → `analysis_job` |
+| `apartments` | 아파트 검색 기준 정보 | 평면도 상위 데이터 |
+| `floorplan_variants` | 아파트별 면적·평면 유형 | `apartment_id` → `apartments` |
+| `rental_transaction` | 국토부 임대차 실거래 | 외부 데이터 원본 키 |
+| `rental_api_sync_log` | 임대차 API 동기화 기록 | 수집 범위·결과 |
+| `material_product` | 테마별 읽기 전용 자재 카탈로그 | 업체·재고·주문과 무관 |
+| `contractor_quote` | 시공사별 견적 | 요청·시공사 참조 |
+| `contractor_quote_item` | 견적 세부 항목 | `quote_id` → `contractor_quote` |
+| `chat_messages` | 요청별 사용자·시공사 채팅 | 요청·발신자·시공사 참조 |
+| `site_visits` | 계약 전 현장 방문 일정 | 요청·시공사 참조 |
+| `contractor_projects` | 계약 후 시공 진행 | 요청·수락 견적 참조 |
+| `project_checklist_items` | 프로젝트 진행 체크리스트 | `project_id` → `contractor_projects` |
+| `reviews` | 완료 프로젝트 리뷰 | 요청·사용자·시공사 참조 |
+| `notifications` | 사용자별 알림 | `receiver_id` → `user_account` |
+| `settlements` | 시공사 정산 | 현재 `partner_id` 명칭은 후속 마이그레이션 대상 |
+| `system_settings` | 관리자 시스템 설정 | 설정 키 고유 |
 
----
+## 제거된 과거 구조
 
-## 참고
+- `products`, `material_orders`: 자재업체 입점·재고·주문 기능 제거에 따라 삭제
+- `boards`, `comments`, `upload_files`: 현재 화면과 백엔드 도메인이 없고 데이터 0건이어서 삭제
+- `schedule_events`: `site_visits`와 `contractor_projects`에 역할이 중복되고 데이터 0건이어서 삭제
+- `MATERIAL_VENDOR`: 현재 회원 역할에서 제거
 
-- **테이블을 안 만드는 것들**: `domain/matching`, `domain/file`은 `@Entity`가 없습니다 — matching은 그때그때 계산만 하고 저장 안 함, file(이미지 업로드)은 디스크에만 저장하고 DB 기록 없음.
-- **모든 테이블에 공통으로 있는 컬럼**: `created_at`, `updated_at` — 대부분의 엔티티가 `BaseTimeEntity`(`global/entity/BaseTimeEntity.java`, `@MappedSuperclass`)를 상속해서 자동으로 채워집니다. `Member`(`user_account`)만 예외적으로 직접 `@PrePersist`/`@PreUpdate`로 처리합니다.
-- **삭제된 테이블**: `boards`, `comments`, `upload_files` — 게시판 도메인 삭제하면서 같이 제거됨(최근 커밋).
-- FK는 전부 `user_account.user_id`를 참조하는 구조가 많은데, 이는 임대인/시공사/자재업체/관리자가 전부 하나의 `Member` 엔티티(역할만 다름)로 관리되기 때문입니다.
+## 주의
+
+- `material_product`는 반드시 유지한다. 제거된 것은 자재 자체가 아니라 자재업체 판매·재고·주문 기능이다.
+- `settlements.partner_id`와 `/api/settlements/partner/me`는 아직 이름만 과거 범용 파트너 구조를 사용한다. 이번 잔존 용어 정리 단계에서는 API·DB 호환을 위해 변경하지 않았으며 정산 구조 보강 단계에서 시공사 기준으로 함께 바꾼다.
+- 과거 17개 테이블 문서는 현재 구조와 맞지 않으므로 이 문서로 대체했다.

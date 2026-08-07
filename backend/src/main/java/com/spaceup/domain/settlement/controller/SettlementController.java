@@ -37,7 +37,7 @@ public class SettlementController {
 				ApiResponse.success("정산 조회 완료", settlementService.getSettlement(settlementId, getMemberId(authentication))));
 	}
 
-	// ⭐ PDF "정산 관리" 화면 (시공사/자재업체 로그인 기준 - 본인 정산 내역, 페이지네이션)
+	// ⭐ 시공사 정산 관리 화면 (본인 정산 내역, 페이지네이션)
 	@GetMapping("/partner/me")
 	public ResponseEntity<ApiResponse<Page<SettlementResponse>>> getMySettlements(
 			@PageableDefault(size = 20) Pageable pageable, Authentication authentication) {

@@ -1,13 +1,30 @@
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { getRecommendedContractors } from '@/api/contractorApi'
 import Button from '@/components/Button'
 import ContractorCard from '@/components/user/ContractorCard'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import { contractors } from '@/mocks/contractors'
+import type { ContractorSummary } from '@/mocks/contractors'
+import { recommendationToSummary } from '@/utils/contractorAdapter'
+import { getActiveRequestId } from '@/utils/requestFlow'
 
 export default function ContractorPage() {
   const navigate = useNavigate()
-  const topRecommendation = contractors[0]
+  const [visibleContractors, setVisibleContractors] = useState<readonly ContractorSummary[]>(contractors)
+  const [loadNotice, setLoadNotice] = useState('')
+  const topRecommendation = visibleContractors[0]
+
+  useEffect(() => {
+    const requestId = getActiveRequestId()
+    if (!requestId) return
+    getRecommendedContractors(requestId)
+      .then((items) => {
+        if (items.length > 0) setVisibleContractors(items.map(recommendationToSummary))
+      })
+      .catch(() => setLoadNotice('추천 API를 불러오지 못해 예시 시공사를 표시합니다.'))
+  }, [])
 
   return (
     <UserScreenShell className="h-dvh">
@@ -29,10 +46,11 @@ export default function ContractorPage() {
           </section>
 
           <section className="space-y-[15px] pb-6 pt-3" aria-label="추천 시공사 목록">
-            {contractors.map((contractor) => (
+            {visibleContractors.map((contractor) => (
               <ContractorCard key={contractor.id} contractor={contractor} />
             ))}
           </section>
+          <p role="status" className="pb-3 text-center text-[10px] text-[#64748b]">{loadNotice}</p>
         </main>
 
         <footer className="grid shrink-0 grid-cols-2 gap-3 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
@@ -45,7 +63,7 @@ export default function ContractorPage() {
             이전
           </Button>
           <Link
-            to={`/contractors/${topRecommendation.id}`}
+            to={topRecommendation ? `/contractors/${topRecommendation.id}` : '/contractors'}
             className="flex h-12 items-center justify-center rounded-[5px] border border-[#2563eb] bg-[#2563eb] px-2 text-center text-[12px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
           >
             견적 요청하기

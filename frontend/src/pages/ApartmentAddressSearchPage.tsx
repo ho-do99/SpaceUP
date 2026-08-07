@@ -4,6 +4,8 @@ import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { createRequest } from '@/api/requestApi'
+import { getRequestDraft, saveRequestDraft, setActiveRequestId } from '@/utils/requestFlow'
 import {
   apartmentSearchResults,
   type ApartmentSearchResult,
@@ -40,6 +42,8 @@ export default function ApartmentAddressSearchPage() {
   const [selectedApartmentId, setSelectedApartmentId] = useState<string | null>(null)
   const [selectedFloorPlanId, setSelectedFloorPlanId] = useState<string | null>(null)
   const [isAreaListOpen, setIsAreaListOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const searchResults = useMemo(() => {
     if (!hasSearched || !normalizeSearchValue(query)) return []
@@ -86,6 +90,29 @@ export default function ApartmentAddressSearchPage() {
     }
 
     navigate('/analysis/new/property')
+  }
+
+  const continueWithApartment = async () => {
+    if (!selectedApartment || !selectedFloorPlan || isSubmitting) return
+    const previous = getRequestDraft()
+    const draft = {
+      ...previous,
+      region: selectedApartment.roadAddress,
+      propertyType: 'APARTMENT',
+      areaM2: selectedFloorPlan.exclusiveArea,
+    }
+    saveRequestDraft(draft)
+    setIsSubmitting(true)
+    setSubmitError('')
+    try {
+      const requestId = await createRequest(draft)
+      setActiveRequestId(requestId)
+      navigate('/analysis/spaces')
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '의뢰 생성에 실패했습니다.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -231,16 +258,18 @@ export default function ApartmentAddressSearchPage() {
           <footer className="shrink-0 bg-white px-4 pb-[calc(19px+env(safe-area-inset-bottom))]">
             <Button
               type="button"
-              disabled={!canContinue}
+              disabled={!canContinue || isSubmitting}
+              isLoading={isSubmitting}
               className={`h-12 w-full !rounded-[5px] !border !px-4 !py-0 !text-[12px] !font-bold !shadow-none hover:!translate-y-0 hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] ${
                 canContinue
                   ? '!border-[#2563eb] !bg-[#2563eb] hover:!bg-[#2563eb]'
                   : '!border-[#cbd5e1] !bg-[#cbd5e1] !opacity-100'
               }`}
-              onClick={() => navigate('/analysis/spaces')}
+              onClick={continueWithApartment}
             >
               다음
             </Button>
+            <p role="alert" className="mt-2 min-h-4 text-center text-[10px] text-[#ef4444]">{submitError}</p>
           </footer>
         </div>
       ) : (

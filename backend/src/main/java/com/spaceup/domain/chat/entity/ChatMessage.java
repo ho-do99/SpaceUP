@@ -38,6 +38,10 @@ public class ChatMessage extends BaseTimeEntity {
 	@JoinColumn(name = "request_id", nullable = false)
 	private QuoteRequest request;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "contractor_id", nullable = false)
+	private Member contractor;
+
 	@Enumerated(EnumType.STRING)
 	@Column(name = "sender_type", nullable = false, length = 20)
 	private ChatSenderType senderType;

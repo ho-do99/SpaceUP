@@ -117,18 +117,6 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(409).body(ApiResponse.fail(e.getMessage()));
 	}
 
-	@ExceptionHandler(ProductNotFoundException.class)
-	public ResponseEntity<ApiResponse<Void>> handleProductNotFoundException(ProductNotFoundException e) {
-		log.warn("상품 조회 실패: {}", e.getMessage());
-		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
-	}
-
-	@ExceptionHandler(OrderNotFoundException.class)
-	public ResponseEntity<ApiResponse<Void>> handleOrderNotFoundException(OrderNotFoundException e) {
-		log.warn("주문 조회 실패: {}", e.getMessage());
-		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
-	}
-
 	@ExceptionHandler(SettlementNotFoundException.class)
 	public ResponseEntity<ApiResponse<Void>> handleSettlementNotFoundException(SettlementNotFoundException e) {
 		log.warn("정산 내역 조회 실패: {}", e.getMessage());
@@ -138,12 +126,6 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(NotificationNotFoundException.class)
 	public ResponseEntity<ApiResponse<Void>> handleNotificationNotFoundException(NotificationNotFoundException e) {
 		log.warn("알림 조회 실패: {}", e.getMessage());
-		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
-	}
-
-	@ExceptionHandler(ScheduleNotFoundException.class)
-	public ResponseEntity<ApiResponse<Void>> handleScheduleNotFoundException(ScheduleNotFoundException e) {
-		log.warn("일정 조회 실패: {}", e.getMessage());
 		return ResponseEntity.status(404).body(ApiResponse.fail(e.getMessage()));
 	}
 
@@ -172,12 +154,6 @@ public class GlobalExceptionHandler {
 	}
 
 	// ⭐ [최종 검토 반영] 재고 부족(오버셀 시도) 예외 핸들러. 상태 충돌 성격이라 409로 통일.
-	@ExceptionHandler(InsufficientStockException.class)
-	public ResponseEntity<ApiResponse<Void>> handleInsufficientStockException(InsufficientStockException e) {
-		log.warn("재고 부족: {}", e.getMessage());
-		return ResponseEntity.status(409).body(ApiResponse.fail(e.getMessage()));
-	}
-
 	// ⭐ [Figma 반영] 포트폴리오 없음 예외 핸들러
 	@ExceptionHandler(PortfolioNotFoundException.class)
 	public ResponseEntity<ApiResponse<Void>> handlePortfolioNotFoundException(PortfolioNotFoundException e) {

@@ -1,7 +1,6 @@
 export type UserRole =
   | 'LANDLORD'
   | 'CONTRACTOR'
-  | 'MATERIAL_VENDOR'
   | 'ADMIN'
 
 export interface LoginRequest {

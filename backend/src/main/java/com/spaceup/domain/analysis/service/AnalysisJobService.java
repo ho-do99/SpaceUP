@@ -18,6 +18,7 @@ import com.spaceup.domain.analysis.repository.AnalysisJobRepository;
 import com.spaceup.domain.analysis.repository.AnalysisSpaceRepository;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
+import com.spaceup.domain.request.repository.RequestContractorRepository;
 import com.spaceup.global.error.AnalysisNotFoundException;
 import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.RequestNotFoundException;
@@ -32,6 +33,7 @@ public class AnalysisJobService {
 	private final AnalysisJobRepository analysisJobRepository;
 	private final AnalysisSpaceRepository analysisSpaceRepository;
 	private final QuoteRequestRepository quoteRequestRepository;
+	private final RequestContractorRepository requestContractorRepository;
 	private final RentalValueCalculator rentalValueCalculator;
 
 	// ⭐ PDF "02 임대 정보 입력" 완료 직후 호출 지점. PENDING 상태로 분석 레코드를 먼저 만들어두고, ML 파이프라인에
@@ -150,7 +152,8 @@ public class AnalysisJobService {
 	// ⭐ [보안 수정] 조회는 의뢰의 임대인 본인 또는 배정된 시공사만 가능합니다.
 	private void validateParticipant(QuoteRequest request, Long memberId) {
 		boolean isOwner = request.getOwner().getId().equals(memberId);
-		boolean isContractor = request.getContractor() != null && request.getContractor().getId().equals(memberId);
+		boolean isContractor = requestContractorRepository
+				.existsByRequestIdAndContractorId(request.getId(), memberId);
 		if (!isOwner && !isContractor) {
 			throw new ForbiddenAccessException("본인이 참여 중인 의뢰의 분석 결과만 조회할 수 있습니다.");
 		}

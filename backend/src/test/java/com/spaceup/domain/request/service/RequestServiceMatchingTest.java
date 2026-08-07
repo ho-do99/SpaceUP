@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -21,6 +22,10 @@ import com.spaceup.domain.contractor.entity.ContractorProfile;
 import com.spaceup.domain.contractor.repository.ContractorProfileRepository;
 import com.spaceup.domain.matching.dto.MatchingScoreResult;
 import com.spaceup.domain.matching.service.MatchingScoreCalculator;
+import com.spaceup.domain.material.repository.MaterialProductRepository;
+import com.spaceup.domain.material.entity.MaterialProduct;
+import com.spaceup.domain.material.entity.MaterialTheme;
+import com.spaceup.domain.material.entity.MaterialWorkType;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.repository.MemberRepository;
 import com.spaceup.domain.notification.service.NotificationService;
@@ -30,6 +35,8 @@ import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.entity.RequestStatus;
 import com.spaceup.domain.request.repository.PropertyRepository;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
+import com.spaceup.domain.request.repository.RequestContractorRepository;
+import com.spaceup.domain.request.dto.RequestUpdateRequest;
 import com.spaceup.domain.visit.service.SiteVisitService;
 
 // ⭐ [시공사 추천 점수 고도화] RequestService.assignContractor()가 BigDecimal matchScore를 HALF_UP으로
@@ -43,6 +50,8 @@ class RequestServiceMatchingTest {
 
 	@Mock
 	private QuoteRequestRepository quoteRequestRepository;
+	@Mock
+	private RequestContractorRepository requestContractorRepository;
 	@Mock
 	private PropertyRepository propertyRepository;
 	@Mock
@@ -61,6 +70,8 @@ class RequestServiceMatchingTest {
 	private NotificationService notificationService;
 	@Mock
 	private SiteVisitService siteVisitService;
+	@Mock
+	private MaterialProductRepository materialProductRepository;
 
 	private RequestService requestService;
 
@@ -73,9 +84,9 @@ class RequestServiceMatchingTest {
 			"100.00, 100",
 	})
 	void roundsMatchScoreHalfUpBeforeSaving(String matchScoreValue, int expectedScore) {
-		requestService = new RequestService(quoteRequestRepository, propertyRepository, memberRepository,
+		requestService = new RequestService(quoteRequestRepository, requestContractorRepository, propertyRepository, memberRepository,
 				matchingScoreCalculator, contractorProfileRepository, analysisJobService, analysisJobRepository,
-				contractorQuoteRepository, notificationService, siteVisitService);
+				contractorQuoteRepository, notificationService, siteVisitService, materialProductRepository);
 
 		QuoteRequest request = requestWithLandlordOwner();
 		ContractorProfile profile = ContractorProfile.builder().member(contractor()).build();
@@ -93,9 +104,9 @@ class RequestServiceMatchingTest {
 
 	@Test
 	void savesZeroScoreWhenContractorHasNoProfileYet() {
-		requestService = new RequestService(quoteRequestRepository, propertyRepository, memberRepository,
+		requestService = new RequestService(quoteRequestRepository, requestContractorRepository, propertyRepository, memberRepository,
 				matchingScoreCalculator, contractorProfileRepository, analysisJobService, analysisJobRepository,
-				contractorQuoteRepository, notificationService, siteVisitService);
+				contractorQuoteRepository, notificationService, siteVisitService, materialProductRepository);
 
 		QuoteRequest request = requestWithLandlordOwner();
 
@@ -107,6 +118,27 @@ class RequestServiceMatchingTest {
 
 		verify(analysisJobService).updateMatchingScoreIfExists(REQUEST_ID, 0);
 		verify(matchingScoreCalculator, org.mockito.Mockito.never()).calculate(any(), any());
+	}
+
+	@Test
+	void storesOnlyAnActiveMaterialWithTheExpectedThemeAndWorkType() {
+		requestService = new RequestService(quoteRequestRepository, requestContractorRepository, propertyRepository, memberRepository,
+				matchingScoreCalculator, contractorProfileRepository, analysisJobService, analysisJobRepository,
+				contractorQuoteRepository, notificationService, siteVisitService, materialProductRepository);
+		QuoteRequest request = requestWithLandlordOwner();
+		MaterialProduct flooring = org.mockito.Mockito.mock(MaterialProduct.class);
+		when(quoteRequestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
+		when(materialProductRepository.findById(31L)).thenReturn(Optional.of(flooring));
+		when(flooring.isActive()).thenReturn(true);
+		when(flooring.getWorkType()).thenReturn(MaterialWorkType.FLOORING);
+		when(flooring.getTheme()).thenReturn(MaterialTheme.MODERN);
+		RequestUpdateRequest update = new RequestUpdateRequest();
+		update.setSelectedTheme(MaterialTheme.MODERN);
+		update.setSelectedFlooringProductId(31L);
+
+		requestService.updateRequest(REQUEST_ID, LANDLORD_ID, update);
+
+		assertSame(flooring, request.getSelectedFlooringProduct());
 	}
 
 	private QuoteRequest requestWithLandlordOwner() {

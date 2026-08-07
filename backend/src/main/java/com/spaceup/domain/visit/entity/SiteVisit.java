@@ -13,9 +13,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.global.entity.BaseTimeEntity;
 import com.spaceup.global.error.InvalidStatusTransitionException;
@@ -26,7 +27,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 // ⭐ [프론트 연동] "현장방문 예약" 화면. 견적 작성 이전, 의뢰 승인 직후부터 시작되는 별도 흐름이라
-// 공사 일정(ScheduleEvent)/공사 진행(ContractorProject)과는 별개 엔티티입니다.
+// 공사 진행(ContractorProject)의 착공·완공 일정과 구분되는 계약 전 현장 방문 일정입니다.
 @Entity
 @Table(name = "site_visits")
 @Getter
@@ -39,9 +40,13 @@ public class SiteVisit extends BaseTimeEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@OneToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "request_id", nullable = false, unique = true)
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "request_id", nullable = false)
 	private QuoteRequest request;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "contractor_id", nullable = false)
+	private Member contractor;
 
 	@Builder.Default
 	@Enumerated(EnumType.STRING)

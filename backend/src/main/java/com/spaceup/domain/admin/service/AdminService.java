@@ -45,8 +45,7 @@ public class AdminService {
 	public AdminDashboardResponse getDashboard() {
 		return new AdminDashboardResponse(memberRepository.countByRole(MemberRole.LANDLORD),
 				memberRepository.countByRole(MemberRole.CONTRACTOR),
-				memberRepository.countByRole(MemberRole.MATERIAL_VENDOR),
-				countPending(MemberRole.CONTRACTOR), countPending(MemberRole.MATERIAL_VENDOR),
+				countPending(MemberRole.CONTRACTOR),
 				requestRepository.count(), settlementRepository.countByStatus(SettlementStatus.PENDING));
 	}
 
@@ -62,7 +61,7 @@ public class AdminService {
 		return members.map(MemberResponse::new);
 	}
 
-	// ⭐ PDF "시공사관리 / 자재업체관리" 화면 - 심사 대기(PENDING) + 보완요청(NEEDS_REVISION) 목록
+	// ⭐ 시공사 관리 화면 - 심사 대기(PENDING) + 보완요청(NEEDS_REVISION) 목록
 	public List<MemberResponse> getPendingApprovals(MemberRole role) {
 		validateApprovableRole(role);
 		List<MemberResponse> pending = memberRepository
@@ -75,7 +74,7 @@ public class AdminService {
 		return pending;
 	}
 
-	// ⭐ PDF "시공사관리 / 자재업체관리" 화면의 "승인" 버튼 - 승인번호(예: AP-260718-004)를 발급합니다.
+	// ⭐ 시공사 관리 화면의 "승인" 버튼 - 승인번호(예: AP-260718-004)를 발급합니다.
 	@Transactional
 	public void approveMember(Long memberId) {
 		Member member = findMemberOrThrow(memberId);
@@ -92,8 +91,8 @@ public class AdminService {
 	}
 
 	private void validateApprovableRole(MemberRole role) {
-		if (role != MemberRole.CONTRACTOR && role != MemberRole.MATERIAL_VENDOR) {
-			throw new InvalidRoleException("승인 대상은 시공사 또는 자재업체만 가능합니다.");
+		if (role != MemberRole.CONTRACTOR) {
+			throw new InvalidRoleException("승인 대상은 시공사만 가능합니다.");
 		}
 	}
 

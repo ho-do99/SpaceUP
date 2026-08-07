@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getChatThreads } from '@/api/chatApi'
 
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
@@ -86,6 +87,36 @@ const CHAT_THREADS: readonly ContractorChatThread[] = [
 
 export default function ContractorChatListPage() {
   const navigate = useNavigate()
+  const [threads, setThreads] = useState<readonly ContractorChatThread[]>(CHAT_THREADS)
+  const [usingLiveData, setUsingLiveData] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    getChatThreads().then((liveThreads) => {
+      if (!active) return
+      setThreads(liveThreads.map((thread) => {
+        const completed = thread.requestStatus === 'COMPLETED'
+        return {
+          id: `${thread.requestId}-${thread.contractorId}`,
+          requestId: String(thread.requestId),
+          projectName: thread.requestCode,
+          customerName: thread.counterpartName,
+          progressLabel: completed ? '완료' : '견적 협의 중',
+          lastMessage: thread.lastMessage || '아직 메시지가 없습니다.',
+          timeLabel: thread.lastMessageAt?.slice(5, 16).replace('T', ' ') || '-',
+          unreadCount: thread.unreadCount,
+          status: completed ? 'COMPLETED' : 'IN_PROGRESS',
+          href: completed
+            ? `/contractor/requests/${thread.requestId}/chat/completed`
+            : `/contractor/requests/${thread.requestId}/chat`,
+        }
+      }))
+      setUsingLiveData(true)
+    }).catch(() => {
+      if (active) setUsingLiveData(false)
+    })
+    return () => { active = false }
+  }, [])
 
   const [searchKeyword, setSearchKeyword] =
     useState('')
@@ -97,7 +128,7 @@ export default function ContractorChatListPage() {
     const normalizedKeyword =
       searchKeyword.trim().toLowerCase()
 
-    return CHAT_THREADS.filter((thread) => {
+    return threads.filter((thread) => {
       const matchesKeyword =
         !normalizedKeyword ||
         thread.projectName
@@ -121,7 +152,7 @@ export default function ContractorChatListPage() {
 
       return thread.status === activeFilter
     })
-  }, [activeFilter, searchKeyword])
+  }, [activeFilter, searchKeyword, threads])
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
@@ -131,6 +162,7 @@ export default function ContractorChatListPage() {
       />
 
       <main className="min-h-0 flex-1 overflow-y-auto bg-[#f8fafc] px-4 pb-6 pt-4">
+        <p className="mb-3 text-[10px] text-[#64748b]">{usingLiveData ? '실시간 채팅 목록' : '예시 채팅 목록'}</p>
         <label
           htmlFor="contractor-chat-search"
           className="sr-only"

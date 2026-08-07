@@ -1,13 +1,22 @@
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { getContractor } from '@/api/contractorApi'
 import Button from '@/components/Button'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import { getContractorById } from '@/mocks/contractors'
+import type { ContractorSummary } from '@/mocks/contractors'
+import { profileToSummary } from '@/utils/contractorAdapter'
 
 export default function ContractorDetailPage() {
   const navigate = useNavigate()
   const { contractorId } = useParams<{ contractorId: string }>()
-  const contractor = getContractorById(contractorId)
+  const [contractor, setContractor] = useState<ContractorSummary | undefined>(() => getContractorById(contractorId))
+
+  useEffect(() => {
+    if (!contractorId || !/^\d+$/.test(contractorId)) return
+    getContractor(Number(contractorId)).then((profile) => setContractor(profileToSummary(profile))).catch(() => setContractor(undefined))
+  }, [contractorId])
 
   if (!contractor) {
     return (

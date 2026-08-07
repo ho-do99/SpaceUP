@@ -35,14 +35,14 @@
 | POST | `/api/member/me/resubmit` | 로그인 | 보완 자료 재제출 버튼 (NEEDS_REVISION 상태에서만) |
 | DELETE | `/api/member/{memberId}` | 로그인(본인) | 회원 탈퇴 |
 
-**회원가입 요청** `MemberJoinRequest`: `role`(LANDLORD/CONTRACTOR/MATERIAL_VENDOR, ADMIN은 가입 불가), `username`(4~20자), `password`(영문+숫자+특수문자 8~16자), `email`, `name`(≤20자), `phoneNumber`(`010-1234-5678` 형식)
+**회원가입 요청** `MemberJoinRequest`: `role`(LANDLORD/CONTRACTOR, ADMIN은 가입 불가), `username`(4~20자), `password`(영문+숫자+특수문자 8~16자), `email`, `name`(≤20자), `phoneNumber`(`010-1234-5678` 형식)
 
 **로그인 응답** `LoginResponse`: `accessToken, memberId, role`
 
 **회원 조회 응답** `MemberResponse`: `id, username, email, name, phoneNumber, phoneVerified, role, approvalStatus, applicationNumber, approvalNumber, revisionMessage, revisionDeadline, createdAt`
 
-**enum MemberRole**: `LANDLORD | CONTRACTOR | MATERIAL_VENDOR | ADMIN`
-**enum MemberApprovalStatus**: `PENDING | NEEDS_REVISION | APPROVED` (LANDLORD/ADMIN은 가입 즉시 APPROVED, CONTRACTOR/MATERIAL_VENDOR는 관리자 승인 필요)
+**enum MemberRole**: `LANDLORD | CONTRACTOR | ADMIN`
+**enum MemberApprovalStatus**: `PENDING | NEEDS_REVISION | APPROVED` (LANDLORD/ADMIN은 즉시 APPROVED, CONTRACTOR는 관리자 승인 필요)
 
 ---
 
@@ -306,42 +306,19 @@ PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 
 
 ---
 
-## 13. 상품/자재 (`/api/products`)
+## 13. 자재 카탈로그 (`/api/material-products`)
 
 | Method | URL | 인증 | 설명 |
 |---|---|---|---|
-| POST | `/api/products` | 자재업체 | 상품 등록 |
-| PUT | `/api/products/{productId}` | 자재업체(본인) | 상품 수정 |
-| GET | `/api/products/{productId}` | 공개 | 상품 조회 |
-| GET | `/api/products?category=` | 공개 | 상품 목록/검색 (카테고리 선택 필터) |
-| GET | `/api/products/vendor/me` | 자재업체 | 내 상품 목록 |
-| POST | `/api/products/{productId}/stock` | 자재업체(본인) | 재고 조정 (`{delta}`, +입고/-조정) |
-| PATCH | `/api/products/{productId}/status/{status}` | 자재업체(본인) | 판매중지/재개 |
+| GET | `/api/material-products?theme=&workType=` | 공개 | 활성 자재 카탈로그 조회 (`theme`, `workType` 선택 필터) |
 
-**등록 요청** `ProductCreateRequest`: `name(필수), category(필수), spec, color, supplyPrice(필수,>0), salePrice(필수,>0), minOrderQty(필수), stockQty(필수), manufacturer, brand, productCode(미입력시 자동채번), imageUrl, unit(예: "롤","박스","㎡"), coverageM2(1단위 시공가능면적, 추천상품 수량계산에 사용)`
+**응답** `MaterialProductResponse`: `productId, workType, materialCategory, theme, priceTier, brandName, productName, modelCode, productUrl, imageUrl, saleUnit, coveragePerUnitM2, currentPrice, normalizedPriceM2, specJson, priceCheckedAt`
 
-**응답** `ProductResponse`: 위 필드 전부 + `id, vendorId, status`
+**enum MaterialTheme**: `MODERN | WOOD | WHITE | MARBLE`
+**enum MaterialWorkType**: `WALLPAPER | FLOORING | LIGHTING`
+**enum MaterialPriceTier**: `LOW | MID | HIGH`
 
-**enum ProductCategory**: `WALLPAPER | FLOORING | LIGHTING | STORAGE | KITCHEN | FURNITURE`
-**enum ProductStatus**: `ON_SALE | SOLD_OUT | SUSPENDED`
-
----
-
-## 14. 주문/발주 (`/api/orders`)
-
-| Method | URL | 인증 | 설명 |
-|---|---|---|---|
-| POST | `/api/orders` | 시공사 | 자재 주문 (`{productId, quantity}`) |
-| GET | `/api/orders/{orderId}` | 로그인 | 주문 조회 |
-| GET | `/api/orders/buyer/me` | 시공사 | 내 주문 내역 |
-| GET | `/api/orders/status/{status}` | 자재업체 | 상태별 주문 목록 |
-| POST | `/api/orders/{orderId}/ready` | 자재업체(본인) | 출고 준비 |
-| POST | `/api/orders/{orderId}/ship` | 자재업체(본인) | 배송 중 |
-| POST | `/api/orders/{orderId}/complete` | 자재업체(본인) | 완료 |
-| POST | `/api/orders/{orderId}/payment` | 구매자(본인) | 결제 완료 처리 |
-
-**응답** `OrderResponse`: `id, orderCode, productId, productName, buyerId, quantity, orderAmount, paymentCompleted, status`
-**enum OrderStatus**: `NEW → READY_TO_SHIP → SHIPPING → COMPLETED`
+자재업체 입점·상품 등록·재고·주문 API는 현재 프로젝트 범위에서 제거됐다. `material_product`는 사용자가 비교하는 읽기 전용 카탈로그이며 업체 판매 재고가 아니다.
 
 ---
 
@@ -351,7 +328,7 @@ PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 
 |---|---|---|---|
 | POST | `/api/settlements` | **관리자** | 정산 레코드 생성(`{partnerId, transactionAmount}`) |
 | GET | `/api/settlements/{settlementId}` | 로그인 | 정산 조회 |
-| GET | `/api/settlements/partner/me` | 시공사/자재업체 | 내 정산 내역 |
+| GET | `/api/settlements/partner/me` | 시공사 | 내 정산 내역 |
 | POST | `/api/settlements/{settlementId}/complete` | **관리자** | 정산 완료 처리 |
 
 **응답** `SettlementResponse`: `id, transactionCode, partnerId, partnerName, transactionAmount, commissionAmount, payoutAmount, status`
@@ -409,7 +386,7 @@ PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 
 | GET | `/api/admin/settings/{key}` | 시스템 설정 조회 |
 | PUT | `/api/admin/settings/{key}` | 시스템 설정 변경 (`{settingValue}`, 없으면 생성) |
 
-**대시보드 응답** `AdminDashboardResponse`: `totalLandlords, totalContractors, totalMaterialVendors, pendingContractorApprovals, pendingMaterialVendorApprovals, totalRequests, pendingSettlements`
+**대시보드 응답** `AdminDashboardResponse`: `totalLandlords, totalContractors, pendingContractorApprovals, totalRequests, pendingSettlements`
 
 ---
 
@@ -425,6 +402,6 @@ PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 
         → 시공사 견적 작성/발송 → 임대인 견적 수락(accept)
           → "계약 전환"으로 공사 프로젝트(ContractorProject) 생성
             → 착공 → 완료요청 → 임대인 완료확인 → 리뷰 작성 가능
-자재업체: 상품 등록 → 시공사 주문 → 배송 파이프라인
+자재: 테마·시공 종류·가격대별 읽기 전용 카탈로그 조회 및 AI 추천
 정산: 관리자가 생성/완료 처리 (향후 이벤트 자동화 예정)
 ```

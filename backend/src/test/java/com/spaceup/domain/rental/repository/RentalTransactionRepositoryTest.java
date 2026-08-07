@@ -15,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import com.spaceup.domain.rental.entity.RentalTransaction;
 
 @DataJpaTest(properties = {
+		"spring.flyway.enabled=false",
 		"spring.jpa.hibernate.ddl-auto=create-drop",
 		"spring.datasource.url=jdbc:h2:mem:rental;MODE=MySQL;DB_CLOSE_DELAY=-1",
 		"spring.datasource.driver-class-name=org.h2.Driver"

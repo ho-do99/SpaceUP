@@ -13,6 +13,7 @@ import com.spaceup.domain.request.entity.RequestImage;
 import com.spaceup.domain.request.entity.RequestImageType;
 import com.spaceup.domain.request.repository.RequestImageRepository;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
+import com.spaceup.domain.request.repository.RequestContractorRepository;
 import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.RequestNotFoundException;
 
@@ -28,6 +29,7 @@ public class RequestImageService {
 
 	private final RequestImageRepository requestImageRepository;
 	private final QuoteRequestRepository quoteRequestRepository;
+	private final RequestContractorRepository requestContractorRepository;
 
 	@Transactional
 	public Long addImage(Long requestId, Long landlordId, RequestImageAddRequest dto) {
@@ -43,7 +45,9 @@ public class RequestImageService {
 	}
 
 	// ⭐ type을 안 주면 평면도+집사진 전체를, 주면 해당 타입만 순서대로 반환합니다.
-	public List<RequestImageResponse> getImages(Long requestId, RequestImageType imageType) {
+	public List<RequestImageResponse> getImages(Long requestId, RequestImageType imageType, Long memberId) {
+		QuoteRequest request = findRequestOrThrow(requestId);
+		validateParticipant(request, memberId);
 		List<RequestImage> images = imageType != null
 				? requestImageRepository.findByRequestIdAndImageTypeOrderBySortOrderAsc(requestId, imageType)
 				: requestImageRepository.findByRequestIdOrderByImageTypeAscSortOrderAsc(requestId);
@@ -66,6 +70,15 @@ public class RequestImageService {
 	private void validateOwner(QuoteRequest request, Long landlordId) {
 		if (!request.getOwner().getId().equals(landlordId)) {
 			throw new ForbiddenAccessException("본인이 등록한 의뢰에만 이미지를 추가/삭제할 수 있습니다.");
+		}
+	}
+
+	private void validateParticipant(QuoteRequest request, Long memberId) {
+		boolean isOwner = request.getOwner().getId().equals(memberId);
+		boolean isContractor = requestContractorRepository
+				.existsByRequestIdAndContractorId(request.getId(), memberId);
+		if (!isOwner && !isContractor) {
+			throw new ForbiddenAccessException("본인이 참여 중인 의뢰의 이미지만 조회할 수 있습니다.");
 		}
 	}
 

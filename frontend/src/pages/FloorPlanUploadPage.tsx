@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getImageUploadErrorMessage, uploadImage, validateImageFile } from '@/api/fileApi'
+import { attachRequestImage } from '@/api/requestApi'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import FloorPlanUploadZone from '@/components/user/FloorPlanUploadZone'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
+import { getActiveRequestId } from '@/utils/requestFlow'
 
 export default function FloorPlanUploadPage() {
   const navigate = useNavigate()
@@ -64,6 +66,14 @@ export default function FloorPlanUploadPage() {
       if (!uploadedImageUrl) {
         setErrorMessage('서버 응답을 확인할 수 없습니다.')
         return
+      }
+
+      const requestId = getActiveRequestId()
+      if (requestId) {
+        await attachRequestImage(requestId, {
+          imageType: 'FLOOR_PLAN',
+          imageUrl: uploadResponse.imageUrl,
+        })
       }
 
       navigate('/analysis/loading', {
