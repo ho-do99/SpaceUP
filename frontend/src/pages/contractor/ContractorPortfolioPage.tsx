@@ -160,7 +160,7 @@ function PortfolioDeleteDialog({
         >
           선택한 포트폴리오는 목록에서 제거됩니다.
           <br />
-          이 동작은 현재 화면 상태로만 반영됩니다.
+          이 동작은 Prototype 시각 상태로만 반영됩니다.
         </p>
 
         <div className="mt-4 flex gap-[10px]">

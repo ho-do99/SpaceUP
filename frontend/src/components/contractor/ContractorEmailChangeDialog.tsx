@@ -177,13 +177,13 @@ export default function ContractorEmailChangeDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-[70] flex justify-center bg-[#e8edf4]">
       <button
         type="button"
         tabIndex={-1}
         aria-label="이메일 변경 창 닫기"
         onClick={onClose}
-        className="absolute inset-0 bg-[#0f172a]/40"
+        className="absolute inset-0"
       />
 
       <div
@@ -192,69 +192,38 @@ export default function ContractorEmailChangeDialog({
         aria-modal="true"
         aria-labelledby="email-change-dialog-title"
         aria-describedby="email-change-dialog-description"
-        className="relative z-10 w-full max-w-[353px] rounded-2xl bg-white p-5 shadow-[0_20px_48px_rgba(15,23,42,0.24)]"
+        className="relative z-10 h-dvh w-full max-w-[393px] overflow-y-auto bg-white"
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex h-14 items-center border-b border-[#e2e8f0] px-4">
+          <button
+            type="button"
+            aria-label="이메일 변경 창 닫기"
+            onClick={onClose}
+            className="mr-2 flex h-10 w-3 items-center justify-center text-2xl text-[#0b2b59]"
+          >
+            ‹
+          </button>
           <div className="min-w-0 flex-1">
             <h2
               id="email-change-dialog-title"
               className="text-[17px] font-bold text-[#1e293b]"
             >
-              {step === 'email'
-                ? '로그인 이메일 변경'
-                : '이메일 인증'}
+              로그인 이메일 변경
             </h2>
-
-            <p
-              id="email-change-dialog-description"
-              className="mt-1 text-xs leading-5 text-[#64748b]"
-            >
-              {step === 'email'
-                ? '변경할 새 이메일을 입력해 주세요.'
-                : '인증번호 숫자 6자리를 입력해 주세요.'}
-            </p>
           </div>
-
-          <button
-            type="button"
-            aria-label="이메일 변경 창 닫기"
-            onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#64748b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
         </div>
+
+        <p id="email-change-dialog-description" className="px-4 pt-4 text-xs leading-5 text-[#64748b]">새 로그인 이메일을 입력하고 인증해 주세요.</p>
 
         {step === 'email' ? (
           <form
-            className="mt-5"
+            className="px-4 pt-3"
             onSubmit={handleEmailSubmit}
             noValidate
           >
-            <div className="rounded-xl bg-[#f8fafc] px-3.5 py-3">
-              <p className="text-[11px] font-semibold text-[#64748b]">
-                현재 이메일
-              </p>
-
-              <p className="mt-1 break-all text-[13px] font-bold text-[#1e293b]">
-                {currentEmail}
-              </p>
-            </div>
-
             <label
               htmlFor="contractor-new-email"
-              className="mt-4 block text-xs font-bold text-[#334155]"
+              className="block text-xs font-bold text-[#334155]"
             >
               새 이메일
             </label>
@@ -275,8 +244,8 @@ export default function ContractorEmailChangeDialog({
                 setEmail(event.target.value)
                 setErrorMessage('')
               }}
-              placeholder="새 이메일을 입력해 주세요"
-              className="mt-2 h-12 w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 text-sm text-[#1e293b] outline-none placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#dbeafe]"
+              placeholder="새 이메일을 입력하세요."
+              className="mt-1 h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 text-sm text-[#1e293b] outline-none placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#dbeafe]"
             />
 
             {errorMessage ? (
@@ -289,44 +258,37 @@ export default function ContractorEmailChangeDialog({
               </p>
             ) : null}
 
-            <div className="mt-5 grid grid-cols-2 gap-2.5">
+            <div className="mt-4 flex flex-col gap-3">
+              <button
+                type="submit"
+                className="h-12 rounded-lg bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
+              >
+                인증번호 받기
+              </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="h-12 rounded-xl border border-[#cbd5e1] bg-white text-sm font-bold text-[#475569] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
+                className="h-12 rounded-lg border border-[#2563eb] bg-white text-sm font-bold text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
               >
                 취소
               </button>
 
-              <button
-                type="submit"
-                className="h-12 rounded-xl bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
-              >
-                인증 진행
-              </button>
             </div>
           </form>
         ) : (
           <form
-            className="mt-5"
+            className="px-4 pt-3"
             onSubmit={handleVerificationSubmit}
             noValidate
           >
-            <div className="rounded-xl bg-[#eff6ff] px-3.5 py-3">
-              <p className="text-[11px] font-semibold text-[#2563eb]">
-                변경할 이메일
-              </p>
-
-              <p className="mt-1 break-all text-[13px] font-bold text-[#1e293b]">
-                {email}
-              </p>
-            </div>
+            <label className="block text-xs font-bold text-[#334155]">새 이메일</label>
+            <input value={email} readOnly className="mt-1 h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 text-sm text-[#1e293b]" />
 
             <label
               htmlFor="contractor-email-verification-code"
-              className="mt-4 block text-xs font-bold text-[#334155]"
+              className="mt-3 block text-xs font-bold text-[#334155]"
             >
-              인증번호
+              인증번호 6자리
             </label>
 
             <input
@@ -343,9 +305,10 @@ export default function ContractorEmailChangeDialog({
                   : undefined
               }
               onChange={handleVerificationCodeChange}
-              placeholder="숫자 6자리"
-              className="mt-2 h-12 w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 text-center text-lg font-bold tracking-[0.35em] text-[#1e293b] outline-none placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#dbeafe]"
+              placeholder="123456"
+              className="mt-1 h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 text-center text-lg font-bold tracking-[0.35em] text-[#1e293b] outline-none placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#dbeafe]"
             />
+            <div className="mt-2 flex items-center justify-between text-[11px] text-[#64748b]"><span>남은 시간 03:00</span><button type="button" className="font-bold text-[#2563eb]">인증번호 재전송</button></div>
 
             {errorMessage ? (
               <p
@@ -357,7 +320,7 @@ export default function ContractorEmailChangeDialog({
               </p>
             ) : null}
 
-            <div className="mt-5 grid grid-cols-2 gap-2.5">
+            <div className="mt-5 flex flex-col-reverse gap-3">
               <button
                 type="button"
                 onClick={() => {
@@ -365,14 +328,14 @@ export default function ContractorEmailChangeDialog({
                   setVerificationCode('')
                   setErrorMessage('')
                 }}
-                className="h-12 rounded-xl border border-[#cbd5e1] bg-white text-sm font-bold text-[#475569] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
+                className="h-12 rounded-lg border border-[#2563eb] bg-white text-sm font-bold text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
               >
-                다시 입력
+                취소
               </button>
 
               <button
                 type="submit"
-                className="h-12 rounded-xl bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
+                className="h-12 rounded-lg bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
               >
                 변경 완료
               </button>

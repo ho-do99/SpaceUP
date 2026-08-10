@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { Link } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorEmailChangeDialog from '@/components/contractor/ContractorEmailChangeDialog'
@@ -239,14 +240,12 @@ export default function ContractorAccountSettingsPage() {
           로그아웃
         </button>
 
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          className="mt-3 h-12 w-full rounded-lg border border-[#e5484d] bg-white text-sm font-bold text-[#e5484d] disabled:cursor-not-allowed disabled:opacity-70"
+        <Link
+          to="/contractor/settings/withdrawal"
+          className="mt-3 flex h-12 w-full items-center justify-center rounded-lg border border-[#e5484d] bg-white text-sm font-bold text-[#e5484d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5484d]"
         >
           회원 탈퇴
-        </button>
+        </Link>
       </main>
 
       <ContractorBottomNavigation />

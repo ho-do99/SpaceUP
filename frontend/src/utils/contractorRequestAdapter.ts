@@ -8,7 +8,8 @@ const won = new Intl.NumberFormat('ko-KR')
 
 function statusOf(request: RequestResponse): ContractorRequestStatus {
   if (request.participationStatus === 'SELECTED' || request.status === 'COMPLETED') return 'matched'
-  if (request.participationStatus === 'REJECTED' || request.participationStatus === 'CLOSED') return 'user_canceled'
+  if (request.participationStatus === 'REJECTED') return 'contractor_rejected'
+  if (request.participationStatus === 'CLOSED') return 'user_canceled'
   if (request.status === 'CANCELED') return 'auto_canceled'
   if (request.status === 'IN_PROGRESS' || request.participationStatus === 'APPROVED') return 'in_progress'
   if (request.status === 'REVIEWING' || request.status === 'QUOTE_REQUESTED') return 'reviewing'
@@ -17,7 +18,7 @@ function statusOf(request: RequestResponse): ContractorRequestStatus {
 
 const labels: Record<ContractorRequestStatus, string> = {
   new: '신규', reviewing: '검토 중', in_progress: '진행 중', matched: '성사',
-  user_canceled: '미성사', auto_canceled: '자동 취소', expired: '만료',
+  contractor_rejected: '시공사 거절', user_canceled: '사용자 취소', auto_canceled: '자동 취소', expired: '요청 만료',
 }
 
 function budgetLabel(request: RequestResponse) {

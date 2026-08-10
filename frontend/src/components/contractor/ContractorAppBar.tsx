@@ -8,12 +8,14 @@ import ContractorMenuDrawer from './ContractorMenuDrawer'
 interface ContractorAppBarProps {
   title: string
   back?: boolean
+  onBack?: () => void
   actions?: 'all' | 'chat' | 'none'
 }
 
 export default function ContractorAppBar({
   title,
   back = false,
+  onBack,
   actions = 'all',
 }: ContractorAppBarProps) {
   const navigate = useNavigate()
@@ -38,7 +40,7 @@ export default function ContractorAppBar({
           <button
             type="button"
             aria-label="뒤로가기"
-            onClick={() => navigate(-1)}
+            onClick={() => onBack ? onBack() : navigate(-1)}
             className="absolute left-2 top-2 flex h-10 w-6 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
           >
             <img src={backIcon} alt="" className="h-5 w-5" />

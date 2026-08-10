@@ -1,31 +1,100 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorConfirmDialog from '@/components/contractor/ContractorConfirmDialog'
+import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import ContractorRequestActions from '@/components/contractor/ContractorRequestActions'
 import ContractorRequestDetailLayout from '@/components/contractor/ContractorRequestDetailLayout'
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
-import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
+import { findContractorRequest, findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 import useContractorRequest from '@/hooks/useContractorRequest'
 import { approveRequest, rejectRequest } from '@/api/contractorApi'
+import type { ContractorRequest, ContractorRequestDetail } from '@/types/contractorPortal'
 
 const rejectReasonCodes: Record<string, string> = {
   '지역 미지원': 'REGION_NOT_SUPPORTED', '예산 범위 불일치': 'BUDGET_MISMATCH',
   '전문 분야 불일치': 'SPECIALTY_MISMATCH', '일정 조율 불가': 'SCHEDULE_CONFLICT', '기타': 'OTHER',
 }
 
+function isRequestDetail(request: ContractorRequest): request is ContractorRequestDetail {
+  return 'selectedItems' in request && 'analysis' in request
+}
+
 export default function ContractorRequestDetailPage() {
   const { requestId } = useParams()
   const navigate = useNavigate()
   const fallbackRequest = findContractorRequestDetail(requestId)
+  const fallbackSummary = fallbackRequest ?? findContractorRequest(requestId)
   const live = useContractorRequest(requestId)
-  const request = /^\d+$/.test(requestId ?? '') ? live.request : fallbackRequest
+  const resolvedRequest = /^\d+$/.test(requestId ?? '') ? live.request : fallbackSummary
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectedReason, setRejectedReason] = useState('')
   const [actionError, setActionError] = useState('')
 
-  if (live.loading && !request) return <ContractorRequestNotFound />
-  if (!request) return <ContractorRequestNotFound />
+  if (live.loading && !resolvedRequest) return <ContractorRequestNotFound />
+  if (!resolvedRequest) return <ContractorRequestNotFound />
+
+  if (resolvedRequest.status === 'auto_canceled') {
+    return (
+      <ContractorMobileShell innerClassName="h-dvh min-h-0">
+        <ContractorAppBar title="의뢰 자동 취소" back />
+        <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4">
+          <p className="text-xs leading-[17px] text-[#64748b]">168시간 동안 유효 활동이 없어 의뢰가 자동 취소되었습니다.</p>
+          <section className="mt-3 rounded-xl bg-[#fdf0f1] p-[14px]">
+            <span aria-hidden="true" className="text-[30px] font-bold leading-[34px] text-[#ef4444]">!</span>
+            <h2 className="mt-2 text-[17px] font-bold text-[#ef4444]">의뢰가 자동으로 취소되었습니다.</h2>
+          </section>
+          <ContractorSectionCard className="mt-3 p-[14px] shadow-none" title="자동 취소 정보">
+            <p className="text-[11px] leading-[17px] text-[#64748b]">의뢰번호 {resolvedRequest.requestId}</p>
+            <p className="text-[11px] leading-[17px] text-[#64748b]">자동 취소 2026.07.15 09:30</p>
+            <p className="text-[11px] leading-[17px] text-[#64748b]">마지막 활동 2026.07.08 09:30</p>
+          </ContractorSectionCard>
+          <ContractorSectionCard className="mt-3 p-[14px] shadow-none" title="자동 취소 사유">
+            <p className="text-[11px] leading-[17px] text-[#64748b]">lastActivityAt 이후 168시간 동안 유효 활동이 없었습니다.</p>
+            <p className="text-[11px] leading-[17px] text-[#64748b]">144시간 시점에 D-1 알림이 발송되었습니다.</p>
+          </ContractorSectionCard>
+          <ContractorSectionCard className="mt-3 p-[14px] shadow-none" title="유효 활동 8개">
+            <p className="text-[11px] leading-[17px] text-[#64748b]">채팅 전송 · 일정 등록 · 일정 변경 · 일정 수락</p>
+            <p className="text-[11px] leading-[17px] text-[#64748b]">일정 확인 · 현장 방문 완료 · 견적 임시 저장 · 견적 전송</p>
+          </ContractorSectionCard>
+          <Link to="/contractor/requests" className="mt-3 flex h-12 items-center justify-center rounded-lg bg-[#2563eb] text-sm font-bold text-white">다른 의뢰 보기</Link>
+        </main>
+      </ContractorMobileShell>
+    )
+  }
+
+  if (!isRequestDetail(resolvedRequest)) return <ContractorRequestNotFound />
+  const request = resolvedRequest
+
+  if (rejectedReason) {
+    return (
+      <ContractorMobileShell innerClassName="h-dvh min-h-0">
+        <ContractorAppBar title="의뢰 거절 완료" back />
+        <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4">
+          <p className="text-xs leading-[17px] text-[#64748b]">거절한 의뢰는 미성사 거래에서 확인할 수 있습니다.</p>
+          <section className="mt-3 rounded-xl bg-[#fdf0f1] p-[14px]">
+            <span aria-hidden="true" className="text-[30px] font-bold leading-[34px] text-[#ef4444]">!</span>
+            <h2 className="mt-2 text-[17px] font-bold leading-6 text-[#ef4444]">의뢰 상태가 시공사 거절로 변경되었습니다.</h2>
+          </section>
+          <ContractorSectionCard className="mt-3 p-[14px] shadow-none">
+            <p className="text-sm font-bold leading-5 text-[#ef4444]">{request.requestId}</p>
+            <p className="text-[11px] leading-[17px] text-[#64748b]">{request.property.region} · {request.property.propertyType} {request.property.areaLabel}</p>
+            <p className="text-[11px] leading-[17px] text-[#64748b]">상태: 시공사 거절</p>
+          </ContractorSectionCard>
+          <ContractorSectionCard className="mt-3 p-[14px] shadow-none" title="거절 사유">
+            <p className="text-[11px] leading-[17px] text-[#64748b]">{rejectedReason}</p>
+            <p className="text-[11px] leading-[17px] text-[#64748b]">확정 2026.07.15 16:20</p>
+          </ContractorSectionCard>
+          <ContractorSectionCard className="mt-3 p-[14px] shadow-none" title="이용 제한">
+            <p className="text-[11px] leading-[17px] text-[#64748b]">이 의뢰는 다시 승인할 수 없습니다.</p>
+            <p className="text-[11px] leading-[17px] text-[#64748b]">채팅 및 견적서 작성 기능을 사용할 수 없습니다.</p>
+          </ContractorSectionCard>
+          <Link to="/contractor/requests" state={{ filter: 'unmatched' }} className="mt-3 flex h-12 items-center justify-center rounded-lg border border-[#e2e8f0] bg-white text-sm font-bold text-[#0b2b59]">미성사 의뢰 보기</Link>
+        </main>
+      </ContractorMobileShell>
+    )
+  }
 
   const approve = async () => {
     if (/^\d+$/.test(request.requestId)) {

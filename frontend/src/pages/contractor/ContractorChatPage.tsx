@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getChatMessages, getChatThreads, sendChatMessage } from '@/api/chatApi'
 
-import ContractorAppBar from '@/components/contractor/ContractorAppBar'
+import backIcon from '@/assets/user/icons/back.svg'
 import ContractorChatBubble from '@/components/contractor/ContractorChatBubble'
 import ContractorChatComposer from '@/components/contractor/ContractorChatComposer'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
@@ -21,6 +21,7 @@ export default function ContractorChatPage({
   completed = false,
 }: ContractorChatPageProps) {
   const { requestId } = useParams()
+  const navigate = useNavigate()
   const numericRequestId = Number(requestId)
   const liveRequestId = Number.isInteger(numericRequestId) && numericRequestId > 0
 
@@ -93,36 +94,30 @@ export default function ContractorChatPage({
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
-      <ContractorAppBar
-        title={request?.customerName ?? liveThread?.counterpartName ?? '채팅'}
-        back
-      />
-
-      <section
-        className={`shrink-0 border-b px-4 py-2 text-[11px] font-semibold ${
-          completed
-            ? 'border-[#a7f3d0] bg-[#ecfdf5] text-[#047857]'
-            : 'border-[#bfdbfe] bg-[#eff6ff] text-[#2563eb]'
-        }`}
-      >
-        <p>{request?.requestId ?? liveThread?.requestCode ?? requestId}</p>
-
-        <p>
-          {completed
-            ? '현장 확인 완료 · 견적 작성 가능'
-            : '의뢰 승인 완료 · 실시간 채팅 중'}
-        </p>
-      </section>
+      <header className="relative flex h-14 shrink-0 items-center border-b border-[#e2e8f0] bg-white px-4">
+        <button type="button" aria-label="뒤로가기" onClick={() => navigate(-1)} className="mr-2 flex h-10 w-3 items-center justify-center"><img src={backIcon} alt="" className="h-5 w-5 max-w-none" /></button>
+        <h1 className="text-[17px] font-bold leading-[25px] text-[#1e293b]">{request?.customerName ?? liveThread?.counterpartName ?? '채팅'} 사용자</h1>
+        <p className="ml-auto text-[10px] font-bold text-[#64748b]">{request?.requestId ?? liveThread?.requestCode ?? requestId}</p>
+      </header>
 
       <div
         ref={messagesRef}
         aria-live="polite"
         className="min-h-0 flex-1 overflow-y-auto px-4 py-4"
       >
-        <p className="mx-auto mb-4 max-w-[300px] rounded-lg bg-[#f1f5f9] px-3 py-2 text-center text-[10px] leading-4 text-[#64748b]">
-          개인정보 보호를 위해 연락처와 외부 결제
-          요청에 주의해 주세요.
-        </p>
+        <section className="mb-3 rounded-xl border border-[#e2e8f0] bg-white p-[13px]">
+          <h2 className="text-sm font-bold text-[#0b2b59]">안전한 거래 안내</h2>
+          <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">안전한 거래와 개인정보 보호를 위해 사용자와의 소통은 이 채팅 안에서 진행해 주세요.</p>
+        </section>
+        <section className="mb-3 rounded-xl border border-[#e2e8f0] bg-white p-[13px]">
+          <h2 className="text-sm font-bold text-[#2563eb]">{completed ? '현장 확인 완료 · 견적 작성 가능' : '의뢰 승인 완료 · 실시간 채팅 중'}</h2>
+          <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">{completed ? '실제 현장 방문 완료 · 2026.07.24 15:40' : '사용자와 현장 방문 일정을 조율해 주세요.'}</p>
+        </section>
+        <section className="mb-4 rounded-xl border border-[#e2e8f0] bg-white p-[13px]">
+          <h2 className="text-sm font-bold text-[#ef4444]">7일 자동 취소 안내</h2>
+          <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">마지막 활동 후 7일 동안 채팅, 방문 일정 등록 또는 견적서 작성이 없으면 의뢰가 자동으로 취소됩니다.</p>
+          <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">144시간: D-1 알림 · 168시간: 자동 취소</p>
+        </section>
 
         <p className="mb-3 text-center text-[10px] text-[#94a3b8]">
           2026년 7월 24일
@@ -180,6 +175,7 @@ export default function ContractorChatPage({
             견적서 작성
           </button>
         )}
+        {!completed ? <p className="col-span-2 text-[10px] leading-4 text-[#64748b]">실제 현장 방문 완료 처리 후 견적서를 작성할 수 있습니다.</p> : null}
       </div> : <div className="shrink-0 bg-[#f8fafc] px-4 py-2 text-center text-[10px] text-[#64748b]">현장방문·견적 작성 화면은 기존 흐름을 유지하며 다음 단계에서 연결합니다.</div>}
 
       <ContractorChatComposer

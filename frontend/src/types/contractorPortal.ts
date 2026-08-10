@@ -3,11 +3,18 @@ export type ContractorRequestStatus =
   | 'reviewing'
   | 'in_progress'
   | 'matched'
+  | 'contractor_rejected'
   | 'user_canceled'
   | 'auto_canceled'
   | 'expired'
 
 export type ContractorRequestFilter = 'all' | 'in_progress' | 'matched' | 'unmatched'
+
+export type ContractorUnsuccessfulReason =
+  | 'contractor_rejected'
+  | 'user_canceled'
+  | 'auto_canceled'
+  | 'expired'
 
 export type ContractorRequestDetailTab = 'summary' | 'floor-plan' | 'photos' | 'analysis'
 
@@ -346,6 +353,13 @@ export interface ContractorRequest {
   statusLabel: string
   lastActivityLabel: string
   deadlineLabel?: string
+  terminationReason?: string
+  terminationDateLabel?: string
+  projectTitle?: string
+  contractSummary?: string
+  progressSummary?: string
+  unsuccessfulView?: ContractorUnsuccessfulReason
+  detailHref?: string
 }
 
 export interface ContractorRequestDetail extends ContractorRequest {

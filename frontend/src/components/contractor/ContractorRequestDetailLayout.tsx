@@ -15,15 +15,18 @@ interface ContractorRequestDetailLayoutProps {
 }
 export default function ContractorRequestDetailLayout({ request, activeTab, children, actions, statusMessage }: ContractorRequestDetailLayoutProps) {
   const isSummary = activeTab === 'summary'
+  const description = isSummary
+    ? '의뢰를 승인하면 실시간 채팅방이 자동 개설됩니다. 사용자와 방문 일정을 조율하고 실제 현장을 확인한 뒤 견적을 작성할 수 있습니다.'
+    : activeTab === 'photos'
+      ? '사용자가 선택한 희망 시공 스타일과 AI 시뮬레이션 결과를 확인하세요.'
+      : `${request.requestId} 의뢰 자료를 탭별로 확인하세요.`
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
       <ContractorAppBar title="의뢰 상세" back />
       <main className={`flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 ${isSummary ? 'bg-white pt-4' : 'bg-[#f8fafc] pt-2'}`}>
         <p className={`text-xs text-[#64748b] ${isSummary ? 'leading-[17px]' : 'leading-5'}`}>
-          {isSummary
-            ? '의뢰를 승인하면 실시간 채팅방이 자동 개설됩니다. 사용자와 방문 일정을 조율하고 실제 현장을 확인한 뒤 견적을 작성할 수 있습니다.'
-            : `${request.requestId} 의뢰 자료를 탭별로 확인하세요.`}
+          {description}
         </p>
         <ContractorSectionCard className={`${isSummary ? 'mt-3 p-[14px]' : 'mt-5 p-[13px]'} shadow-none`}>
           <p className={`${isSummary ? 'text-sm text-[#2563eb]' : 'text-[13px] text-[#64748b]'} font-bold leading-5`}>{request.requestId}</p>

@@ -59,7 +59,7 @@ export const contractorRequests: readonly ContractorRequest[] = [
     deadlineLabel: 'D-1',
   },
   {
-    requestId: 'REQ-260714-009',
+    requestId: 'REQ-260701-008',
     customerName: '박서준',
     maskedPhone: '010-56**-****',
     property: {
@@ -75,12 +75,138 @@ export const contractorRequests: readonly ContractorRequest[] = [
     status: 'auto_canceled',
     statusLabel: '자동 취소',
     lastActivityLabel: '168시간 미활동',
+    terminationReason: '168시간 미응답',
+    terminationDateLabel: '자동 취소 2026.07.08 09:00',
+  },
+  {
+    requestId: 'REQ-260710-004',
+    customerName: '정민수',
+    maskedPhone: '010-78**-****',
+    property: {
+      region: '서울 강서구',
+      address: '서울 강서구 아파트',
+      propertyType: '아파트',
+      areaLabel: '84㎡',
+    },
+    budgetLabel: '10,000,000원 이상',
+    estimatedCostLabel: '9,500,000원~12,000,000원',
+    matchScore: 76,
+    desiredSchedule: '2026년 8월',
+    status: 'contractor_rejected',
+    statusLabel: '시공사 거절',
+    lastActivityLabel: '2026.07.11 11:20',
+    terminationReason: '지역 미지원',
+    terminationDateLabel: '마지막 활동 2026.07.11 11:20',
+  },
+  {
+    requestId: 'REQ-260701-003',
+    customerName: '윤서진',
+    maskedPhone: '010-65**-****',
+    property: {
+      region: '서울 성동구',
+      address: '서울 성동구 빌라',
+      propertyType: '빌라',
+      areaLabel: '42㎡',
+    },
+    budgetLabel: '협의',
+    estimatedCostLabel: '분석 완료',
+    matchScore: 81,
+    desiredSchedule: '2026년 8월',
+    status: 'auto_canceled',
+    statusLabel: '자동 취소',
+    lastActivityLabel: '2026.07.08 09:30',
+    terminationReason: '168시간 미활동으로 자동 취소',
+    terminationDateLabel: '마지막 활동 2026.07.08 09:30',
+    unsuccessfulView: 'contractor_rejected',
+  },
+  {
+    requestId: 'REQ-260710-004',
+    customerName: '최은영',
+    maskedPhone: '010-91**-****',
+    property: {
+      region: '서울 송파구',
+      address: '서울 송파구 아파트',
+      propertyType: '아파트',
+      areaLabel: '59㎡',
+    },
+    budgetLabel: '5,000,000원~10,000,000원',
+    estimatedCostLabel: '6,800,000원~8,200,000원',
+    matchScore: 83,
+    desiredSchedule: '2026년 9월',
+    status: 'user_canceled',
+    statusLabel: '사용자 취소',
+    lastActivityLabel: '2026.07.10 14:20',
+    terminationReason: '사용자 사정으로 취소',
+    terminationDateLabel: '마지막 업데이트 2026.07.10 14:20',
+  },
+  {
+    requestId: 'REQ-260706-012',
+    customerName: '오현지',
+    maskedPhone: '010-43**-****',
+    property: {
+      region: '광주 북구',
+      address: '광주 북구 빌라',
+      propertyType: '빌라',
+      areaLabel: '42㎡',
+    },
+    budgetLabel: '5,000,000원~10,000,000원',
+    estimatedCostLabel: '5,200,000원~7,100,000원',
+    matchScore: 79,
+    desiredSchedule: '2026년 8월',
+    status: 'expired',
+    statusLabel: '요청 만료',
+    lastActivityLabel: '2026.07.13 23:59',
+    terminationReason: '요청 유효기간 만료',
+    terminationDateLabel: '만료 2026.07.13 23:59',
+  },
+  {
+    requestId: 'REQ-260715-012',
+    customerName: '김지선',
+    maskedPhone: '계약 후 공개',
+    property: {
+      region: '서울 강남구',
+      address: '서울 강남구 역삼동 빌라',
+      propertyType: '빌라',
+      areaLabel: '33㎡',
+    },
+    budgetLabel: '48,000,000원',
+    estimatedCostLabel: '48,000,000원',
+    matchScore: 92,
+    desiredSchedule: '2026년 8월',
+    status: 'matched',
+    statusLabel: '성사',
+    lastActivityLabel: '계약 완료',
+    projectTitle: '역삼동 빌라 도배 및 바닥시공',
+    contractSummary: '계약 ₩48,000,000 · 담당 김현수',
+    progressSummary: '성사 · 계약 완료',
+    detailHref: '/contractor/projects/PRJ-20260724-001',
+  },
+  {
+    requestId: 'REQ-260710-007',
+    customerName: '박서연',
+    maskedPhone: '계약 후 공개',
+    property: {
+      region: '서울 성동구',
+      address: '서울 성동구 성수동 빌라',
+      propertyType: '빌라',
+      areaLabel: '42㎡',
+    },
+    budgetLabel: '협의',
+    estimatedCostLabel: '계약 진행',
+    matchScore: 87,
+    desiredSchedule: '2026년 8월',
+    status: 'matched',
+    statusLabel: '성사',
+    lastActivityLabel: '견적 전환 완료',
+    projectTitle: '성수동 빌라',
+    contractSummary: '계약 진행',
+    progressSummary: '성사 · 견적 전환 완료',
   },
 ]
 
-export const contractorRequestDetails: readonly ContractorRequestDetail[] = [
-  {
-    ...contractorRequests[0],
+function createContractorRequestDetail(request: ContractorRequest): ContractorRequestDetail {
+  return {
+    ...request,
     analysis: {
       rooms: 2,
       bathrooms: 1,
@@ -102,7 +228,31 @@ export const contractorRequestDetails: readonly ContractorRequestDetail[] = [
       { id: 'bathroom', label: '욕실', image: bathroomImage },
       { id: 'entrance', label: '현관', image: entranceImage },
     ],
-  },
+  }
+}
+
+export const contractorRequestDetails: readonly ContractorRequestDetail[] = [
+  createContractorRequestDetail(contractorRequests[0]),
+  createContractorRequestDetail(contractorRequests[1]),
+  createContractorRequestDetail(contractorRequests[8]),
+  createContractorRequestDetail({
+    requestId: 'REQ-260718-002',
+    customerName: '박민지',
+    maskedPhone: '010-45**-****',
+    property: {
+      region: '광주 광산구',
+      address: '광주 광산구 수완지구',
+      propertyType: '빌라',
+      areaLabel: '42㎡',
+    },
+    budgetLabel: '협의',
+    estimatedCostLabel: '계약 진행',
+    matchScore: 87,
+    desiredSchedule: '2026년 8월',
+    status: 'matched',
+    statusLabel: '성사',
+    lastActivityLabel: '방문 예정',
+  }),
 ]
 
 export const contractorChatMessages: readonly ContractorChatMessage[] = [
@@ -427,6 +577,10 @@ export function findContractorReview(reviewId: string | undefined) {
 
 export function findContractorProject(projectId: string | undefined) {
   return contractorProjectMocks.find((project) => project.projectId === projectId)
+}
+
+export function findContractorProjectByRequestId(requestId: string | undefined) {
+  return contractorProjectMocks.find((project) => project.requestId === requestId)
 }
 
 export function findContractorRequest(requestId: string | undefined) {
