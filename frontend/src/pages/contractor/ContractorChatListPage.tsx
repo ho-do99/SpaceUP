@@ -159,10 +159,11 @@ export default function ContractorChatListPage() {
       <ContractorAppBar
         title="채팅"
         back
+        actions="chat"
       />
 
       <main className="min-h-0 flex-1 overflow-y-auto bg-[#f8fafc] px-4 pb-6 pt-4">
-        <p className="mb-3 text-[10px] text-[#64748b]">{usingLiveData ? '실시간 채팅 목록' : '예시 채팅 목록'}</p>
+        <p className="sr-only" aria-live="polite">{usingLiveData ? '실시간 채팅 목록을 표시합니다.' : '채팅 목록을 표시합니다.'}</p>
         <label
           htmlFor="contractor-chat-search"
           className="sr-only"

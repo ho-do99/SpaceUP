@@ -34,10 +34,10 @@ export default function ContractorSettlementListPage() {
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-3">
         <p className="text-xs leading-5 text-[#64748b]">플랫폼 수수료와 지급 상태를 확인하세요.</p>
         <section aria-label="정산 현황" className="mt-3 grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-[#e2e8f0] bg-white p-3"><p className="text-[11px] text-[#64748b]">총 계약</p><p className="mt-1 break-all text-sm font-bold text-[#1e293b]">{formatWon(contractorSettlementSummary.totalContractAmount)}</p></div>
-          <div className="rounded-xl border border-[#e2e8f0] bg-white p-3"><p className="text-[11px] text-[#64748b]">정산 대기</p><p className="mt-1 break-all text-sm font-bold text-[#2563eb]">{formatWon(contractorSettlementSummary.pendingAmount)}</p></div>
-          <div className="rounded-xl border border-[#e2e8f0] bg-white p-3"><p className="text-[11px] text-[#64748b]">정산 완료</p><p className="mt-1 break-all text-sm font-bold text-[#047857]">{formatWon(contractorSettlementSummary.completedAmount)}</p></div>
-          <div className="rounded-xl border border-[#e2e8f0] bg-white p-3"><p className="text-[11px] text-[#64748b]">지급 완료</p><p className="mt-1 break-all text-sm font-bold text-[#1e293b]">{formatWon(contractorSettlementSummary.paidAmount)}</p></div>
+          <div className="h-[86px] rounded-[10px] border border-[#e2e8f0] bg-white p-3"><p className="text-[11px] text-[#64748b]">총 계약</p><p className="mt-1 break-all text-[19px] font-bold text-[#0b2b59]">{formatWon(contractorSettlementSummary.totalContractAmount)}</p></div>
+          <div className="h-[86px] rounded-[10px] border border-[#e2e8f0] bg-white p-3"><p className="text-[11px] text-[#64748b]">정산 대기</p><p className="mt-1 break-all text-[19px] font-bold text-[#f05a16]">{formatWon(contractorSettlementSummary.pendingAmount)}</p></div>
+          <div className="h-[86px] rounded-[10px] border border-[#e2e8f0] bg-white p-3"><p className="text-[11px] text-[#64748b]">정산 완료</p><p className="mt-1 break-all text-[19px] font-bold text-[#2563eb]">{formatWon(contractorSettlementSummary.completedAmount)}</p></div>
+          <div className="h-[86px] rounded-[10px] border border-[#e2e8f0] bg-white p-3"><p className="text-[11px] text-[#64748b]">지급 완료</p><p className="mt-1 break-all text-[19px] font-bold text-[#0e9f6e]">{formatWon(contractorSettlementSummary.paidAmount)}</p></div>
         </section>
         <div className="mt-3 grid grid-cols-4 gap-2" aria-label="정산 상태 필터">
           {filters.map((item) => (

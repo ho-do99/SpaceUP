@@ -27,15 +27,15 @@ export default function ContractorNotificationPage() {
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-7 pt-4">
         <div className="flex items-start justify-between gap-3">
           <p className="text-xs leading-5 text-[#64748b]">업무와 관련된 새로운 알림을 확인하세요.</p>
-          <button type="button" disabled={unreadCount === 0} onClick={markAllNotificationsRead} className="shrink-0 text-xs font-bold text-[#2563eb] disabled:text-[#94a3b8]">모두 읽음</button>
+          <button type="button" disabled={unreadCount === 0} onClick={markAllNotificationsRead} className="h-8 shrink-0 rounded-lg border border-[#dbe3ef] bg-white px-3 text-[11px] font-bold text-[#2563eb] disabled:text-[#94a3b8]">모두 읽음</button>
         </div>
         <p className="sr-only" aria-live="polite">읽지 않은 알림 {unreadCount}개</p>
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1" aria-label="알림 유형 필터">
-          {filters.map((item) => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => setFilter(item.id)} className={`h-8 shrink-0 rounded-full px-4 text-xs font-bold ${filter === item.id ? 'bg-[#2563eb] text-white' : 'border border-[#cbd5e1] bg-white text-[#475569]'}`}>{item.label}</button>)}
+        <div className="mt-4 grid grid-cols-5 gap-2" aria-label="알림 유형 필터">
+          {filters.map((item) => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => setFilter(item.id)} className={`h-9 min-w-0 rounded-full px-1 text-[11px] font-bold ${filter === item.id ? 'bg-[#2563eb] text-white' : 'border border-[#dbe3ef] bg-white text-[#475569]'}`}>{item.label}</button>)}
         </div>
         {filtered.length === 0 ? <div className="mt-5"><ContractorEmptyState title="알림이 없습니다" description="선택한 유형의 알림이 없습니다." /></div> : null}
-        {today.length > 0 ? <section className="mt-5" aria-labelledby="notification-today"><h2 id="notification-today" className="mb-2 text-xs font-bold text-[#64748b]">오늘</h2><div className="space-y-2">{today.map((item) => <ContractorNotificationCard key={item.notificationId} notification={item} onOpen={openNotification} />)}</div></section> : null}
-        {previous.length > 0 ? <section className="mt-5" aria-labelledby="notification-previous"><h2 id="notification-previous" className="mb-2 text-xs font-bold text-[#64748b]">이전 알림</h2><div className="space-y-2">{previous.map((item) => <ContractorNotificationCard key={item.notificationId} notification={item} onOpen={openNotification} />)}</div></section> : null}
+        {today.length > 0 ? <section className="mt-4" aria-labelledby="notification-today"><h2 id="notification-today" className="mb-2 text-sm font-bold text-[#1e293b]">오늘</h2><div className="space-y-3">{today.map((item) => <ContractorNotificationCard key={item.notificationId} notification={item} onOpen={openNotification} />)}</div></section> : null}
+        {previous.length > 0 ? <section className="mt-5" aria-labelledby="notification-previous"><h2 id="notification-previous" className="mb-2 text-sm font-bold text-[#1e293b]">이전 알림</h2><div className="space-y-3">{previous.map((item) => <ContractorNotificationCard key={item.notificationId} notification={item} onOpen={openNotification} />)}</div></section> : null}
       </main>
     </ContractorMobileShell>
   )

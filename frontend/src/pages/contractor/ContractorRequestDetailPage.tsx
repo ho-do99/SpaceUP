@@ -65,14 +65,6 @@ export default function ContractorRequestDetailPage() {
           <p className="mt-2 text-[11px] leading-4 text-[#64748b]">AI 분석 기반 참고 범위이며 실제 견적과 다를 수 있습니다.</p>
         </ContractorSectionCard>
 
-        <ContractorSectionCard title="주택 가치 상승 리포트 요약">
-          <dl className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-lg bg-[#f8fafc] px-1 py-2"><dt className="text-[10px] text-[#64748b]">현재 월세</dt><dd className="mt-1 text-xs font-bold">{request.valueIncrease.currentMonthlyRent}</dd></div>
-            <div className="rounded-lg bg-[#eff6ff] px-1 py-2"><dt className="text-[10px] text-[#64748b]">예상 상승액</dt><dd className="mt-1 text-xs font-bold text-[#2563eb]">+{request.valueIncrease.expectedMonthlyIncrease}</dd></div>
-            <div className="rounded-lg bg-[#f8fafc] px-1 py-2"><dt className="text-[10px] text-[#64748b]">예상 회수</dt><dd className="mt-1 text-xs font-bold">{request.valueIncrease.recoveryPeriod}</dd></div>
-          </dl>
-        </ContractorSectionCard>
-
         <Link to={`/contractor/requests/${request.requestId}/floor-plan`} className="flex h-11 items-center justify-center rounded-lg border border-[#2563eb] bg-white text-xs font-bold text-[#2563eb]">평면도 · 집 사진 보기</Link>
       </ContractorRequestDetailLayout>
       <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={reject} />
