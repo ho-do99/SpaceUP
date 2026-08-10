@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import ContractorConfirmDialog from '@/components/contractor/ContractorConfirmDialog'
 import ContractorRequestActions from '@/components/contractor/ContractorRequestActions'
 import ContractorRequestDetailLayout from '@/components/contractor/ContractorRequestDetailLayout'
-import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 import useContractorRequest from '@/hooks/useContractorRequest'
@@ -22,21 +21,16 @@ export default function ContractorRequestFloorPlanPage() {
   return (
     <>
       <ContractorRequestDetailLayout request={request} activeTab="floor-plan" statusMessage={rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined} actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={() => navigate(`/contractor/requests/${request.requestId}/approved`)} />}>
-        <ContractorSectionCard title="아파트 84㎡ 평면도">
-          <button type="button" aria-label="평면도 크게 보기" onClick={() => setPreviewOpen(true)} className="block w-full overflow-hidden rounded-lg bg-[#eff6ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]">
-            <img src={request.floorPlanImage} alt={`${request.property.areaLabel} 아파트 평면도`} className="aspect-[16/10] w-full object-contain p-4" />
-          </button>
-          <dl className="mt-3 grid grid-cols-4 gap-2 text-center">
-            {[
-              ['방', `${request.analysis.rooms}`],
-              ['주방', '분리형'],
-              ['욕실', `${request.analysis.bathrooms}`],
-              ['발코니', request.analysis.hasBalcony ? '1' : '0'],
-            ].map(([label, value]) => <div key={label} className="rounded-lg bg-[#f8fafc] px-1 py-2"><dt className="text-[10px] text-[#64748b]">{label}</dt><dd className="mt-1 text-sm font-bold">{value}</dd></div>)}
-          </dl>
-          <p className="mt-3 text-xs text-[#64748b]">전용면적 {request.property.areaLabel} · 층고 {request.analysis.ceilingHeight}</p>
-          <button type="button" onClick={() => setPreviewOpen(true)} className="mt-3 h-10 w-full rounded-lg border border-[#2563eb] text-xs font-bold text-[#2563eb]">평면도 크게 보기</button>
-        </ContractorSectionCard>
+        <button type="button" aria-label="평면도 크게 보기" onClick={() => setPreviewOpen(true)} className="flex h-[190px] w-full flex-col items-center justify-center rounded-xl border border-[#e2e8f0] bg-[#eff6ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]">
+          <span aria-hidden="true" className="text-[38px] font-bold leading-[44px] text-[#2563eb]">⌗</span>
+          <span className="mt-2 text-[13px] font-bold leading-[19px] text-[#1e293b]">아파트 {request.property.areaLabel} 평면도</span>
+        </button>
+        <section className="rounded-xl border border-[#e2e8f0] bg-white p-[13px]">
+          <h2 className="text-[13px] font-bold leading-[19px] text-[#1e293b]">구조 요약</h2>
+          <p className="mt-1.5 text-[11px] leading-[17px] text-[#64748b]">방 {request.analysis.rooms} · {request.analysis.kitchenType} · 욕실 {request.analysis.bathrooms} · 발코니 {request.analysis.hasBalcony ? '1' : '0'}</p>
+          <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">전용면적 {request.property.areaLabel} · 층고 {request.analysis.ceilingHeight}</p>
+        </section>
+        <button type="button" onClick={() => setPreviewOpen(true)} className="h-12 w-full rounded-lg border border-[#2563eb] bg-white text-[13px] font-bold text-[#2563eb]">평면도 크게 보기</button>
       </ContractorRequestDetailLayout>
       {previewOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]/70 p-4" onMouseDown={(event) => event.target === event.currentTarget && setPreviewOpen(false)}>
