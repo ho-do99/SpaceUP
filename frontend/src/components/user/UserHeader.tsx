@@ -1,4 +1,8 @@
-import { Link, useLocation } from 'react-router-dom'
+import {
+  Link,
+  useLocation,
+} from 'react-router-dom'
+
 import backIcon from '@/assets/user/icons/back.svg'
 import bellIcon from '@/assets/user/icons/bell.svg'
 import menuIcon from '@/assets/user/icons/menu.svg'
@@ -12,9 +16,6 @@ interface UserHeaderProps {
   onBack?: () => void
 }
 
-const unavailableIconButtonClass =
-  'flex h-8 w-6 cursor-default items-center justify-center disabled:opacity-100'
-
 export default function UserHeader({
   variant,
   title = 'SpaceUP',
@@ -24,9 +25,9 @@ export default function UserHeader({
   const { pathname } = useLocation()
 
   return (
-    <header className="h-14 w-full shrink-0 border-b border-[#e2e8f0] bg-white">
-      <div className="flex h-full w-full items-center justify-between pl-4 pr-3">
-        <div className="flex h-10 min-w-0 flex-1 items-center gap-2 overflow-hidden">
+    <header className="h-14 shrink-0 border-b border-[#e2e8f0] bg-white">
+      <div className="flex h-full items-center justify-between pl-4 pr-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {isMain ? (
             <button
               type="button"
@@ -37,15 +38,15 @@ export default function UserHeader({
               <img
                 src={menuIcon}
                 alt=""
-                className="size-[22px]"
+                className="size-5"
               />
             </button>
           ) : (
             <button
               type="button"
               aria-label="뒤로가기"
+              className="flex size-10 shrink-0 items-center justify-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
               onClick={onBack}
-              className="flex size-10 items-center justify-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
             >
               <img
                 src={backIcon}
@@ -76,18 +77,17 @@ export default function UserHeader({
             />
           </Link>
 
-          <button
-            type="button"
-            disabled
+          <Link
+            to="/chats"
             aria-label="채팅"
-            className={unavailableIconButtonClass}
+            className="flex h-8 w-6 items-center justify-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
           >
             <img
               src={messageCircleIcon}
               alt=""
               className="size-3.5"
             />
-          </button>
+          </Link>
 
           <Link
             to="/mypage"
