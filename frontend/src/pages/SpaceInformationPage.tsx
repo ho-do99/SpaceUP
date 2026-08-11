@@ -16,6 +16,7 @@ import {
 } from '@/mocks/analysisSpaces'
 import { getAnalysis, getAnalysisSpaces, replaceAnalysisSpaces, updateAnalysis } from '@/api/analysisApi'
 import { getActiveRequestId } from '@/utils/requestFlow'
+import { formatSpaceArea, sumSelectedSpaceAreaM2 } from '@/utils/spaceArea'
 import type { AnalysisSpaceInput, AnalysisSpaceResponse } from '@/types/analysis'
 
 const initialCeilingHeight =
@@ -74,6 +75,15 @@ export default function SpaceInformationPage() {
   }, [])
 
   const canContinue = selectedSpaceIds.size > 0
+  const selectedSpaceNames = new Set(
+    analyzedSpaceOptions
+      .filter((option) => selectedSpaceIds.has(option.id))
+      .map((option) => option.name),
+  )
+  const selectedTotalAreaM2 = sumSelectedSpaceAreaM2(
+    spaces,
+    selectedSpaceNames,
+  )
 
   const toggleSpace = (id: SpaceOptionId) => {
     setSelectedSpaceIds((current) => {
@@ -277,6 +287,7 @@ export default function SpaceInformationPage() {
                 <SpaceSelectionCard
                   key={option.id}
                   option={option}
+                  areaM2={spaces.find((space) => space.spaceName === option.name)?.spaceAreaM2}
                   isSelected={selectedSpaceIds.has(
                     option.id,
                   )}
@@ -288,6 +299,15 @@ export default function SpaceInformationPage() {
             <p className="mt-2 text-[11px] leading-4 text-[#64748b]">
               복수 선택 가능
             </p>
+
+            {selectedTotalAreaM2 !== null ? (
+              <p className="mt-3 flex items-center justify-between gap-3 border-t border-[#e2e8f0] pt-3 text-[12px] leading-5 text-[#475569]">
+                <span>선택 공간 총 면적</span>
+                <strong className="shrink-0 font-bold text-[#1e293b]">
+                  {formatSpaceArea(selectedTotalAreaM2)}
+                </strong>
+              </p>
+            ) : null}
 
             {!canContinue ? (
               <p
