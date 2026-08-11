@@ -19,5 +19,7 @@ export interface QuoteRevisionRequestInput {
 }
 
 export async function requestQuoteRevision(id: number, input: QuoteRevisionRequestInput) {
-  unwrapEmptyApiResponse(await apiRequest<ApiResponse<null>, QuoteRevisionRequestInput>({ method: 'POST', url: `/api/quotes/${id}/request-revision`, data: input, authenticated: true }), '견적 수정 요청에 실패했습니다.')
+  const note = input.note.trim()
+  if (!Number.isInteger(id) || id <= 0 || !note) throw new Error('견적 정보와 수정 요청 내용을 확인해 주세요.')
+  unwrapEmptyApiResponse(await apiRequest<ApiResponse<null>, QuoteRevisionRequestInput>({ method: 'POST', url: `/api/quotes/${id}/request-revision`, data: { ...input, note }, authenticated: true }), '견적 수정 요청에 실패했습니다.')
 }

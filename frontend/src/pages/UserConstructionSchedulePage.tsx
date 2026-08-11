@@ -10,7 +10,7 @@ import {
 
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
-import { getProject } from '@/api/projectApi'
+import { confirmAndRefreshProject, getProject } from '@/api/projectApi'
 import type { Project } from '@/types/backendContractor'
 
 interface ScheduleStep {
@@ -210,6 +210,9 @@ export default function UserConstructionSchedulePage() {
   const [searchParams] = useSearchParams()
   const [liveProject, setLiveProject] = useState<Project | null>(null)
   const [projectError, setProjectError] = useState('')
+  const [completionDialogOpen, setCompletionDialogOpen] = useState(false)
+  const [confirmingCompletion, setConfirmingCompletion] = useState(false)
+  const [completionError, setCompletionError] = useState('')
 
   const {
     requestId,
@@ -231,7 +234,8 @@ export default function UserConstructionSchedulePage() {
   }, [searchParams])
 
   const isApprovedWaiting =
-    Boolean(approvedEstimate)
+    Boolean(approvedEstimate) && !liveProject
+  const isCompletionRequested = liveProject?.status === 'COMPLETION_REQUESTED'
 
   const contractorName =
     liveProject?.contractorName ?? approvedEstimate?.contractorName ??
@@ -270,6 +274,22 @@ export default function UserConstructionSchedulePage() {
     navigate(
       `/mypage/requests/${requestId}/chat/${contractorId}`,
     )
+  }
+
+  const confirmCompletion = async () => {
+    if (!liveProject || !isCompletionRequested || confirmingCompletion) return
+    setConfirmingCompletion(true)
+    setCompletionError('')
+    try {
+      const refreshedProject = await confirmAndRefreshProject(liveProject.id)
+      setLiveProject(refreshedProject)
+      setCompletionDialogOpen(false)
+      if (refreshedProject.status === 'COMPLETED') navigate(`/mypage/constructions/${refreshedProject.id}`)
+    } catch (error) {
+      setCompletionError(error instanceof Error ? error.message : '시공 완료 확인에 실패했습니다.')
+    } finally {
+      setConfirmingCompletion(false)
+    }
   }
 
   return (
@@ -332,6 +352,13 @@ export default function UserConstructionSchedulePage() {
                   </strong>
                 </div>
               </div>
+            </section>
+          ) : null}
+
+          {isCompletionRequested ? (
+            <section className="mt-5 rounded-[12px] border border-[#bfdbfe] bg-[#eff6ff] p-4">
+              <h2 className="text-[14px] font-bold text-[#2563eb]">시공사가 시공 완료 확인을 요청했습니다.</h2>
+              <p className="mt-2 text-[11px] leading-[18px] text-[#475569]">시공 내용을 확인한 후 완료 여부를 확인해 주세요.</p>
             </section>
           ) : null}
 
@@ -544,15 +571,26 @@ export default function UserConstructionSchedulePage() {
         </main>
 
         <footer className="shrink-0 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))] pt-2">
-          <button
-            type="button"
-            onClick={returnToChat}
-            className="h-12 w-full rounded-[5px] bg-[#2563eb] text-[12px] font-bold text-white"
-          >
-            시공사와 채팅하기
-          </button>
+          <div className={isCompletionRequested ? 'grid grid-cols-2 gap-2' : ''}>
+            <button type="button" onClick={returnToChat} className={`h-12 w-full rounded-[5px] text-[12px] font-bold ${isCompletionRequested ? 'border border-[#2563eb] bg-white text-[#2563eb]' : 'bg-[#2563eb] text-white'}`}>시공사와 채팅하기</button>
+            {isCompletionRequested ? <button type="button" onClick={() => setCompletionDialogOpen(true)} className="h-12 w-full rounded-[5px] bg-[#2563eb] text-[12px] font-bold text-white">시공 완료 확인</button> : null}
+          </div>
         </footer>
       </div>
+
+      {completionDialogOpen ? (
+        <div className="absolute inset-0 z-[70] flex items-center justify-center bg-[#0f172a]/40 px-6" role="dialog" aria-modal="true" aria-labelledby="completion-confirm-title">
+          <div className="w-full max-w-[345px] rounded-[16px] bg-white p-5 shadow-xl">
+            <h2 id="completion-confirm-title" className="text-[17px] font-bold text-[#0f172a]">시공 완료를 확인하시겠어요?</h2>
+            <p className="mt-2 break-keep text-[12px] leading-5 text-[#64748b]">완료 확인 후 시공 상태가 완료로 변경되며<br />리뷰를 작성할 수 있습니다.</p>
+            {completionError ? <p role="alert" className="mt-3 text-[11px] font-semibold text-[#dc2626]">{completionError}</p> : null}
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button type="button" disabled={confirmingCompletion} onClick={() => { setCompletionDialogOpen(false); setCompletionError('') }} className="h-11 rounded-[8px] border border-[#cbd5e1] bg-white text-[12px] font-bold text-[#475569] disabled:text-[#94a3b8]">취소</button>
+              <button type="button" disabled={confirmingCompletion} onClick={confirmCompletion} className="h-11 rounded-[8px] bg-[#2563eb] text-[12px] font-bold text-white disabled:bg-[#93b4f5]">{confirmingCompletion ? '확인 중...' : '완료 확인'}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </UserScreenShell>
   )
 }

@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -10,6 +11,7 @@ import {
 
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { getQuote, requestQuoteRevision } from '@/api/estimateApi'
 
 interface AgreementState {
   amountChecked: boolean
@@ -148,9 +150,32 @@ export default function EstimatePage() {
 
   const [rejectModalOpen, setRejectModalOpen] =
     useState(false)
+  const [revisionModalOpen, setRevisionModalOpen] = useState(false)
+  const [revisionNote, setRevisionNote] = useState('')
+  const [revisionError, setRevisionError] = useState('')
+  const [revisionSubmitting, setRevisionSubmitting] = useState(false)
+  const [revisionQuoteId, setRevisionQuoteId] = useState<number | null>(null)
 
   const [processing, setProcessing] =
     useState(false)
+
+  useEffect(() => {
+    const quoteRouteId = Number(id)
+    setRevisionQuoteId(null)
+    if (!Number.isInteger(quoteRouteId) || quoteRouteId <= 0) return
+
+    let active = true
+    getQuote(quoteRouteId)
+      .then((quote) => {
+        if (active) setRevisionQuoteId(quote.id)
+      })
+      .catch(() => {
+        if (active) setRevisionQuoteId(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [id])
 
   const canApprove = useMemo(
     () =>
@@ -252,6 +277,28 @@ export default function EstimatePage() {
     window.setTimeout(() => {
       navigate('/mypage/requests')
     }, 1200)
+  }
+
+  const submitRevisionRequest = async () => {
+    const note = revisionNote.trim()
+    if (revisionQuoteId === null) {
+      setRevisionError('견적 정보를 확인할 수 없습니다.')
+      return
+    }
+    if (!note || revisionSubmitting) return
+
+    setRevisionSubmitting(true)
+    setRevisionError('')
+    try {
+      await requestQuoteRevision(revisionQuoteId, { note })
+      setRevisionModalOpen(false)
+      setRevisionNote('')
+      setActionMessage('견적 수정 요청을 보냈습니다.')
+    } catch (error) {
+      setRevisionError(error instanceof Error ? error.message : '견적 수정 요청에 실패했습니다.')
+    } finally {
+      setRevisionSubmitting(false)
+    }
   }
 
   return (
@@ -667,12 +714,10 @@ export default function EstimatePage() {
             <button
               type="button"
               disabled={processing}
-              onClick={() =>
-                setRejectModalOpen(true)
-              }
-              className="h-12 rounded-[10px] border border-[#dc2626] bg-white text-[13px] font-bold text-[#dc2626] disabled:border-[#cbd5e1] disabled:text-[#94a3b8]"
+              onClick={() => setRevisionModalOpen(true)}
+              className="h-12 rounded-[10px] border border-[#2563eb] bg-white text-[13px] font-bold text-[#2563eb] disabled:border-[#cbd5e1] disabled:text-[#94a3b8]"
             >
-              견적 거절
+              수정 요청
             </button>
 
             <button
@@ -719,6 +764,22 @@ export default function EstimatePage() {
               >
                 견적 거절
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {revisionModalOpen ? (
+        <div className="absolute inset-0 z-[70] flex items-center justify-center bg-[#0f172a]/40 px-6" role="dialog" aria-modal="true" aria-labelledby="quote-revision-title">
+          <div className="w-full max-w-[345px] rounded-[16px] bg-white p-5 shadow-xl">
+            <h2 id="quote-revision-title" className="text-[17px] font-bold text-[#0f172a]">견적 수정 요청</h2>
+            <p className="mt-2 break-keep text-[12px] leading-5 text-[#64748b]">수정이 필요한 내용을 시공사에 전달해 주세요.</p>
+            <label htmlFor="quote-revision-note" className="mt-4 block text-[11px] font-bold text-[#1e293b]">수정 요청 내용</label>
+            <textarea id="quote-revision-note" value={revisionNote} onChange={(event) => { setRevisionNote(event.target.value); setRevisionError('') }} placeholder="수정이 필요한 항목이나 내용을 입력해 주세요." className="mt-2 min-h-[120px] w-full resize-none rounded-[10px] border border-[#e2e8f0] bg-white p-3 text-[12px] leading-5 text-[#334155] outline-none placeholder:text-[#94a3b8] focus:border-[#2563eb]" />
+            {revisionError ? <p role="alert" className="mt-2 text-[11px] font-semibold text-[#dc2626]">{revisionError}</p> : null}
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button type="button" disabled={revisionSubmitting} onClick={() => { setRevisionModalOpen(false); setRevisionError('') }} className="h-11 rounded-[8px] border border-[#cbd5e1] bg-white text-[12px] font-bold text-[#475569] disabled:text-[#94a3b8]">취소</button>
+              <button type="button" disabled={!revisionNote.trim() || revisionSubmitting} onClick={submitRevisionRequest} className="h-11 rounded-[8px] bg-[#2563eb] text-[12px] font-bold text-white disabled:bg-[#93b4f5]">{revisionSubmitting ? '요청 중...' : '수정 요청하기'}</button>
             </div>
           </div>
         </div>

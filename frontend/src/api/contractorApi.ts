@@ -58,6 +58,12 @@ export interface ContractorDisclosureUpdateInput {
   availableForConsult: boolean
 }
 
+export interface ContractorServiceInfoUpdateInput {
+  estimateMin: number
+  estimateMax: number
+  availableFromDate: string
+}
+
 export async function updateMyContractorProfile(input: ContractorProfileUpdateInput) {
   const response = await apiRequest<ApiResponse<null>, ContractorProfileUpdateInput>({ method: 'PUT', url: '/api/contractors/me', data: input, authenticated: true })
   unwrapEmptyApiResponse(response, '시공사 프로필 저장에 실패했습니다.')
@@ -71,4 +77,12 @@ export async function updateMyContractorManager(input: ContractorManagerUpdateIn
 export async function updateMyContractorDisclosure(input: ContractorDisclosureUpdateInput) {
   const response = await apiRequest<ApiResponse<null>, ContractorDisclosureUpdateInput>({ method: 'PUT', url: '/api/contractors/me/disclosure', data: input, authenticated: true })
   unwrapEmptyApiResponse(response, '업체 공개 설정 저장에 실패했습니다.')
+}
+
+export async function updateMyContractorServiceInfo(input: ContractorServiceInfoUpdateInput) {
+  if (!Number.isFinite(input.estimateMin) || input.estimateMin < 0 || !Number.isFinite(input.estimateMax) || input.estimateMax < input.estimateMin || !/^\d{4}-\d{2}-\d{2}$/.test(input.availableFromDate)) {
+    throw new Error('시공 서비스 정보를 확인해 주세요.')
+  }
+  const response = await apiRequest<ApiResponse<null>, ContractorServiceInfoUpdateInput>({ method: 'PUT', url: '/api/contractors/me/service-info', data: input, authenticated: true })
+  unwrapEmptyApiResponse(response, '시공 서비스 정보 저장에 실패했습니다.')
 }

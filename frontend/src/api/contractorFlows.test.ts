@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiRequest } from './axiosInstance'
-import { approveRequest, getAssignedRequests, rejectRequest, updateMyContractorDisclosure, updateMyContractorManager, updateMyContractorProfile } from './contractorApi'
+import { approveRequest, getAssignedRequests, rejectRequest, updateMyContractorDisclosure, updateMyContractorManager, updateMyContractorProfile, updateMyContractorServiceInfo } from './contractorApi'
 import { createQuote, extendQuote, requestQuoteRevision, submitQuote } from './estimateApi'
 import { getChatMessages } from './chatApi'
 import { getVisit, requestVisitChange } from './visitApi'
@@ -80,5 +80,20 @@ describe('contractor workflow API paths', () => {
     request.mockResolvedValue({ success: true, message: 'ok', data: null })
     await requestQuoteRevision(33, { note: '자재비를 확인해주세요.', targetItemIds: [12], requestedAmount: 4_500_000 })
     expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'POST', url: '/api/quotes/33/request-revision', data: { note: '자재비를 확인해주세요.', targetItemIds: [12], requestedAmount: 4_500_000 } }))
+  })
+
+  it('saves validated contractor service information only', async () => {
+    request.mockResolvedValue({ success: true, message: 'ok', data: null })
+    await updateMyContractorServiceInfo({ estimateMin: 1_000_000, estimateMax: 5_000_000, availableFromDate: '2026-08-20' })
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'PUT', url: '/api/contractors/me/service-info', data: { estimateMin: 1_000_000, estimateMax: 5_000_000, availableFromDate: '2026-08-20' } }))
+    request.mockClear()
+    await expect(updateMyContractorServiceInfo({ estimateMin: 5_000_000, estimateMax: 1_000_000, availableFromDate: '' })).rejects.toThrow()
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('does not send an empty quote revision note', async () => {
+    request.mockClear()
+    await expect(requestQuoteRevision(33, { note: '   ' })).rejects.toThrow()
+    expect(request).not.toHaveBeenCalled()
   })
 })

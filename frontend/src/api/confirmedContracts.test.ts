@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiRequest } from './axiosInstance'
 import { confirmEmailVerificationCode, sendEmailVerificationCode, updateMember } from './memberApi'
-import { getLandlordProjects, getProject } from './projectApi'
+import { confirmAndRefreshProject, getLandlordProjects, getProject } from './projectApi'
 import { createReview } from './reviewApi'
 
 vi.mock('./axiosInstance', async (importOriginal) => {
@@ -34,5 +34,19 @@ describe('2026-08-11 confirmed contracts', () => {
     request.mockResolvedValueOnce({ success: true, message: 'ok', data: { id: 1 } })
     await createReview(projects[0].requestId, { rating: 5, content: '좋아요', keywords: ['SCHEDULE_KEPT'] })
     expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ url: '/api/reviews/request/21', data: { rating: 5, content: '좋아요', keywords: ['SCHEDULE_KEPT'] } }))
+  })
+
+  it('confirms completion with project.id and refreshes the project', async () => {
+    const completionRequested = { id: 7, requestId: 21, quoteId: 33, contractorId: 5, status: 'COMPLETION_REQUESTED' as const }
+    const completed = { ...completionRequested, status: 'COMPLETED' as const }
+    request.mockResolvedValueOnce({ success: true, message: 'ok', data: completed })
+    request.mockResolvedValueOnce({ success: true, message: 'ok', data: completed })
+    await expect(confirmAndRefreshProject(completionRequested.id)).resolves.toEqual(completed)
+    expect(request).toHaveBeenNthCalledWith(1, expect.objectContaining({ method: 'POST', url: '/api/projects/7/confirm-completion' }))
+    expect(request).toHaveBeenNthCalledWith(2, expect.objectContaining({ method: 'GET', url: '/api/projects/7' }))
+
+    request.mockReset().mockRejectedValueOnce(new Error('failed'))
+    await expect(confirmAndRefreshProject(completionRequested.id)).rejects.toThrow('failed')
+    expect(request).toHaveBeenCalledTimes(1)
   })
 })

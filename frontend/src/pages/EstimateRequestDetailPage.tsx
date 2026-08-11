@@ -358,7 +358,7 @@ export default function EstimateRequestDetailPage() {
                             : 'border-[#e2e8f0] bg-white'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-3">
+                        <Link to={`/estimate/${quote.id}`} className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <h3 className="truncate text-[11px] font-bold text-[#1e293b]">
                               {`시공사 #${quote.contractorId}`}
@@ -380,7 +380,7 @@ export default function EstimateRequestDetailPage() {
                                 0,
                             )}
                           </strong>
-                        </div>
+                        </Link>
 
                         <div className="mt-3 grid grid-cols-2 gap-2">
                           <Link
