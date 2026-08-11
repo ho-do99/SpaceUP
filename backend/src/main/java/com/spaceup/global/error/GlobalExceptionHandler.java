@@ -12,8 +12,6 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import com.spaceup.domain.ai.exception.AiImageGenerationConfigurationException;
 import com.spaceup.domain.ai.exception.AiImageGenerationException;
 import com.spaceup.domain.analysis.ai.exception.AiFloorplanAnalysisException;
-import com.spaceup.domain.rental.exception.RentalApiConfigurationException;
-import com.spaceup.domain.rental.exception.RentalApiException;
 import com.spaceup.global.util.ApiResponse;
 
 import jakarta.validation.ConstraintViolationException;
@@ -31,25 +29,10 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(413).body(ApiResponse.fail("파일 크기가 20MB를 초과했습니다."));
 	}
 
-	// ⭐ [국토부 실거래가 연동] 서비스키 미설정 등 설정 오류 - 운영자가 바로 인지할 수 있도록 503
-	@ExceptionHandler(RentalApiConfigurationException.class)
-	public ResponseEntity<ApiResponse<Void>> handleRentalApiConfigurationException(
-			RentalApiConfigurationException e) {
-		log.warn("전월세 API 설정 오류: {}", e.getMessage());
-		return ResponseEntity.status(503).body(ApiResponse.fail(e.getMessage()));
-	}
-
-	// ⭐ [국토부 실거래가 연동] 외부 API 호출/응답 파싱 실패 - 우리 서버 문제가 아니라 상위 게이트웨이(502) 성격
-	@ExceptionHandler(RentalApiException.class)
-	public ResponseEntity<ApiResponse<Void>> handleRentalApiException(RentalApiException e) {
-		log.warn("전월세 외부 API 오류: {}", e.getMessage());
-		return ResponseEntity.status(502).body(ApiResponse.fail(e.getMessage()));
-	}
-
-	// ⭐ [국토부 실거래가 연동] dealYm(존재하지 않는 연월) 등 값 자체는 형식은 맞지만 의미상 잘못된 경우
+	// ⭐ 값 자체는 형식은 맞지만 의미상 잘못된 경우(예: 존재하지 않는 enum 값, 범위를 벗어난 파라미터)의 공용 400 처리
 	@ExceptionHandler({ IllegalArgumentException.class, ConstraintViolationException.class })
-	public ResponseEntity<ApiResponse<Void>> handleRentalRequestValidationException(Exception e) {
-		log.warn("전월세 API 요청값 오류: {}", e.getMessage());
+	public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(Exception e) {
+		log.warn("요청값 오류: {}", e.getMessage());
 		return ResponseEntity.status(400).body(ApiResponse.fail(e.getMessage()));
 	}
 
