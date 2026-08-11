@@ -64,7 +64,10 @@ public class AiFloorplanAnalysisService {
 		List<AnalysisSpaceRequest> spaceRequests = rooms.stream().map(room -> {
 			AnalysisSpaceRequest spaceRequest = new AnalysisSpaceRequest();
 			spaceRequest.setSpaceName(room.roomName());
-			// ⭐ AI가 m² 면적을 계산하지 못하므로 면적 필드는 비워둡니다 - 사용자가 이후 직접 입력합니다.
+			double roomAreaM2 = request.getProperty().getExclusiveAreaM2() * room.pixelCount()
+					/ analysisResponse.totalAreaPixelCount();
+			spaceRequest.setSpaceAreaM2(roomAreaM2);
+			spaceRequest.setFloorAreaM2(roomAreaM2);
 			return spaceRequest;
 		}).toList();
 		if (!spaceRequests.isEmpty()) {
