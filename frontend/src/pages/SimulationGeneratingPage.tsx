@@ -138,11 +138,21 @@ export default function SimulationGeneratingPage() {
             />
             {isGenerating ? (
               <>
-                <img
-                  src={simulationSpinner}
-                  alt=""
-                  className="mt-[34px] size-12 animate-spin motion-reduce:animate-none"
-                />
+                <span className="relative mt-[34px] flex size-14 items-center justify-center text-[#2563eb]" aria-hidden="true">
+                  <img
+                    src={simulationSpinner}
+                    alt=""
+                    className="absolute inset-0 size-14 animate-spin motion-reduce:animate-none"
+                  />
+                  <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m15 4 5 5L7 22l-5-5Z" />
+                    <path d="m14 5 5 5" />
+                    <path d="M6 3v4" />
+                    <path d="M4 5h4" />
+                    <path d="M19 15v4" />
+                    <path d="M17 17h4" />
+                  </svg>
+                </span>
                 <p className="mt-6 text-[14px] font-medium leading-5 text-[#475569]">
                   잠시만 기다려주세요.
                 </p>

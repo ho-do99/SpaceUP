@@ -1,33 +1,9 @@
-import selectionCheckIcon from '@/assets/user/icons/selection-check.svg'
-import type { AnalyzedSpaceOption, SpaceIconType } from '@/mocks/analysisSpaces'
+import type { AnalyzedSpaceOption } from '@/mocks/analysisSpaces'
 
 interface SpaceSelectionCardProps {
   option: AnalyzedSpaceOption
   isSelected: boolean
   onToggle: (id: AnalyzedSpaceOption['id']) => void
-}
-
-function SpaceIcon({ type }: { type: SpaceIconType }) {
-  const isShortRoom = type === 'room'
-  const isBathroom = type === 'bathroom'
-  const hasDivider = type === 'kitchen' || type === 'balcony'
-
-  return (
-    <span aria-hidden="true" className="relative block size-7 shrink-0">
-      <span
-        className={`absolute left-[3px] w-[22px] border-[1.5px] border-solid border-current ${
-          isBathroom
-            ? 'top-3 h-[10px] rounded-[5px]'
-            : isShortRoom
-              ? 'top-2.5 h-3 rounded-[3px]'
-              : 'top-[5px] h-[18px] rounded-[3px]'
-        }`}
-      />
-      {hasDivider && (
-        <span className="absolute left-[3px] top-3 h-[1.5px] w-[22px] bg-current" />
-      )}
-    </span>
-  )
 }
 
 export default function SpaceSelectionCard({
@@ -42,7 +18,7 @@ export default function SpaceSelectionCard({
       type="button"
       aria-pressed={isSelected}
       disabled={isDisabled}
-      className={`relative flex h-[88px] min-w-0 items-start rounded-[10px] border px-[13px] pt-[17px] text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] disabled:cursor-not-allowed disabled:opacity-100 ${
+      className={`relative flex h-[88px] min-w-0 items-start rounded-[10px] border px-[13px] pt-[17px] pr-11 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] disabled:cursor-not-allowed disabled:opacity-100 ${
         isSelected
           ? 'border-2 border-[#2563eb] bg-[#eff6ff] text-[#2563eb]'
           : isDisabled
@@ -51,8 +27,7 @@ export default function SpaceSelectionCard({
       }`}
       onClick={() => onToggle(option.id)}
     >
-      <SpaceIcon type={option.icon} />
-      <span className="ml-2.5 min-w-0">
+      <span className="min-w-0">
         <span
           className={`block truncate text-[15px] font-bold leading-[22px] ${
             isSelected ? 'text-[#2563eb]' : isDisabled ? 'text-[#94a3b8]' : 'text-[#1e293b]'
@@ -66,13 +41,20 @@ export default function SpaceSelectionCard({
           </span>
         )}
       </span>
-      {isSelected && (
-        <img
-          src={selectionCheckIcon}
-          alt=""
-          className="absolute right-1.5 top-1.5 size-6"
-        />
-      )}
+      <span
+        aria-hidden="true"
+        className={`absolute right-3 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-[4px] border-2 ${
+          isSelected
+            ? 'border-[#2563eb] bg-[#2563eb] text-white'
+            : isDisabled
+              ? 'border-[#cbd5e1] bg-[#f1f5f9] text-transparent'
+              : 'border-[#94a3b8] bg-white text-transparent'
+        }`}
+      >
+        <svg viewBox="0 0 20 20" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m4 10 4 4 8-8" />
+        </svg>
+      </span>
     </button>
   )
 }
