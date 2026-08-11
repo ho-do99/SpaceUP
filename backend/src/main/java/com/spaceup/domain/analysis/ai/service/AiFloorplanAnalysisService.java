@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.spaceup.domain.analysis.ai.client.AiFloorplanAnalysisClient;
+import com.spaceup.domain.analysis.ai.client.AiFloorplanAnalysisResponse;
 import com.spaceup.domain.analysis.ai.client.AiFloorplanRoom;
 import com.spaceup.domain.analysis.ai.exception.AiFloorplanAnalysisException;
 import com.spaceup.domain.analysis.dto.AnalysisJobResponse;
@@ -46,8 +47,9 @@ public class AiFloorplanAnalysisService {
 		}
 
 		byte[] imageBytes = readBytes(floorplanImage);
-		List<AiFloorplanRoom> rooms = aiFloorplanAnalysisClient.analyze(imageBytes, floorplanImage.getOriginalFilename(),
-				floorplanImage.getContentType());
+		AiFloorplanAnalysisResponse analysisResponse = aiFloorplanAnalysisClient.analyze(imageBytes,
+				floorplanImage.getOriginalFilename(), floorplanImage.getContentType());
+		List<AiFloorplanRoom> rooms = analysisResponse.rooms();
 
 		int bedroomCount = (int) rooms.stream().filter(AiFloorplanRoom::isBedroom).count();
 		int bathroomCount = (int) rooms.stream().filter(AiFloorplanRoom::isBathroom).count();
