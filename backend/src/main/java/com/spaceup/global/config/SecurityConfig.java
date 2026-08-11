@@ -75,6 +75,8 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/api/files/images/**").permitAll()
 						// ⭐ [프론트 연동] 시공사 회원가입 중 사업자등록증 업로드 - 계정이 아직 없어 JWT 없이 호출됩니다.
 						.requestMatchers("/api/files/business-documents/**").permitAll()
+						// ⭐ [프론트 연동] 시공사 회원가입 중 사업자등록번호 확인(목업) - 계정이 아직 없어 JWT 없이 호출됩니다.
+						.requestMatchers(HttpMethod.POST, "/api/contractors/business-registration/verify").permitAll()
 						// ⭐ [프론트 연동] "리뷰" 조회는 로그인 없이도 시공사 상세 화면 등에서 노출됩니다. 작성(POST)은 인증 필요.
 						.requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
 						// ⭐ [사전 존재 버그 수정] 시공사 공개 상세/포트폴리오/상품 목록은 원래 로그인 없이 조회 가능하게
