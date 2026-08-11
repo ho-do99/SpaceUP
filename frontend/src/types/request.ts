@@ -15,14 +15,7 @@ export interface RequestCreateInput {
   requestedItems?: string
 }
 
-export type MaterialTheme = 'MODERN' | 'WOOD' | 'WHITE' | 'MARBLE'
-
-export type RequestUpdateInput = Partial<RequestCreateInput> & {
-  selectedTheme?: MaterialTheme
-  selectedWallpaperProductId?: number
-  selectedFlooringProductId?: number
-  selectedLightingProductId?: number
-}
+export type RequestUpdateInput = Partial<RequestCreateInput>
 
 export interface RequestResponse extends RequestCreateInput {
   id: number
@@ -38,10 +31,6 @@ export interface RequestResponse extends RequestCreateInput {
   participationStatus?: 'INVITED' | 'APPROVED' | 'REJECTED' | 'SELECTED' | 'CLOSED' | null
   createdAt?: string
   lastActivityAt?: string
-  selectedTheme?: MaterialTheme | null
-  selectedWallpaperProductId?: number | null
-  selectedFlooringProductId?: number | null
-  selectedLightingProductId?: number | null
 }
 
 export interface RequestImageInput {

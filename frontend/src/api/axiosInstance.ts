@@ -167,6 +167,14 @@ export async function apiRequest<
   const requestHeaders = AxiosHeaders.from(headers)
   const accessToken = authenticated ? getAccessToken() : null
 
+  if (authenticated && !accessToken) {
+    throw new ApiClientError(
+      '로그인이 만료되었습니다. 다시 로그인해 주세요.',
+      'http',
+      401,
+    )
+  }
+
   if (accessToken) {
     requestHeaders.set(
       'Authorization',
@@ -259,6 +267,22 @@ export async function apiRequest<
     if (status === 413) {
       throw new ApiClientError(
         '업로드할 수 있는 파일 크기를 초과했습니다.',
+        'http',
+        status,
+      )
+    }
+
+    if (status === 502) {
+      throw new ApiClientError(
+        '외부 서비스 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+        'http',
+        status,
+      )
+    }
+
+    if (status === 503) {
+      throw new ApiClientError(
+        '현재 외부 서비스를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
         'http',
         status,
       )

@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom'
 
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { uploadImage } from '@/api/fileApi'
+import { createPortfolio, setPortfolioVisibility } from '@/api/portfolioApi'
 
 interface PortfolioCreateForm {
   projectName: string
@@ -45,9 +47,12 @@ export default function ContractorPortfolioCreatePage() {
 
   const [coverImageName, setCoverImageName] =
     useState('')
+  const [coverFile, setCoverFile] = useState<File | null>(null)
 
   const [galleryImageNames, setGalleryImageNames] =
     useState<string[]>([])
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([])
+  const [submitting, setSubmitting] = useState(false)
 
   const [errorMessage, setErrorMessage] =
     useState('')
@@ -78,6 +83,7 @@ export default function ContractorPortfolioCreatePage() {
     }
 
     setCoverImageName(selectedFile.name)
+    setCoverFile(selectedFile)
     setErrorMessage('')
     setToastMessage('')
 
@@ -98,6 +104,7 @@ export default function ContractorPortfolioCreatePage() {
     setGalleryImageNames(
       selectedFiles.map((file) => file.name),
     )
+    setGalleryFiles(selectedFiles)
 
     setErrorMessage('')
     setToastMessage('')
@@ -145,7 +152,7 @@ export default function ContractorPortfolioCreatePage() {
     return ''
   }
 
-  const handleSubmit = (
+  const handleSubmit = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault()
@@ -158,22 +165,26 @@ export default function ContractorPortfolioCreatePage() {
       return
     }
 
-    setErrorMessage('')
-
-    navigate('/contractor/portfolio', {
-      state: {
-        createdPortfolio: {
-          id: `portfolio-${Date.now()}`,
-          title: form.projectName.trim(),
-          location: form.region.trim(),
-          propertySummary:
-            form.propertySummary.trim(),
-          visibility: form.isPublic
-            ? '공개'
-            : '비공개',
-        },
-      },
-    })
+    if (!coverFile || galleryFiles.length === 0) return
+    const areaM2 = Number(form.propertySummary.match(/[\d.]+/)?.[0])
+    const propertyType = form.propertySummary.split(/[·,]/)[0].trim()
+    const durationDays = Number(form.duration.match(/\d+/)?.[0])
+    const amount = Number(form.amount.replace(/\D/g, ''))
+    if (!propertyType || !Number.isFinite(areaM2) || areaM2 <= 0 || !Number.isInteger(durationDays) || durationDays <= 0 || !Number.isFinite(amount) || amount <= 0) {
+      setErrorMessage('주택 유형·면적, 시공 기간, 공사 금액을 형식에 맞게 입력해주세요.')
+      return
+    }
+    setSubmitting(true); setErrorMessage('')
+    try {
+      const [cover, ...gallery] = await Promise.all([coverFile, ...galleryFiles].map((file) => uploadImage(file)))
+      const id = await createPortfolio({ projectName: form.projectName.trim(), region: form.region.trim(), propertyType, areaM2, workItems: form.workItems.trim(), durationDays, amount, mainImageUrl: cover.imageUrl, photoUrls: gallery.map((item) => item.imageUrl).join(','), isPublic: form.isPublic })
+      await setPortfolioVisibility(id, form.isPublic)
+      navigate('/contractor/portfolio')
+    } catch (submitError) {
+      setErrorMessage(submitError instanceof Error ? submitError.message : '포트폴리오 등록에 실패했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleDraftSave = () => {
@@ -536,9 +547,10 @@ export default function ContractorPortfolioCreatePage() {
 
             <button
               type="submit"
+              disabled={submitting}
               className="h-12 flex-1 rounded-lg bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
             >
-              등록 완료
+              {submitting ? '등록 중...' : '등록 완료'}
             </button>
           </div>
         </form>

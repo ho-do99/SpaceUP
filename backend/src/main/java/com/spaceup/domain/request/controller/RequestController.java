@@ -58,7 +58,7 @@ public class RequestController {
 	// ⭐ [프론트 연동] 예산/희망일정/요청항목처럼 화면 뒤쪽 단계에서 채워지는 값을 나중에 저장. 본인 의뢰만 가능
 	@PatchMapping("/{requestId}")
 	public ResponseEntity<ApiResponse<Void>> updateRequest(@PathVariable Long requestId,
-			@RequestBody RequestUpdateRequest request, Authentication authentication) {
+			@Valid @RequestBody RequestUpdateRequest request, Authentication authentication) {
 		requestService.updateRequest(requestId, getMemberId(authentication), request);
 		return ResponseEntity.ok(ApiResponse.success("의뢰 정보가 수정되었습니다.", null));
 	}

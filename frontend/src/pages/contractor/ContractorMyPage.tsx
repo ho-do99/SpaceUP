@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { getMyContractorProfile } from '@/api/contractorApi'
+import type { ContractorProfile } from '@/types/backendContractor'
 
 interface MyPageActionCardProps {
   title: string
@@ -61,6 +63,14 @@ function MyPageActionCard({
 
 export default function ContractorMyPage() {
   const navigate = useNavigate()
+  const [profile, setProfile] = useState<ContractorProfile | null>(null)
+  const [profileError, setProfileError] = useState('')
+
+  useEffect(() => {
+    getMyContractorProfile()
+      .then(setProfile)
+      .catch((error) => setProfileError(error instanceof Error ? error.message : '시공사 프로필 조회에 실패했습니다.'))
+  }, [])
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
@@ -96,11 +106,11 @@ export default function ContractorMyPage() {
               id="contractor-profile-title"
               className="truncate text-[15px] font-bold text-[#1e293b]"
             >
-              ㈜스페이스 인테리어
+              {profile?.companyName || (profileError ? '프로필 조회 실패' : '불러오는 중...')}
             </h2>
 
             <p className="mt-1 text-xs text-[#64748b]">
-              김현수 담당자
+              {profile?.memberName ? `${profile.memberName}${profile.managerPosition ? ` · ${profile.managerPosition}` : ' 담당자'}` : profileError || '프로필 정보를 확인하고 있습니다.'}
             </p>
 
             <span className="mt-2 inline-flex h-[22px] items-center rounded-full bg-[#eff6ff] px-2 text-[10px] font-bold text-[#2563eb]">

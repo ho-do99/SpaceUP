@@ -8,8 +8,9 @@ const won = new Intl.NumberFormat('ko-KR')
 
 function statusOf(request: RequestResponse): ContractorRequestStatus {
   if (request.participationStatus === 'SELECTED' || request.status === 'COMPLETED') return 'matched'
-  if (request.participationStatus === 'REJECTED' || request.participationStatus === 'CLOSED') return 'user_canceled'
-  if (request.status === 'CANCELED') return 'auto_canceled'
+  if (request.participationStatus === 'REJECTED') return 'contractor_rejected'
+  if (request.participationStatus === 'CLOSED') return 'user_canceled'
+  if (request.status === 'CANCELED') return 'canceled'
   if (request.status === 'IN_PROGRESS' || request.participationStatus === 'APPROVED') return 'in_progress'
   if (request.status === 'REVIEWING' || request.status === 'QUOTE_REQUESTED') return 'reviewing'
   return 'new'
@@ -17,7 +18,8 @@ function statusOf(request: RequestResponse): ContractorRequestStatus {
 
 const labels: Record<ContractorRequestStatus, string> = {
   new: '신규', reviewing: '검토 중', in_progress: '진행 중', matched: '성사',
-  user_canceled: '미성사', auto_canceled: '자동 취소', expired: '만료',
+  contractor_rejected: '시공사 거절', user_canceled: '사용자 취소', auto_canceled: '자동 취소', expired: '요청 만료',
+  canceled: '취소',
 }
 
 function budgetLabel(request: RequestResponse) {
@@ -65,9 +67,6 @@ export function requestToContractorDetail(
   const card = requestToContractorCard(request)
   const floorPlan = images.find((image) => image.imageType === 'FLOOR_PLAN')
   const photos = images.filter((image) => image.imageType === 'PHOTO')
-  const payback = analysis?.paybackPeriodMonthsMin != null
-    ? `${analysis.paybackPeriodMonthsMin}~${analysis.paybackPeriodMonthsMax ?? analysis.paybackPeriodMonthsMin}개월`
-    : '분석 대기 중'
   return {
     ...card,
     estimatedCostLabel: quoteLabel(analysis),
@@ -80,11 +79,6 @@ export function requestToContractorDetail(
     },
     selectedItems: request.requestedItems?.split(',').map((value) => value.trim()).filter(Boolean) ?? [],
     lightingNotice: '조명은 현장 전기 배선 확인 후 최종 견적이 확정됩니다.',
-    valueIncrease: {
-      currentMonthlyRent: request.monthlyRent != null ? `${won.format(request.monthlyRent)}원` : '미입력',
-      expectedMonthlyIncrease: analysis?.expectedRentIncreaseMin != null ? `${won.format(analysis.expectedRentIncreaseMin)}원` : '분석 대기',
-      recoveryPeriod: payback,
-    },
     floorPlanImage: floorPlan ? resolveApiAssetUrl(floorPlan.imageUrl) || floorPlanFallback : floorPlanFallback,
     photos: photos.map((photo, index) => ({
       id: String(photo.id), label: `공간 사진 ${index + 1}`,

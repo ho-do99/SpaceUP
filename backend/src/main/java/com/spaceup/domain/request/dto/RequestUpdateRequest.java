@@ -2,6 +2,8 @@ package com.spaceup.domain.request.dto;
 
 import com.spaceup.domain.material.entity.MaterialTheme;
 
+import jakarta.validation.constraints.Positive;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -15,6 +17,7 @@ public class RequestUpdateRequest {
 
 	private String region;
 	private String propertyType;
+	@Positive(message = "전용면적은 0보다 커야 합니다.")
 	private Double areaM2;
 	private Long deposit;
 	private Long monthlyRent;

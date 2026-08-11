@@ -8,5 +8,18 @@ export async function updateQuote(id: number, input: QuoteInput) { const r = awa
 export async function getQuote(id: number) { const r = await apiRequest<ApiResponse<QuoteResponse>>({ method: 'GET', url: `/api/quotes/${id}`, authenticated: true }); return unwrapApiResponse<QuoteResponse>(r, '견적 조회에 실패했습니다.') }
 export async function submitQuote(id: number) { const r = await apiRequest<ApiResponse<null>>({ method: 'POST', url: `/api/quotes/${id}/submit`, authenticated: true }); unwrapEmptyApiResponse(r, '견적 발송에 실패했습니다.') }
 export async function getQuotesByRequest(requestId: number) { const r = await apiRequest<ApiResponse<QuoteResponse[]>>({ method: 'GET', url: `/api/quotes/request/${requestId}`, authenticated: true }); return unwrapApiResponse<QuoteResponse[]>(r, '견적 목록 조회에 실패했습니다.') }
-export async function acceptQuote(id: number) { await apiRequest({ method: 'POST', url: `/api/quotes/${id}/accept`, authenticated: true }) }
-export async function rejectQuote(id: number) { await apiRequest({ method: 'POST', url: `/api/quotes/${id}/reject`, authenticated: true }) }
+export async function acceptQuote(id: number) { unwrapEmptyApiResponse(await apiRequest<ApiResponse<null>>({ method: 'POST', url: `/api/quotes/${id}/accept`, authenticated: true }), '견적 승인에 실패했습니다.') }
+export async function rejectQuote(id: number) { unwrapEmptyApiResponse(await apiRequest<ApiResponse<null>>({ method: 'POST', url: `/api/quotes/${id}/reject`, authenticated: true }), '견적 거절에 실패했습니다.') }
+export async function extendQuote(id: number, newValidUntil: string, memo?: string) { unwrapEmptyApiResponse(await apiRequest<ApiResponse<null>, { newValidUntil: string; memo?: string }>({ method: 'POST', url: `/api/quotes/${id}/extend`, data: { newValidUntil, ...(memo ? { memo } : {}) }, authenticated: true }), '견적 유효기간 연장에 실패했습니다.') }
+
+export interface QuoteRevisionRequestInput {
+  note: string
+  targetItemIds?: number[]
+  requestedAmount?: number
+}
+
+export async function requestQuoteRevision(id: number, input: QuoteRevisionRequestInput) {
+  const note = input.note.trim()
+  if (!Number.isInteger(id) || id <= 0 || !note) throw new Error('견적 정보와 수정 요청 내용을 확인해 주세요.')
+  unwrapEmptyApiResponse(await apiRequest<ApiResponse<null>, QuoteRevisionRequestInput>({ method: 'POST', url: `/api/quotes/${id}/request-revision`, data: { ...input, note }, authenticated: true }), '견적 수정 요청에 실패했습니다.')
+}
