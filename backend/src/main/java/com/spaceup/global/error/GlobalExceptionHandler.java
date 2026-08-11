@@ -169,6 +169,12 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(400).body(ApiResponse.fail(e.getMessage()));
 	}
 
+	@ExceptionHandler(InvalidPasswordException.class)
+	public ResponseEntity<ApiResponse<Void>> handleInvalidPasswordException(InvalidPasswordException e) {
+		log.warn("비밀번호 변경 실패: {}", e.getMessage());
+		return ResponseEntity.status(400).body(ApiResponse.fail(e.getMessage()));
+	}
+
 	@ExceptionHandler(SiteVisitNotFoundException.class)
 	public ResponseEntity<ApiResponse<Void>> handleSiteVisitNotFoundException(SiteVisitNotFoundException e) {
 		log.warn("현장방문 일정 조회 실패: {}", e.getMessage());

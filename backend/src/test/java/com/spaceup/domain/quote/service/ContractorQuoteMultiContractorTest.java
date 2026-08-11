@@ -14,7 +14,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.spaceup.domain.analysis.repository.AnalysisJobRepository;
-import com.spaceup.domain.analysis.service.RentalValueCalculator;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.repository.MemberRepository;
 import com.spaceup.domain.notification.service.NotificationService;
@@ -38,7 +37,6 @@ class ContractorQuoteMultiContractorTest {
 	@Mock MemberRepository memberRepository;
 	@Mock NotificationService notificationService;
 	@Mock AnalysisJobRepository analysisJobRepository;
-	@Mock RentalValueCalculator rentalValueCalculator;
 	@InjectMocks ContractorQuoteService service;
 
 	@Test

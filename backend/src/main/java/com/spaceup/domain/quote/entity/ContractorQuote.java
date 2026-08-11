@@ -92,6 +92,15 @@ public class ContractorQuote extends BaseTimeEntity {
 	@Column(name = "revision_request_note", length = 500)
 	private String revisionRequestNote;
 
+	// ⭐ [프론트 연동] 어떤 항목(ContractorQuoteItem.id)의 수정을 요청하는지 (콤마 구분, 예: "3,5"). 항목을
+	// 특정하지 않고 전체 견적에 대한 수정 요청이면 null.
+	@Column(name = "revision_target_item_ids", length = 200)
+	private String revisionTargetItemIds;
+
+	// ⭐ [프론트 연동] 임대인이 희망하는 조정 금액(원). 특정 금액을 요구하지 않으면 null.
+	@Column(name = "revision_requested_amount")
+	private Long revisionRequestedAmount;
+
 	// ⭐ [Figma 반영] "v1 - 07.14, v2 - 07.15" 같은 버전 표시용 - 수정될 때마다 1씩 증가
 	@Builder.Default
 	@Column(name = "revision_count", nullable = false)
@@ -140,14 +149,19 @@ public class ContractorQuote extends BaseTimeEntity {
 	}
 
 	// ⭐ [Figma 반영] "보낸 견적 상세 - 수정 요청" 화면 - 임대인이 요청한 수정 메모를 남깁니다.
-	public void requestRevision(String note) {
+	// targetItemIds/requestedAmount는 항목별로 구조화하고 싶을 때만 채우는 선택 정보입니다(둘 다 null 가능).
+	public void requestRevision(String note, String targetItemIds, Long requestedAmount) {
 		this.revisionRequestNote = note;
+		this.revisionTargetItemIds = targetItemIds;
+		this.revisionRequestedAmount = requestedAmount;
 	}
 
 	// ⭐ [Figma 반영] 수정 견적을 다시 작성/발송하면 버전을 올리고 요청 메모를 비웁니다.
 	public void markRevised() {
 		this.revisionCount++;
 		this.revisionRequestNote = null;
+		this.revisionTargetItemIds = null;
+		this.revisionRequestedAmount = null;
 	}
 
 	// ⭐ 자재비+인건비+부가세-할인 = 최종 견적. 항목/금액이 바뀔 때마다 서비스 레이어에서 호출해 재계산합니다.

@@ -7,8 +7,6 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.spaceup.domain.analysis.repository.AnalysisJobRepository;
-import com.spaceup.domain.analysis.service.RentalValueCalculator;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.repository.MemberRepository;
 import com.spaceup.domain.notification.entity.NotificationType;
@@ -46,8 +44,6 @@ public class ContractorQuoteService {
 	private final QuoteRequestRepository quoteRequestRepository;
 	private final MemberRepository memberRepository;
 	private final NotificationService notificationService;
-	private final AnalysisJobRepository analysisJobRepository;
-	private final RentalValueCalculator rentalValueCalculator;
 
 	// ⭐ PDF "임시 저장" 버튼 → DRAFT 상태로 생성. 항목 금액 합계 + 부가세 - 할인 = 최종 견적으로 자동 계산합니다.
 	@Transactional
@@ -135,25 +131,9 @@ public class ContractorQuoteService {
 				.filter(participation -> !participation.getId().equals(selected.getId()))
 				.forEach(RequestContractor::close);
 		quote.getRequest().selectContractor(quote.getContractor());
-		applyConfirmedRentalValue(quote);
 
 		notificationService.notify(quote.getContractor().getId(), NotificationType.QUOTE, "견적이 선택되었습니다",
 				String.format("%s 견적이 최종 선택되었습니다. 일정을 등록해 주세요.", quote.getTitle()));
-	}
-
-	// ⭐ [고도화] 견적이 확정된 시점의 실제 견적금액(totalAmount)으로 임대가치 상승분을 재계산해 확정 필드에 반영합니다.
-	// 분석 레코드가 아직 없을 수도 있으므로(예: 분석 요청이 실패했거나 아직 진행 중) 조용히 무시합니다.
-	private void applyConfirmedRentalValue(ContractorQuote quote) {
-		QuoteRequest request = quote.getRequest();
-		RentalValueCalculator.Result confirmed = rentalValueCalculator.calculate(
-				request.getProperty().getCurrentDeposit(), request.getProperty().getCurrentMonthlyRent(),
-				quote.getTotalAmount(), null, null);
-		if (confirmed == null) {
-			return;
-		}
-		analysisJobRepository.findByRequestId(request.getId())
-				.ifPresent(analysis -> analysis.applyConfirmedRentalValue(confirmed.depositIncreaseMin(),
-						confirmed.depositIncreaseMax(), confirmed.rentIncreaseMin(), confirmed.rentIncreaseMax()));
 	}
 
 	@Transactional
@@ -180,10 +160,13 @@ public class ContractorQuoteService {
 
 	// ⭐ [Figma 반영] "보낸 견적 상세 - 수정 요청" 화면 - 해당 의뢰의 임대인 본인만 가능. 시공사에게 알림
 	@Transactional
-	public void requestRevision(Long quoteId, Long landlordId, String note) {
+	public void requestRevision(Long quoteId, Long landlordId, String note, List<Long> targetItemIds,
+			Long requestedAmount) {
 		ContractorQuote quote = findQuoteOrThrow(quoteId);
 		validateLandlordOwnership(quote, landlordId);
-		quote.requestRevision(note);
+		String joinedItemIds = targetItemIds == null || targetItemIds.isEmpty() ? null
+				: targetItemIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+		quote.requestRevision(note, joinedItemIds, requestedAmount);
 
 		notificationService.notify(quote.getContractor().getId(), NotificationType.QUOTE, "견적 수정 요청이 도착했습니다",
 				String.format("%s 견적에 대한 수정 요청: %s", quote.getTitle(), note));
