@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import chevronIcon from '@/assets/user/icons/management/chevron.svg'
 import emailIcon from '@/assets/user/icons/management/email.svg'
@@ -9,7 +9,10 @@ import securityIcon from '@/assets/user/icons/management/security.svg'
 import withdrawalIcon from '@/assets/user/icons/management/withdrawal.svg'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { MemberPasswordChangeDialog, MemberPhoneChangeDialog } from '@/components/member/MemberAccountChangeDialogs'
 import { userProfile } from '@/mocks/userProfile'
+import { getMember, updateMyPassword, updateMyPhoneNumber } from '@/api/memberApi'
+import { getMemberId } from '@/utils/authSession'
 
 interface SettingsState {
   loginSecurity: boolean
@@ -31,6 +34,33 @@ function SettingsIcon({ src, danger = false }: SettingsIconProps) {
 export default function SettingsPage() {
   const navigate = useNavigate()
   const [settings, setSettings] = useState<SettingsState>({ loginSecurity: true })
+  const [phoneNumber, setPhoneNumber] = useState(userProfile.phone)
+  const [phoneDialogOpen, setPhoneDialogOpen] = useState(false)
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
+  const [accountError, setAccountError] = useState('')
+
+  useEffect(() => {
+    const memberId = getMemberId()
+    if (!memberId) return
+    getMember(memberId)
+      .then((member) => setPhoneNumber(member.phoneNumber))
+      .catch((error) => setAccountError(error instanceof Error ? error.message : '회원 정보를 불러오지 못했습니다.'))
+  }, [])
+
+  const handlePhoneChange = async (nextPhoneNumber: string) => {
+    const memberId = getMemberId()
+    if (!memberId) throw new Error('회원 정보를 확인할 수 없습니다.')
+    await updateMyPhoneNumber(nextPhoneNumber)
+    const member = await getMember(memberId)
+    setPhoneNumber(member.phoneNumber)
+    setSuccessMessage('휴대폰 번호가 변경되었습니다.')
+  }
+
+  const handlePasswordChange = async (input: { currentPassword: string; newPassword: string }) => {
+    await updateMyPassword(input)
+    setSuccessMessage('비밀번호가 변경되었습니다.')
+  }
 
   return (
     <UserScreenShell className="h-dvh">
@@ -52,7 +82,8 @@ export default function SettingsPage() {
             <div className="flex h-16 items-center gap-3 px-4">
               <SettingsIcon src={phoneIcon} />
               <span className="min-w-0 flex-1 text-[14px] font-bold text-[#1e293b]">휴대폰 번호</span>
-              <span className="shrink-0 text-[11px] text-[#64748b]">{userProfile.phone}</span>
+              <span className="shrink-0 text-[11px] text-[#64748b]">{phoneNumber}</span>
+              <button type="button" onClick={() => { setSuccessMessage(''); setPhoneDialogOpen(true) }} className="shrink-0 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-[11px] font-bold text-[#2563eb]">변경</button>
             </div>
           </div>
         </section>
@@ -60,7 +91,7 @@ export default function SettingsPage() {
         <section className="mt-6" aria-labelledby="security-settings-heading">
           <h2 id="security-settings-heading" className="text-[15px] font-bold leading-6 text-[#1e293b]">보안 설정</h2>
           <div className="mt-[5px] overflow-hidden rounded-xl border border-[#e2e8f0] bg-white">
-            <button type="button" disabled aria-disabled="true" className="flex h-16 w-full cursor-default items-center gap-3 px-4 text-left disabled:opacity-100">
+            <button type="button" onClick={() => { setSuccessMessage(''); setPasswordDialogOpen(true) }} className="flex h-16 w-full items-center gap-3 px-4 text-left">
               <SettingsIcon src={passwordIcon} />
               <span className="min-w-0 flex-1">
                 <span className="block text-[14px] font-bold leading-[23px] text-[#1e293b]">비밀번호 변경</span>
@@ -105,7 +136,18 @@ export default function SettingsPage() {
             </button>
           </div>
         </section>
+        {accountError ? <p role="alert" className="mt-3 text-[11px] font-semibold text-[#dc2626]">{accountError}</p> : null}
       </main>
+
+      {successMessage ? (
+        <div role="status" aria-live="polite" className="absolute bottom-5 left-4 right-4 z-40 flex min-h-12 items-center justify-between gap-3 rounded-xl bg-[#1e293b] px-4 py-3 shadow-lg">
+          <p className="text-xs font-semibold text-white">{successMessage}</p>
+          <button type="button" aria-label="계정 변경 완료 안내 닫기" onClick={() => setSuccessMessage('')} className="shrink-0 rounded-md px-2 py-1 text-xs font-bold text-white">닫기</button>
+        </div>
+      ) : null}
+
+      <MemberPhoneChangeDialog open={phoneDialogOpen} onClose={() => setPhoneDialogOpen(false)} onSubmit={handlePhoneChange} />
+      <MemberPasswordChangeDialog open={passwordDialogOpen} onClose={() => setPasswordDialogOpen(false)} onSubmit={handlePasswordChange} />
     </UserScreenShell>
   )
 }

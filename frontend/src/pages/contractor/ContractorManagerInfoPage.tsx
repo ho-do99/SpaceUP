@@ -1,6 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { getMyContractorProfile, updateMyContractorManager } from '@/api/contractorApi'
+import { getMember, updateMember, updateMyPhoneNumber } from '@/api/memberApi'
+import { getMemberId } from '@/utils/authSession'
 
 interface ManagerFormState {
   managerName: string
@@ -33,6 +36,26 @@ export default function ContractorManagerInfoPage() {
 
   const [errors, setErrors] = useState<ManagerFormErrors>({})
   const [showSavedToast, setShowSavedToast] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  useEffect(() => {
+    const memberId = getMemberId()
+    if (!memberId) {
+      setSaveError('회원 정보를 확인할 수 없습니다.')
+      return
+    }
+    Promise.all([getMember(memberId), getMyContractorProfile()])
+      .then(([member, profile]) => setForm((current) => ({
+        ...current,
+        managerName: member.name,
+        email: member.email,
+        phoneNumber: member.phoneNumber,
+        position: profile.managerPosition || current.position,
+        consultationHours: profile.consultationHours || current.consultationHours,
+      })))
+      .catch((error) => setSaveError(error instanceof Error ? error.message : '담당자 정보를 불러오지 못했습니다.'))
+  }, [])
 
   const updateField = (
     field: keyof ManagerFormState,
@@ -120,7 +143,7 @@ export default function ContractorManagerInfoPage() {
     return true
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     if (!validateForm()) {
@@ -128,7 +151,36 @@ export default function ContractorManagerInfoPage() {
       return
     }
 
-    setShowSavedToast(true)
+    setSaving(true)
+    setSaveError('')
+    try {
+      const memberId = getMemberId()
+      if (!memberId) throw new Error('회원 정보를 확인할 수 없습니다.')
+      const managerName = form.managerName.trim()
+      const email = form.email.trim()
+      const phoneNumber = form.phoneNumber.trim()
+      const managerPosition = form.position.trim()
+      const consultationHours = form.consultationHours.trim()
+      await Promise.all([
+        updateMember(memberId, { email, name: managerName }),
+        updateMyPhoneNumber(phoneNumber),
+        updateMyContractorManager({ managerPosition, consultationHours }),
+      ])
+      const [member, profile] = await Promise.all([getMember(memberId), getMyContractorProfile()])
+      setForm({
+        managerName: member.name,
+        email: member.email,
+        phoneNumber: member.phoneNumber,
+        position: profile.managerPosition || managerPosition,
+        consultationHours: profile.consultationHours || consultationHours,
+      })
+      setShowSavedToast(true)
+    } catch (error) {
+      setShowSavedToast(false)
+      setSaveError(error instanceof Error ? error.message : '담당자 정보 저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const inputClassName = (hasError: boolean) =>
@@ -339,10 +391,12 @@ export default function ContractorManagerInfoPage() {
 
           <button
             type="submit"
+            disabled={saving}
             className="mt-5 h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
           >
-            담당자 정보 저장
+            {saving ? '저장 중...' : '담당자 정보 저장'}
           </button>
+          {saveError ? <p role="alert" className="mt-2 text-[11px] font-semibold text-[#dc2626]">{saveError}</p> : null}
         </form>
       </main>
 

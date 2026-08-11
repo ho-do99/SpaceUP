@@ -56,7 +56,7 @@ public class AnalysisJobController {
 	// ⭐ [프론트 연동] "공간 정보 확인" 화면에서 사용자가 방 개수/욕실 개수/발코니 유무/주방 형태/면적을 직접 수정
 	@PatchMapping("/request/{requestId}")
 	public ResponseEntity<ApiResponse<Void>> updateBasicInfo(@PathVariable Long requestId,
-			@RequestBody AnalysisJobEditRequest request, Authentication authentication) {
+			@Valid @RequestBody AnalysisJobEditRequest request, Authentication authentication) {
 		analysisJobService.updateBasicInfo(requestId, getMemberId(authentication), request);
 		return ResponseEntity.ok(ApiResponse.success("분석 결과가 수정되었습니다.", null));
 	}
@@ -67,8 +67,8 @@ public class AnalysisJobController {
 		return ResponseEntity.ok(ApiResponse.success("분석 실패로 처리되었습니다.", null));
 	}
 
-	// ⭐ [프론트 연동] 평면도 이미지를 AI 세그멘테이션/OCR 서비스로 보내 방 개수/욕실개수/발코니유무/방 이름을
-	// 자동으로 채웁니다. 면적(m²)은 AI가 계산하지 못해 비워두며, 사용자가 이후 직접 입력해야 합니다.
+	// ⭐ [프론트 연동] 평면도 이미지를 AI 세그멘테이션/OCR 서비스로 보내 방 개수/욕실개수/발코니유무/방 이름과
+	// 전용면적 포함 공간의 면적(m²)을 자동으로 채웁니다.
 	@PostMapping("/request/{requestId}/floorplan-scan")
 	public ResponseEntity<ApiResponse<AnalysisJobResponse>> scanFloorplan(@PathVariable Long requestId,
 			@RequestParam("file") MultipartFile file, Authentication authentication) {

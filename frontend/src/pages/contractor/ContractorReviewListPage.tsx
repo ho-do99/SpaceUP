@@ -4,42 +4,45 @@ import ContractorEmptyState from '@/components/contractor/ContractorEmptyState'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import ContractorReviewCard from '@/components/contractor/ContractorReviewCard'
 import ContractorReviewStars from '@/components/contractor/ContractorReviewStars'
-import { contractorReviewMocks, contractorReviewSummary } from '@/mocks/contractorPortalMockData'
 import type { ContractorReviewFilter } from '@/types/contractorPortal'
 import type { ContractorReview, ContractorReviewSummary } from '@/types/contractorPortal'
 import { getContractorReviews, getReviewSummary } from '@/api/reviewApi'
-import { getMemberId } from '@/utils/authSession'
+import { getMyContractorProfile } from '@/api/contractorApi'
 
-const filters: readonly { id: ContractorReviewFilter; label: string }[] = [
-  { id: 'all', label: '전체 24' }, { id: 'five', label: '5점 20' }, { id: 'four', label: '4점 3' }, { id: 'three_or_less', label: '3점 이하 1' },
-]
+const keywordLabels = { SCHEDULE_KEPT: '일정을 잘 지켰어요', CLEAN_FINISH: '마감이 깔끔해요', DETAILED_CONSULT: '상담이 자세해요', FAST_COMMUNICATION: '소통이 빨라요' } as const
+const emptySummary: ContractorReviewSummary = { contractorName: '-', averageRating: 0, totalCount: 0, ratingCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } }
 
 export default function ContractorReviewListPage() {
   const [filter, setFilter] = useState<ContractorReviewFilter>('all')
-  const [reviews, setReviews] = useState<readonly ContractorReview[]>(contractorReviewMocks)
-  const [summary, setSummary] = useState<ContractorReviewSummary>(contractorReviewSummary)
+  const [reviews, setReviews] = useState<readonly ContractorReview[]>([])
+  const [summary, setSummary] = useState<ContractorReviewSummary>(emptySummary)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const filters: readonly { id: ContractorReviewFilter; label: string }[] = [
+    { id: 'all', label: `전체 ${summary.totalCount}` },
+    { id: 'five', label: `5점 ${summary.ratingCounts[5]}` },
+    { id: 'four', label: `4점 ${summary.ratingCounts[4]}` },
+    { id: 'three_or_less', label: `3점 이하 ${summary.ratingCounts[3] + summary.ratingCounts[2] + summary.ratingCounts[1]}` },
+  ]
   useEffect(() => {
-    const contractorId = getMemberId()
-    if (!contractorId) return
-    getContractorReviews(contractorId, filter).then((page) => {
-      const content = Array.isArray(page) ? page : page.content
-      setReviews(content.map((review) => ({
+    let active = true
+    setLoading(true); setError('')
+    getMyContractorProfile().then(async (profile) => {
+      const [page, value] = await Promise.all([getContractorReviews(profile.id, filter), getReviewSummary(profile.id)])
+      if (!active) return
+      setReviews(page.content.map((review) => ({
         reviewId: String(review.id), userName: review.reviewerName, rating: Math.min(5, Math.max(1, review.rating)) as 1 | 2 | 3 | 4 | 5,
         createdAt: review.createdAt?.slice(0, 10) || '-', projectName: `의뢰 #${review.requestId}`,
         projectStatusLabel: '시공 완료', constructionItem: '리모델링', completedAt: review.createdAt?.slice(0, 10) || '-',
         satisfactionLabel: `${review.rating}점`, content: review.content, excerpt: review.content,
-        keywords: [] as ContractorReview['keywords'],
+        keywords: review.keywords.map((keyword) => keywordLabels[keyword as keyof typeof keywordLabels]).filter(Boolean) as ContractorReview['keywords'],
       })))
-    }).catch(() => setReviews(contractorReviewMocks))
+      setSummary({ contractorName: value.contractorName, averageRating: value.averageRating, totalCount: value.totalCount,
+        ratingCounts: { 1: value.ratingCounts['1'] ?? 0, 2: value.ratingCounts['2'] ?? 0, 3: value.ratingCounts['3'] ?? 0, 4: value.ratingCounts['4'] ?? 0, 5: value.ratingCounts['5'] ?? 0 } })
+    }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : '리뷰를 불러오지 못했습니다.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [filter])
-  useEffect(() => {
-    const contractorId = getMemberId()
-    if (!contractorId) return
-    getReviewSummary(contractorId).then((value) => setSummary({
-      contractorName: value.contractorName, averageRating: value.averageRating, totalCount: value.totalCount,
-      ratingCounts: { 1: value.ratingCounts['1'] ?? 0, 2: value.ratingCounts['2'] ?? 0, 3: value.ratingCounts['3'] ?? 0, 4: value.ratingCounts['4'] ?? 0, 5: value.ratingCounts['5'] ?? 0 },
-    })).catch(() => setSummary(contractorReviewSummary))
-  }, [])
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
       <ContractorAppBar title="받은 리뷰" back />
@@ -53,7 +56,7 @@ export default function ContractorReviewListPage() {
           </div>
         </section>
         <div className="mt-4 flex items-center justify-between gap-3"><div className="flex min-w-0 gap-2 overflow-x-auto pb-1" aria-label="리뷰 별점 필터">{filters.map((item) => <button key={item.id} type="button" aria-pressed={filter === item.id} onClick={() => setFilter(item.id)} className={`h-8 shrink-0 rounded-full px-3 text-[11px] font-bold ${filter === item.id ? 'bg-[#2563eb] text-white' : 'border border-[#cbd5e1] bg-white text-[#475569]'}`}>{item.label}</button>)}</div><span className="shrink-0 text-[11px] font-semibold text-[#64748b]">최신순</span></div>
-        <div className="mt-3 space-y-3">{reviews.map((review) => <ContractorReviewCard key={review.reviewId} review={review} />)}{reviews.length === 0 ? <ContractorEmptyState title="리뷰가 없습니다" description="선택한 조건의 리뷰가 없습니다." /> : null}</div>
+        <div className="mt-3 space-y-3">{loading ? <p className="py-10 text-center text-xs text-[#64748b]">리뷰를 불러오는 중입니다.</p> : null}{error ? <p role="alert" className="py-10 text-center text-xs text-[#dc2626]">{error}</p> : null}{reviews.map((review) => <ContractorReviewCard key={review.reviewId} review={review} />)}{!loading && !error && reviews.length === 0 ? <ContractorEmptyState title="리뷰가 없습니다" description="선택한 조건의 리뷰가 없습니다." /> : null}</div>
       </main>
     </ContractorMobileShell>
   )

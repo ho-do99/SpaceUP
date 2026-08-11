@@ -35,6 +35,7 @@ export interface Member {
   name: string
   phoneNumber: string
   phoneVerified: boolean
+  emailVerified: boolean
   role: MemberRole
   approvalStatus: MemberApprovalStatus
   applicationNumber: string | null

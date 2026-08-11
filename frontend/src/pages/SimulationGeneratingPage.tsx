@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import {
-  generateInteriorImages,
-  getInteriorImageGenerationErrorMessage,
-} from '@/api/analysisApi'
 import simulationSpinner from '@/assets/user/icons/simulation-spinner.svg'
+import simulationAfter from '@/assets/user/images/simulation-after.png'
 import simulationUploadPreview from '@/assets/user/images/simulation-upload-preview.png'
 
 import Button from '@/components/Button'
@@ -45,50 +42,25 @@ export default function SimulationGeneratingPage() {
       return undefined
     }
 
-    const abortController = new AbortController()
     setIsGenerating(true)
     setErrorMessage('')
 
     // React StrictMode의 개발용 effect 재실행에서 Gemini 요청이 중복되지 않도록
     // 실제 요청은 다음 task에서 시작하고 첫 cleanup에서 취소합니다.
     const startTimer = window.setTimeout(() => {
-      void generateInteriorImages(
+      const result = {
         requestId,
-        {
-          style: `${selectedStyle.name} - ${selectedStyle.description}`,
-          referenceImageUrl: uploadedImagePath,
-        },
-        abortController.signal,
-      )
-        .then((response) => {
-          const generatedImage = response.imageUrls
-            .map((path) => ({ path, url: resolveApiAssetUrl(path) }))
-            .find((image): image is { path: string; url: string } => Boolean(image.url))
-
-          if (!generatedImage) {
-            throw new Error('생성된 이미지 경로를 확인할 수 없습니다.')
-          }
-
-          const result = {
-            requestId,
-            styleId: selectedStyle.id,
-            beforeImageUrl: uploadedImageUrl,
-            afterImagePath: generatedImage.path,
-            afterImageUrl: generatedImage.url,
-          }
-          saveSimulationResult(result)
-          navigate('/analysis/simulation/result', { replace: true, state: result })
-        })
-        .catch((error: unknown) => {
-          if (abortController.signal.aborted) return
-          setIsGenerating(false)
-          setErrorMessage(getInteriorImageGenerationErrorMessage(error))
-        })
-    }, 0)
+        styleId: selectedStyle.id,
+        beforeImageUrl: uploadedImageUrl,
+        afterImagePath: simulationAfter,
+        afterImageUrl: simulationAfter,
+      }
+      saveSimulationResult(result)
+      navigate('/analysis/simulation/result', { replace: true, state: result })
+    }, 700)
 
     return () => {
       window.clearTimeout(startTimer)
-      abortController.abort()
     }
   }, [
     generationAttempt,
@@ -166,11 +138,21 @@ export default function SimulationGeneratingPage() {
             />
             {isGenerating ? (
               <>
-                <img
-                  src={simulationSpinner}
-                  alt=""
-                  className="mt-[34px] size-12 animate-spin motion-reduce:animate-none"
-                />
+                <span className="relative mt-[34px] flex size-14 items-center justify-center text-[#2563eb]" aria-hidden="true">
+                  <img
+                    src={simulationSpinner}
+                    alt=""
+                    className="absolute inset-0 size-14 animate-spin motion-reduce:animate-none"
+                  />
+                  <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m15 4 5 5L7 22l-5-5Z" />
+                    <path d="m14 5 5 5" />
+                    <path d="M6 3v4" />
+                    <path d="M4 5h4" />
+                    <path d="M19 15v4" />
+                    <path d="M17 17h4" />
+                  </svg>
+                </span>
                 <p className="mt-6 text-[14px] font-medium leading-5 text-[#475569]">
                   잠시만 기다려주세요.
                 </p>

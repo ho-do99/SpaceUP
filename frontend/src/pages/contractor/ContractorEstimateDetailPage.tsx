@@ -10,6 +10,8 @@ import ContractorMobileShell from '@/components/contractor/ContractorMobileShell
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
 import useContractorPortalFlow from '@/components/contractor/useContractorPortalFlow'
 import { contractorDefaultEstimateDraft, findContractorRequestDetail, findContractorSentEstimate } from '@/mocks/contractorPortalMockData'
+import { extendQuote, getQuote } from '@/api/estimateApi'
+import { getSubmittedQuoteId } from '@/utils/quoteDraft'
 import ContractorEstimateNotFound from './ContractorEstimateNotFound'
 
 export default function ContractorEstimateDetailPage() {
@@ -22,14 +24,35 @@ export default function ContractorEstimateDetailPage() {
     markEstimateViewed, showEstimateRevisionRequest, acceptEstimate, extendEstimateValidity,
   } = useContractorPortalFlow()
   const [validityOpen, setValidityOpen] = useState(false)
-  const closeValidity = useCallback(() => setValidityOpen(false), [])
+  const [isExtending, setIsExtending] = useState(false)
+  const [extendError, setExtendError] = useState('')
+  const closeValidity = useCallback(() => {
+    setValidityOpen(false)
+    setExtendError('')
+  }, [])
 
   if (!estimate || !request) return <ContractorEstimateNotFound />
   const draft = estimateDraft ?? contractorDefaultEstimateDraft
 
-  const saveValidity = (validUntil: string, note: string) => {
-    extendEstimateValidity(validUntil, note)
-    setValidityOpen(false)
+  const saveValidity = async (validUntil: string, note: string) => {
+    const quoteId = getSubmittedQuoteId(estimate.estimateId)
+    if (!quoteId) {
+      setExtendError('실제 견적 식별자를 찾을 수 없습니다. 견적 작성 흐름에서 다시 확인해 주세요.')
+      return
+    }
+
+    setIsExtending(true)
+    setExtendError('')
+    try {
+      await extendQuote(quoteId, validUntil, note)
+      const refreshedQuote = await getQuote(quoteId)
+      extendEstimateValidity(refreshedQuote.validUntil ?? validUntil, note)
+      setValidityOpen(false)
+    } catch (error) {
+      setExtendError(error instanceof Error ? error.message : '견적 유효기간 연장에 실패했습니다.')
+    } finally {
+      setIsExtending(false)
+    }
   }
 
   return (
@@ -66,14 +89,14 @@ export default function ContractorEstimateDetailPage() {
             {estimateLifecycleStatus === 'REVISION_REQUESTED' ? <Link to={`/contractor/requests/${estimate.requestId}/estimate`} className="flex h-12 w-full items-center justify-center rounded-xl bg-[#2563eb] text-sm font-bold text-white">수정 견적 작성</Link> : null}
             {estimateLifecycleStatus === 'RESUBMITTED' ? <button type="button" onClick={acceptEstimate} className="h-12 w-full rounded-xl bg-[#2563eb] text-sm font-bold text-white">사용자 승인 확인</button> : null}
             {estimateLifecycleStatus === 'ACCEPTED' ? <Link to={`/contractor/estimates/${estimate.estimateId}/contract-ready`} className="flex h-12 w-full items-center justify-center rounded-xl bg-[#2563eb] text-sm font-bold text-white">계약 전환</Link> : null}
-            {estimateLifecycleStatus !== 'ACCEPTED' ? <button type="button" onClick={() => setValidityOpen(true)} className="h-12 w-full rounded-xl border border-[#e2e8f0] bg-white text-sm font-bold text-[#1e293b]">유효기간 연장</button> : <button type="button" disabled aria-disabled="true" className="h-12 w-full rounded-xl bg-[#e2e8f0] text-sm font-bold text-[#94a3b8]">수정 견적 작성</button>}
+            {estimateLifecycleStatus !== 'ACCEPTED' ? <button type="button" onClick={() => { setExtendError(''); setValidityOpen(true) }} className="h-12 w-full rounded-xl border border-[#e2e8f0] bg-white text-sm font-bold text-[#1e293b]">유효기간 연장</button> : <button type="button" disabled aria-disabled="true" className="h-12 w-full rounded-xl bg-[#e2e8f0] text-sm font-bold text-[#94a3b8]">수정 견적 작성</button>}
           </div>
 
           <ContractorEstimateDetails estimate={estimate} request={request} draft={draft} validUntil={estimateValidUntil} />
         </main>
         <ContractorBottomNavigation />
       </ContractorMobileShell>
-      <ContractorEstimateValidityDialog open={validityOpen} currentValidUntil={estimateValidUntil} onClose={closeValidity} onSave={saveValidity} />
+      <ContractorEstimateValidityDialog open={validityOpen} currentValidUntil={estimateValidUntil} isSaving={isExtending} submitError={extendError} onClose={closeValidity} onSave={(validUntil, note) => { void saveValidity(validUntil, note) }} />
     </>
   )
 }

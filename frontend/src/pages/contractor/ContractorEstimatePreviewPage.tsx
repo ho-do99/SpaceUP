@@ -28,7 +28,7 @@ import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 import useContractorRequest from '@/hooks/useContractorRequest'
 import { submitQuote } from '@/api/estimateApi'
-import { getStoredQuoteId } from '@/utils/quoteDraft'
+import { getStoredQuoteId, storeSubmittedQuoteId } from '@/utils/quoteDraft'
 
 export default function ContractorEstimatePreviewPage() {
   const { requestId } = useParams()
@@ -108,7 +108,10 @@ export default function ContractorEstimatePreviewPage() {
       }
       setIsSubmitting(true)
       setSubmitError('')
-      try { await submitQuote(quoteId) } catch (error) {
+      try {
+        await submitQuote(quoteId)
+        storeSubmittedQuoteId('SP-20260724-001', quoteId)
+      } catch (error) {
         setSubmitError(error instanceof Error ? error.message : '견적 제출에 실패했습니다.')
         setIsSubmitting(false)
         setSubmitOpen(false)

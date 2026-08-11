@@ -7,7 +7,6 @@ import UserScreenShell from '@/components/user/UserScreenShell'
 import useEstimateFlow from '@/contexts/useEstimateFlow'
 import {
   lightingFilters,
-  lightingProducts,
   type LightingFilterId,
 } from '@/mocks/estimateMaterials'
 import { useLightingProducts } from '@/hooks/useMaterialCatalog'
@@ -18,7 +17,12 @@ export default function LightingMaterialSelectionPage() {
   const { selectedLightingId, selectLighting } = useEstimateFlow()
   const [selectedFilter, setSelectedFilter] = useState<LightingFilterId>('recommended')
   const [selectedProductId, setSelectedProductId] = useState(selectedLightingId)
-  const catalogProducts = useLightingProducts(getMaterialTheme(), lightingProducts)
+  const {
+    products: catalogProducts,
+    loading,
+    error,
+    retry,
+  } = useLightingProducts(getMaterialTheme())
 
   useEffect(() => {
     if (
@@ -39,6 +43,11 @@ export default function LightingMaterialSelectionPage() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+
+    if (!selectedProductId) {
+      return
+    }
+
     selectLighting(selectedProductId)
     navigate('/estimate/summary')
   }
@@ -89,6 +98,26 @@ export default function LightingMaterialSelectionPage() {
 
           <fieldset className="mt-3 min-w-0 border-0 p-0 pb-6">
             <legend className="sr-only">조명 제품</legend>
+            {loading ? (
+              <p className="py-10 text-center text-[12px] text-[#64748b]">
+                자재 목록을 불러오는 중입니다.
+              </p>
+            ) : error ? (
+              <div className="rounded-[8px] border border-[#fecaca] bg-[#fef2f2] px-4 py-5 text-center">
+                <p className="text-[12px] leading-5 text-[#b91c1c]">{error}</p>
+                <button
+                  type="button"
+                  className="mt-3 rounded-[7px] border border-[#dc2626] px-3 py-2 text-[11px] font-semibold text-[#b91c1c]"
+                  onClick={retry}
+                >
+                  다시 시도
+                </button>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <p className="py-10 text-center text-[12px] text-[#64748b]">
+                조건에 맞는 자재가 없습니다.
+              </p>
+            ) : (
             <div className="space-y-3">
               {filteredProducts.map((product) => (
                 <LightingProductCard
@@ -99,13 +128,14 @@ export default function LightingMaterialSelectionPage() {
                 />
               ))}
             </div>
+            )}
           </fieldset>
         </main>
 
         <footer className="shrink-0 bg-white px-5 pb-[calc(15px+env(safe-area-inset-bottom))] pt-2">
           <Button
             type="submit"
-            disabled={!selectedProductId}
+            disabled={loading || Boolean(error) || !selectedProductId}
             className="h-[52px] w-full !rounded-[8px] !border !border-[#2563eb] !bg-[#2563eb] !px-4 !py-0 !text-[12px] !font-bold !shadow-none hover:!translate-y-0 hover:!bg-[#2563eb] hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
           >
             조명 선택 완료

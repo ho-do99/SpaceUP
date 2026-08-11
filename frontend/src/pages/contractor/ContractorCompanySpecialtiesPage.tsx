@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorCompanyTabs from '@/components/contractor/ContractorCompanyTabs'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { getMyContractorProfile, updateMyContractorProfile } from '@/api/contractorApi'
 
 type RepresentativeSpecialty =
   | 'full_remodeling'
@@ -71,6 +72,16 @@ export default function ContractorCompanySpecialtiesPage() {
     ])
 
   const [saveMessage, setSaveMessage] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    getMyContractorProfile().then((profile) => {
+      const labels = new Set((profile.specialties || '').split(',').map((item) => item.trim()))
+      if (!labels.size) return
+      setRepresentativeSpecialties(representativeSpecialtyOptions.filter((option) => labels.has(option.label)).map((option) => option.id))
+      setDetailedSpecialties(detailedSpecialtyOptions.filter((option) => labels.has(option.label)).map((option) => option.id))
+    }).catch(() => undefined)
+  }, [])
 
   const toggleRepresentativeSpecialty = (
     specialty: RepresentativeSpecialty,
@@ -108,8 +119,21 @@ export default function ContractorCompanySpecialtiesPage() {
     })
   }
 
-  const handleSave = () => {
-    setSaveMessage('전문 분야가 저장되었습니다.')
+  const handleSave = async () => {
+    const labels = [
+      ...representativeSpecialtyOptions.filter((option) => representativeSpecialties.includes(option.id)).map((option) => option.label),
+      ...detailedSpecialtyOptions.filter((option) => detailedSpecialties.includes(option.id)).map((option) => option.label),
+    ]
+    setSaving(true)
+    setSaveMessage('')
+    try {
+      await updateMyContractorProfile({ specialties: labels.join(',') })
+      setSaveMessage('전문 분야가 저장되었습니다.')
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : '전문 분야 저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -221,9 +245,10 @@ export default function ContractorCompanySpecialtiesPage() {
         <button
           type="button"
           onClick={handleSave}
+          disabled={saving}
           className="mt-60 h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
         >
-          전문 분야 저장
+          {saving ? '저장 중...' : '전문 분야 저장'}
         </button>
 
         <p
