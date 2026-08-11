@@ -123,7 +123,8 @@ ceilingHeightM, totalFloorAreaM2, totalWallpaperAreaM2
 
 ### 3-3. AI 평면도 스캔 (신규)
 `multipart/form-data`, 필드명 `file`(이미지). 응답은 `AnalysisJobResponse` (자동 반영된 값 포함).
-> ⚠️ **면적(m²)은 자동으로 채워지지 않습니다.** 현재 연동된 AI 파이프라인이 픽셀 단위 데이터만 반환하고 실제 m² 계산을 하지 않기 때문입니다. 방개수/욕실개수/발코니유무/방이름만 자동 채워지고, 면적은 사용자가 "공간 정보 확인" 화면에서 직접 입력해야 합니다. 또한 이 AI 서비스는 아직 공유 네트워크에 연결되어 있지 않아(`AI_FLOORPLAN_BASE_URL` 환경변수 미설정 시 502) 실제 동작을 위해서는 AI팀과 네트워크 연결 방법을 협의해야 합니다.
+> ⚠️ **면적(m²)은 자동으로 채워지지 않습니다.** 현재 연동된 AI 파이프라인이 픽셀 단위 데이터만 반환하고 실제 m² 계산을 하지 않기 때문입니다. 방개수/욕실개수/발코니유무/방이름만 자동 채워지고, 면적은 사용자가 "공간 정보 확인" 화면에서 직접 입력해야 합니다.
+> **[변경, 2026-08-11]** 배포용 docker-compose에 AI 평면도 서비스(ocr/spa/viewer3d/viewerwall)를 연결했습니다. 다만 `ocr`은 저장소에 없는 로컬 이미지 `floorplan4:latest`가 배포 서버에 미리 로드되어 있어야 하고, `spa`는 CUDA 런타임 베이스 이미지라 GPU 없는 서버에서는 느릴 수 있습니다 — 실제 서버 기동 전 AI팀과 확인이 필요합니다.
 
 ### 3-4. AI 인테리어 이미지 생성 (Gemini)
 요청: `{style: "화이트톤 모던 스타일로 바꿔줘", referenceImageUrl?: "/api/files/images/..."}` → 응답: `{imageUrls: [...]}`
@@ -346,19 +347,11 @@ ceilingHeightM, totalFloorAreaM2, totalWallpaperAreaM2
 
 ---
 
-## 15. 국토부 전월세 실거래가 (`/api/rental-transactions`)
-
-| Method | URL | 인증 | 설명 |
-|---|---|---|---|
-| POST | `/api/rental-transactions/sync` | **관리자** | 실거래가 동기화 (`{lawdCd(5자리 지역코드), dealYm(yyyyMM)}`) |
-| GET | `/api/rental-transactions?lawdCd=&dealYm=` | 로그인 | 실거래가 조회 |
-
-**enum RentalSyncStatus**: `RUNNING | SUCCESS | PARTIAL_SUCCESS | FAILED`
-> `MOLIT_RENT_API_SERVICE_KEY` 환경변수 미설정 시 동기화 호출은 503.
+> **[삭제, 2026-08-11] `/api/rental-transactions`(국토부 전월세 실거래가 동기화)** — 프론트 어디에도 연동 계획이 없는 게 확인되어 도메인 자체를 삭제했습니다.
 
 ---
 
-## 16. 이미지 업로드 (`/api/files/images`)
+## 15. 이미지 업로드 (`/api/files/images`)
 
 | Method | URL | 인증 | 설명 |
 |---|---|---|---|
@@ -369,7 +362,7 @@ ceilingHeightM, totalFloorAreaM2, totalWallpaperAreaM2
 
 ---
 
-## 17. 관리자 (`/api/admin`) — 전체 `hasRole("ADMIN")`
+## 16. 관리자 (`/api/admin`) — 전체 `hasRole("ADMIN")`
 
 | Method | URL | 설명 |
 |---|---|---|
