@@ -46,49 +46,12 @@ const CHAT_FILTERS: readonly {
   },
 ]
 
-const CHAT_THREADS: readonly ContractorChatThread[] = [
-  {
-    id: 'chat-realtime',
-    requestId: 'REQ-260715-012',
-    projectName: '역삼동 빌라',
-    customerName: '김○○',
-    progressLabel: '방문 일정 협의',
-    lastMessage: '현장 방문 시간 확인 부탁드립니다.',
-    timeLabel: '오전 10:24',
-    unreadCount: 2,
-    status: 'IN_PROGRESS',
-    href: '/contractor/requests/REQ-260715-012/chat',
-  },
-  {
-    id: 'chat-completed',
-    requestId: 'REQ-260715-012',
-    projectName: '성수 빌라',
-    customerName: '박○○',
-    progressLabel: '방문 완료',
-    lastMessage: '방문 결과 확인했습니다.',
-    timeLabel: '어제',
-    unreadCount: 0,
-    status: 'COMPLETED',
-    href: '/contractor/requests/REQ-260715-012/chat/completed',
-  },
-  {
-    id: 'chat-sample',
-    requestId: 'REQ-260715-014',
-    projectName: '마포 아파트',
-    customerName: '이○○',
-    progressLabel: '견적 선택',
-    lastMessage: '계약 전환 내용을 확인해 주세요.',
-    timeLabel: '07.18',
-    unreadCount: 0,
-    status: 'IN_PROGRESS',
-    href: null,
-  },
-]
-
 export default function ContractorChatListPage() {
   const navigate = useNavigate()
-  const [threads, setThreads] = useState<readonly ContractorChatThread[]>(CHAT_THREADS)
+  const [threads, setThreads] = useState<readonly ContractorChatThread[]>([])
   const [usingLiveData, setUsingLiveData] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -97,7 +60,7 @@ export default function ContractorChatListPage() {
       setThreads(liveThreads.map((thread) => {
         const completed = thread.requestStatus === 'COMPLETED'
         return {
-          id: `${thread.requestId}-${thread.contractorId}`,
+          id: String(thread.requestId),
           requestId: String(thread.requestId),
           projectName: thread.requestCode,
           customerName: thread.counterpartName,
@@ -112,8 +75,9 @@ export default function ContractorChatListPage() {
         }
       }))
       setUsingLiveData(true)
+      setLoading(false)
     }).catch(() => {
-      if (active) setUsingLiveData(false)
+      if (active) { setUsingLiveData(false); setLoading(false); setError('채팅 목록을 불러오지 못했습니다.') }
     })
     return () => { active = false }
   }, [])
@@ -159,10 +123,11 @@ export default function ContractorChatListPage() {
       <ContractorAppBar
         title="채팅"
         back
+        actions="chat"
       />
 
       <main className="min-h-0 flex-1 overflow-y-auto bg-[#f8fafc] px-4 pb-6 pt-4">
-        <p className="mb-3 text-[10px] text-[#64748b]">{usingLiveData ? '실시간 채팅 목록' : '예시 채팅 목록'}</p>
+        <p className="sr-only" aria-live="polite">{usingLiveData ? '실시간 채팅 목록을 표시합니다.' : '채팅 목록을 표시합니다.'}</p>
         <label
           htmlFor="contractor-chat-search"
           className="sr-only"
@@ -214,6 +179,8 @@ export default function ContractorChatListPage() {
           aria-label="채팅방 목록"
           className="mt-4 space-y-3"
         >
+          {loading ? <p className="py-10 text-center text-xs text-[#64748b]">채팅 목록을 불러오는 중입니다.</p> : null}
+          {error ? <p role="alert" className="py-10 text-center text-xs text-[#dc2626]">{error}</p> : null}
           {filteredThreads.map((thread) => {
             const isUnread =
               thread.unreadCount > 0

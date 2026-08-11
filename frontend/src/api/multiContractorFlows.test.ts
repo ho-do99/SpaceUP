@@ -28,10 +28,12 @@ describe('multi-contractor quote flow API compatibility', () => {
     expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'POST', url: '/api/quotes/100/accept' }))
   })
 
-  it('keeps contractorId on landlord chat calls', async () => {
-    await getChatMessages(7, 20)
-    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ params: { contractorId: 20 } }))
-    await sendChatMessage(7, 'hello', 20)
-    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ params: { contractorId: 20 } }))
+  it('uses request-scoped chat routes and omits contractorId when not supplied', async () => {
+    await getChatMessages(7)
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'GET', url: '/api/chats/7/messages' }))
+    expect(request.mock.calls.at(-1)?.[0]).toHaveProperty('params', undefined)
+    await sendChatMessage(7, 'hello')
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'POST', url: '/api/chats/7/messages', data: { content: 'hello' } }))
+    expect(request.mock.calls.at(-1)?.[0]).toHaveProperty('params', undefined)
   })
 })

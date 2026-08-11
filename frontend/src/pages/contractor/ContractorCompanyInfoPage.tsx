@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorCompanyTabs from '@/components/contractor/ContractorCompanyTabs'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { getMyContractorProfile, updateMyContractorProfile, updateMyContractorServiceInfo } from '@/api/contractorApi'
 
 interface CompanyInformation {
   companyName: string
@@ -12,6 +13,18 @@ interface CompanyInformation {
 interface CompanyInformationErrors {
   companyName?: string
   representativeName?: string
+}
+
+interface ServiceInformation {
+  estimateMin: string
+  estimateMax: string
+  availableFromDate: string
+}
+
+interface ServiceInformationErrors {
+  estimateMin?: string
+  estimateMax?: string
+  availableFromDate?: string
 }
 
 export default function ContractorCompanyInfoPage() {
@@ -25,6 +38,26 @@ export default function ContractorCompanyInfoPage() {
     useState<CompanyInformationErrors>({})
 
   const [showSavedToast, setShowSavedToast] = useState(false)
+  const [businessNumber, setBusinessNumber] = useState('123-45-67890')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [serviceInformation, setServiceInformation] = useState<ServiceInformation>({ estimateMin: '', estimateMax: '', availableFromDate: '' })
+  const [serviceErrors, setServiceErrors] = useState<ServiceInformationErrors>({})
+  const [savingService, setSavingService] = useState(false)
+  const [serviceSaveError, setServiceSaveError] = useState('')
+  const [showServiceSavedToast, setShowServiceSavedToast] = useState(false)
+
+  useEffect(() => {
+    getMyContractorProfile().then((profile) => {
+      setCompanyInformation((current) => ({ companyName: profile.companyName || current.companyName, representativeName: profile.memberName || current.representativeName }))
+      setBusinessNumber(profile.businessRegistrationNumber || '')
+      setServiceInformation({
+        estimateMin: profile.estimateMin == null ? '' : String(profile.estimateMin),
+        estimateMax: profile.estimateMax == null ? '' : String(profile.estimateMax),
+        availableFromDate: profile.availableFromDate || '',
+      })
+    }).catch(() => undefined)
+  }, [])
 
   const updateField = (
     field: keyof CompanyInformation,
@@ -41,9 +74,10 @@ export default function ContractorCompanyInfoPage() {
     }))
 
     setShowSavedToast(false)
+    setShowServiceSavedToast(false)
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     const companyName = companyInformation.companyName.trim()
@@ -72,7 +106,17 @@ export default function ContractorCompanyInfoPage() {
       representativeName,
     })
 
-    setShowSavedToast(true)
+    setSaving(true)
+    setSaveError('')
+    try {
+      await updateMyContractorProfile({ companyName })
+      setShowSavedToast(true)
+    } catch (error) {
+      setShowSavedToast(false)
+      setSaveError(error instanceof Error ? error.message : '업체 정보 저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const inputClassName = (hasError = false) =>
@@ -81,6 +125,37 @@ export default function ContractorCompanyInfoPage() {
         ? 'border-[#dc2626] text-[#1e293b] focus:border-[#dc2626] focus:ring-[#fee2e2]'
         : 'border-[#e2e8f0] text-[#64748b] focus:border-[#2563eb] focus:ring-[#dbeafe]'
     }`
+
+  const updateServiceField = (field: keyof ServiceInformation, value: string) => {
+    setServiceInformation((current) => ({ ...current, [field]: value }))
+    setServiceErrors((current) => ({ ...current, [field]: undefined }))
+    setServiceSaveError('')
+    setShowServiceSavedToast(false)
+  }
+
+  const handleServiceSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const estimateMin = Number(serviceInformation.estimateMin.replace(/,/g, ''))
+    const estimateMax = Number(serviceInformation.estimateMax.replace(/,/g, ''))
+    const nextErrors: ServiceInformationErrors = {}
+    if (!serviceInformation.estimateMin.trim() || !Number.isFinite(estimateMin) || estimateMin < 0) nextErrors.estimateMin = '최소 견적 금액을 확인해 주세요.'
+    if (!serviceInformation.estimateMax.trim() || !Number.isFinite(estimateMax) || estimateMax < estimateMin) nextErrors.estimateMax = '최대 견적 금액은 최소 견적 금액 이상이어야 합니다.'
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(serviceInformation.availableFromDate)) nextErrors.availableFromDate = '시공 가능 시작일을 선택해 주세요.'
+    setServiceErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+
+    setSavingService(true)
+    setServiceSaveError('')
+    setShowSavedToast(false)
+    try {
+      await updateMyContractorServiceInfo({ estimateMin, estimateMax, availableFromDate: serviceInformation.availableFromDate })
+      setShowServiceSavedToast(true)
+    } catch (error) {
+      setServiceSaveError(error instanceof Error ? error.message : '시공 서비스 정보 저장에 실패했습니다.')
+    } finally {
+      setSavingService(false)
+    }
+  }
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
@@ -144,7 +219,7 @@ export default function ContractorCompanyInfoPage() {
             <input
               id="contractor-business-number"
               type="text"
-              value="123-45-67890"
+              value={businessNumber}
               readOnly
               aria-readonly="true"
               className={`mt-[5px] cursor-default ${inputClassName()}`}
@@ -240,10 +315,38 @@ export default function ContractorCompanyInfoPage() {
 
           <button
             type="submit"
+            disabled={saving}
             className="mt-3 h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
           >
-            정보 저장
+            {saving ? '저장 중...' : '정보 저장'}
           </button>
+          {saveError ? <p role="alert" className="mt-2 text-[11px] font-semibold text-[#dc2626]">{saveError}</p> : null}
+        </form>
+
+        <form className="mt-5 border-t border-[#e2e8f0] pt-5" onSubmit={handleServiceSubmit} noValidate>
+          <h2 className="text-sm font-bold text-[#1e293b]">시공 서비스 정보</h2>
+          <p className="mt-1 text-xs leading-5 text-[#64748b]">시공 가능한 견적 범위와 시공 가능 일정을 설정하세요.</p>
+
+          <div className="mt-3">
+            <label htmlFor="contractor-estimate-min" className="block text-[11px] font-bold text-[#1e293b]">최소 견적 금액</label>
+            <input id="contractor-estimate-min" inputMode="numeric" value={serviceInformation.estimateMin} placeholder="1,000,000원" onChange={(event) => updateServiceField('estimateMin', event.target.value.replace(/[^0-9,]/g, ''))} className={`mt-[5px] ${inputClassName(Boolean(serviceErrors.estimateMin))}`} />
+            {serviceErrors.estimateMin ? <p role="alert" className="mt-1.5 text-[11px] font-semibold text-[#dc2626]">{serviceErrors.estimateMin}</p> : null}
+          </div>
+
+          <div className="mt-3">
+            <label htmlFor="contractor-estimate-max" className="block text-[11px] font-bold text-[#1e293b]">최대 견적 금액</label>
+            <input id="contractor-estimate-max" inputMode="numeric" value={serviceInformation.estimateMax} placeholder="5,000,000원" onChange={(event) => updateServiceField('estimateMax', event.target.value.replace(/[^0-9,]/g, ''))} className={`mt-[5px] ${inputClassName(Boolean(serviceErrors.estimateMax))}`} />
+            {serviceErrors.estimateMax ? <p role="alert" className="mt-1.5 text-[11px] font-semibold text-[#dc2626]">{serviceErrors.estimateMax}</p> : null}
+          </div>
+
+          <div className="mt-3">
+            <label htmlFor="contractor-available-date" className="block text-[11px] font-bold text-[#1e293b]">시공 가능 시작일</label>
+            <input id="contractor-available-date" type="date" value={serviceInformation.availableFromDate} onChange={(event) => updateServiceField('availableFromDate', event.target.value)} className={`mt-[5px] ${inputClassName(Boolean(serviceErrors.availableFromDate))}`} />
+            {serviceErrors.availableFromDate ? <p role="alert" className="mt-1.5 text-[11px] font-semibold text-[#dc2626]">{serviceErrors.availableFromDate}</p> : null}
+          </div>
+
+          <button type="submit" disabled={savingService} className="mt-3 h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white disabled:bg-[#93b4f5]">{savingService ? '저장 중...' : '시공 서비스 정보 저장'}</button>
+          {serviceSaveError ? <p role="alert" className="mt-2 text-[11px] font-semibold text-[#dc2626]">{serviceSaveError}</p> : null}
         </form>
       </main>
 
@@ -261,6 +364,12 @@ export default function ContractorCompanyInfoPage() {
           <span className="text-xs font-bold text-white">
             업체 정보가 저장되었습니다.
           </span>
+        </button>
+      ) : null}
+
+      {showServiceSavedToast ? (
+        <button type="button" role="status" aria-live="polite" aria-label="시공 서비스 정보 저장 완료 안내 닫기" onClick={() => setShowServiceSavedToast(false)} className="absolute bottom-[76px] left-1/2 z-40 flex h-11 w-[280px] -translate-x-1/2 items-center justify-center rounded-[10px] bg-[#0f172a] px-4 shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
+          <span className="text-xs font-bold text-white">시공 서비스 정보가 저장되었습니다.</span>
         </button>
       ) : null}
     </ContractorMobileShell>

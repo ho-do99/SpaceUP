@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { ContractorProject } from '@/types/contractorPortal'
 import { formatWon } from './contractorEstimateUtils'
-import ContractorProjectStatusBadge from './ContractorProjectStatusBadge'
 
 export default function ContractorProjectCard({ project }: { project: ContractorProject }) {
   const dateLine = project.status === 'VISIT_SCHEDULED'
@@ -14,10 +13,12 @@ export default function ContractorProjectCard({ project }: { project: Contractor
     : `/contractor/projects/${project.projectId}`
 
   return (
-    <article className="rounded-xl border border-[#e2e8f0] bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-2"><h2 className="min-w-0 break-words text-sm font-bold leading-5 text-[#0f172a]">{project.name}</h2><ContractorProjectStatusBadge status={project.status} /></div>
-      <p className="mt-2 text-xs leading-5 text-[#64748b]">계약 {formatWon(project.contractAmount)} · {project.readOnlyPaymentLabel ?? `담당 ${project.managerName}`}<br />{dateLine}</p>
-      <Link to={destination} className="mt-3 flex h-10 items-center justify-center rounded-lg border border-[#2563eb] text-xs font-bold text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]">{project.status === 'VISIT_SCHEDULED' ? '방문 일정 확인' : '프로젝트 상세'}</Link>
+    <article>
+      <div className="rounded-xl border border-[#dbe3ef] bg-white p-[14px]">
+        <h2 className={`min-w-0 break-words text-sm font-bold leading-5 ${project.status === 'START_SCHEDULED' ? 'text-[#2563eb]' : 'text-[#0f172a]'}`}>{project.name}</h2>
+        <p className="mt-1 text-xs leading-[17px] text-[#64748b]">계약 {formatWon(project.contractAmount)} · {project.readOnlyPaymentLabel ?? `담당 ${project.managerName}`}<br />{dateLine}<br />상태 · {project.status === 'VISIT_SCHEDULED' ? '방문 예정' : project.status === 'START_SCHEDULED' ? '착수 예정' : project.status === 'COMPLETED' ? '완료' : '진행 중'}</p>
+      </div>
+      <Link to={destination} className="mt-3 flex h-12 items-center justify-center rounded-lg border border-[#dbe3ef] bg-white text-sm font-bold text-[#0b2b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]">{project.status === 'VISIT_SCHEDULED' ? '방문 일정 확인' : '프로젝트 상세'}</Link>
     </article>
   )
 }

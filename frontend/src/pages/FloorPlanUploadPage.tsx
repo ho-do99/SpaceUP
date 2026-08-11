@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getImageUploadErrorMessage, uploadImage, validateImageFile } from '@/api/fileApi'
-import { attachRequestImage } from '@/api/requestApi'
+import { getImageUploadErrorMessage, validateImageFile } from '@/api/fileApi'
+import { deleteRequestImage } from '@/api/requestApi'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import FloorPlanUploadZone from '@/components/user/FloorPlanUploadZone'
@@ -9,11 +9,17 @@ import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
 import { getActiveRequestId } from '@/utils/requestFlow'
+import {
+  replaceRequestImage,
+  uploadAndAttachRequestImage,
+  type LinkedRequestImage,
+} from '@/utils/requestImageFlow'
 
 export default function FloorPlanUploadPage() {
   const navigate = useNavigate()
   const abortControllerRef = useRef<AbortController | null>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [linkedImage, setLinkedImage] = useState<LinkedRequestImage | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
@@ -28,29 +34,39 @@ export default function FloorPlanUploadPage() {
     }
   }, [previewUrl])
 
-  const handleFileChange = (nextFile: File | null) => {
+  const handleFileChange = async (nextFile: File | null) => {
     if (!nextFile) {
-      setFile(null)
+      if (!linkedImage || isUploading) return
+      const requestId = getActiveRequestId()
+      if (!requestId) {
+        setErrorMessage('진행 중인 의뢰 정보를 찾을 수 없습니다. 처음부터 다시 진행해 주세요.')
+        return
+      }
+
+      setIsUploading(true)
       setErrorMessage('')
+      try {
+        await deleteRequestImage(requestId, linkedImage.id)
+        setFile(null)
+        setLinkedImage(null)
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : '평면도 삭제에 실패했습니다.')
+      } finally {
+        setIsUploading(false)
+      }
       return
     }
 
     const fileError = validateImageFile(nextFile)
 
     if (fileError) {
-      setFile(null)
       setErrorMessage(fileError)
       return
     }
 
-    setFile(nextFile)
-    setErrorMessage('')
-  }
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    if (!file || isUploading) {
+    const requestId = getActiveRequestId()
+    if (!requestId) {
+      setErrorMessage('진행 중인 의뢰 정보를 찾을 수 없습니다. 처음부터 다시 진행해 주세요.')
       return
     }
 
@@ -60,42 +76,39 @@ export default function FloorPlanUploadPage() {
     setIsUploading(true)
 
     try {
-      const uploadResponse = await uploadImage(file, abortController.signal)
-      const uploadedImageUrl = resolveApiAssetUrl(uploadResponse.imageUrl)
-
-      if (!uploadedImageUrl) {
-        setErrorMessage('서버 응답을 확인할 수 없습니다.')
-        return
-      }
-
-      const requestId = getActiveRequestId()
-      if (requestId) {
-        await attachRequestImage(requestId, {
-          imageType: 'FLOOR_PLAN',
-          imageUrl: uploadResponse.imageUrl,
-        })
-      }
-
-      navigate('/analysis/loading', {
-        state: {
-          uploadedImagePath: uploadResponse.imageUrl,
-          uploadedImageUrl,
-          originalFileName: file.name,
-        },
-      })
-    } catch (error: unknown) {
-      if (!abortController.signal.aborted) {
-        setErrorMessage(getImageUploadErrorMessage(error))
-      }
+      const nextLinkedImage = linkedImage
+        ? await replaceRequestImage(requestId, linkedImage.id, nextFile, 'FLOOR_PLAN', abortController.signal)
+        : await uploadAndAttachRequestImage(requestId, nextFile, 'FLOOR_PLAN', abortController.signal)
+      setFile(nextFile)
+      setLinkedImage(nextLinkedImage)
+    } catch (error) {
+      if (!abortController.signal.aborted) setErrorMessage(getImageUploadErrorMessage(error))
     } finally {
-      if (!abortController.signal.aborted) {
-        setIsUploading(false)
-      }
-
-      if (abortControllerRef.current === abortController) {
-        abortControllerRef.current = null
-      }
+      if (!abortController.signal.aborted) setIsUploading(false)
+      if (abortControllerRef.current === abortController) abortControllerRef.current = null
     }
+  }
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!file || !linkedImage || isUploading) {
+      return
+    }
+
+    const uploadedImageUrl = resolveApiAssetUrl(linkedImage.imageUrl)
+    if (!uploadedImageUrl) {
+      setErrorMessage('서버 응답을 확인할 수 없습니다.')
+      return
+    }
+
+    navigate('/analysis/loading', {
+      state: {
+        uploadedImagePath: linkedImage.imageUrl,
+        uploadedImageUrl,
+        originalFileName: file.name,
+      },
+    })
   }
 
   return (
@@ -133,10 +146,10 @@ export default function FloorPlanUploadPage() {
         <footer className="shrink-0 bg-white px-4 pb-[calc(19px+env(safe-area-inset-bottom))]">
           <Button
             type="submit"
-            disabled={!file || isUploading}
+            disabled={!file || !linkedImage || isUploading}
             isLoading={isUploading}
             className={`h-12 w-full !rounded-[8px] !border !px-4 !py-0 !text-[12px] !font-bold !shadow-none hover:!translate-y-0 hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] ${
-              file && !isUploading
+              file && linkedImage && !isUploading
                 ? '!border-[#2563eb] !bg-[#2563eb] hover:!bg-[#2563eb]'
                 : '!border-[#cbd5e1] !bg-[#cbd5e1] !opacity-100'
             }`}

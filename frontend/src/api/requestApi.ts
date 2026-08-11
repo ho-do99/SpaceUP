@@ -41,6 +41,15 @@ export async function attachRequestImage(requestId: number, input: RequestImageI
   return unwrapApiResponse<number>(response, '이미지 연결에 실패했습니다.')
 }
 
+export async function deleteRequestImage(requestId: number, imageId: number) {
+  const response = await apiRequest<ApiResponse<null>>({
+    method: 'DELETE',
+    url: `/api/requests/${requestId}/images/${imageId}`,
+    authenticated: true,
+  })
+  unwrapEmptyApiResponse(response, '이미지 삭제에 실패했습니다.')
+}
+
 export async function getRequestImages(requestId: number, imageType?: RequestImageType) {
   const response = await apiRequest<ApiResponse<RequestImageResponse[]>>({
     method: 'GET', url: `/api/requests/${requestId}/images`,

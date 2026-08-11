@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -11,6 +12,8 @@ import {
 
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { uploadImage } from '@/api/fileApi'
+import { getPortfolio, setPortfolioVisibility, updatePortfolio, type PortfolioResponse } from '@/api/portfolioApi'
 
 interface PortfolioFormState {
   projectName: string
@@ -71,26 +74,44 @@ const DEFAULT_PHOTO_SLOTS: PhotoSlot[] = [
   },
 ]
 
+const EMPTY_FORM: PortfolioFormState = { projectName: '', region: '', propertySummary: '', workItems: '', duration: '', amount: '', description: '', visibility: '공개' }
+
 export default function ContractorPortfolioEditPage() {
   const navigate = useNavigate()
   const { portfolioId = 'portfolio-1' } = useParams()
+  const numericId = Number(portfolioId)
+  const isNumeric = Number.isInteger(numericId) && numericId > 0
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [form, setForm] =
     useState<PortfolioFormState>(
-      PORTFOLIO_DATA[portfolioId] ??
-        PORTFOLIO_DATA['portfolio-1'],
+      isNumeric ? EMPTY_FORM : (PORTFOLIO_DATA[portfolioId] ?? PORTFOLIO_DATA['portfolio-1']),
     )
 
   const [photoSlots, setPhotoSlots] =
     useState<PhotoSlot[]>(DEFAULT_PHOTO_SLOTS)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const [errorMessage, setErrorMessage] =
     useState('')
 
   const [toastMessage, setToastMessage] =
     useState('')
+
+  useEffect(() => {
+    if (!isNumeric) return
+    let active = true
+    getPortfolio(numericId).then((item) => {
+      if (!active) return
+      setPortfolio(item)
+      setForm({ projectName: item.projectName, region: item.region, propertySummary: `${item.propertyType} · ${item.areaM2}㎡`, workItems: item.workItems, duration: `${item.durationDays}일`, amount: String(item.amount), description: '', visibility: item.isPublic ? '공개' : '비공개' })
+      setPhotoSlots(item.photoUrls.split(',').filter(Boolean).map((name) => ({ name, status: '완료' })))
+    }).catch((loadError) => setErrorMessage(loadError instanceof Error ? loadError.message : '포트폴리오를 불러오지 못했습니다.'))
+    return () => { active = false }
+  }, [isNumeric, numericId])
 
   const updateField = (
     field: keyof PortfolioFormState,
@@ -122,6 +143,7 @@ export default function ContractorPortfolioEditPage() {
         status: index === 0 ? '대표' : '완료',
       })),
     )
+    setSelectedFiles(selectedFiles)
 
     event.target.value = ''
     setToastMessage('')
@@ -159,7 +181,7 @@ export default function ContractorPortfolioEditPage() {
     return ''
   }
 
-  const handleSubmit = (
+  const handleSubmit = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault()
@@ -172,10 +194,21 @@ export default function ContractorPortfolioEditPage() {
       return
     }
 
-    setErrorMessage('')
-    setToastMessage(
-      '포트폴리오 수정 내용이 저장되었습니다.',
-    )
+    if (!isNumeric || !portfolio) { setErrorMessage('포트폴리오 정보를 확인할 수 없습니다.'); return }
+    const areaM2 = Number(form.propertySummary.match(/[\d.]+/)?.[0])
+    const propertyType = form.propertySummary.split(/[·,]/)[0].trim()
+    const durationDays = Number(form.duration.match(/\d+/)?.[0])
+    const amount = Number(form.amount.replace(/\D/g, ''))
+    if (!propertyType || !Number.isFinite(areaM2) || areaM2 <= 0 || !Number.isInteger(durationDays) || durationDays <= 0 || !Number.isFinite(amount) || amount <= 0) { setErrorMessage('주택 유형·면적, 시공 기간, 공사 금액을 형식에 맞게 입력해주세요.'); return }
+    setSubmitting(true); setErrorMessage('')
+    try {
+      const uploaded = selectedFiles.length ? await Promise.all(selectedFiles.map((file) => uploadImage(file))) : []
+      const photoUrls = uploaded.length ? uploaded.map((item) => item.imageUrl).join(',') : portfolio.photoUrls
+      await updatePortfolio(numericId, { projectName: form.projectName.trim(), region: form.region.trim(), propertyType, areaM2, workItems: form.workItems.trim(), durationDays, amount, mainImageUrl: uploaded[0]?.imageUrl || portfolio.mainImageUrl, photoUrls, isPublic: form.visibility === '공개' })
+      await setPortfolioVisibility(numericId, form.visibility === '공개')
+      setToastMessage('포트폴리오 수정 내용이 저장되었습니다.')
+    } catch (submitError) { setErrorMessage(submitError instanceof Error ? submitError.message : '포트폴리오 수정에 실패했습니다.') }
+    finally { setSubmitting(false) }
   }
 
   const handleDraftSave = () => {
@@ -468,9 +501,10 @@ export default function ContractorPortfolioEditPage() {
 
           <button
             type="submit"
+            disabled={submitting}
             className="mt-4 h-12 w-full rounded-lg bg-[#f05a16] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#c2410c]"
           >
-            수정 내용 저장
+            {submitting ? '저장 중...' : '수정 내용 저장'}
           </button>
 
           <button

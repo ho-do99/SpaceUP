@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getMyEstimateRequests, getRequest } from '@/api/requestApi'
 import { getQuotesByRequest } from '@/api/estimateApi'
-import { estimateRequests, getEstimateRequestById, type EstimateRequestSummary } from '@/mocks/estimateRequests'
+import { getEstimateRequestById, type EstimateRequestSummary } from '@/mocks/estimateRequests'
 import type { QuoteResponse } from '@/types/backendContractor'
 import type { RequestResponse } from '@/types/request'
 
@@ -40,39 +40,42 @@ export function toEstimateRequestSummary(request: RequestResponse): EstimateRequ
 }
 
 export function useEstimateRequestHistory() {
-  const [requests, setRequests] = useState<readonly EstimateRequestSummary[]>(estimateRequests)
-  const [usingLiveData, setUsingLiveData] = useState(false)
-
+  const [requests, setRequests] = useState<readonly EstimateRequestSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     let active = true
-    getMyEstimateRequests({ size: 100 })
-      .then((page) => {
-        if (!active) return
-        setRequests(page.content.map(toEstimateRequestSummary))
-        setUsingLiveData(true)
-      })
-      .catch(() => {
-        if (active) setUsingLiveData(false)
-      })
+    setLoading(true)
+    setError('')
+    getMyEstimateRequests({ size: 100 }).then((page) => {
+      if (active) setRequests(page.content.map(toEstimateRequestSummary))
+    }).catch((loadError) => {
+      if (active) setError(loadError instanceof Error ? loadError.message : '견적 요청 내역을 불러오지 못했습니다.')
+    }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [])
-
-  return { requests, usingLiveData }
+  }, [attempt])
+  return { requests, usingLiveData: true, loading, error, retry: () => setAttempt((value) => value + 1) }
 }
 
 export function useEstimateRequestDetail(requestId: string | undefined) {
   const fallback = useMemo(() => getEstimateRequestById(requestId), [requestId])
-  const [request, setRequest] = useState<EstimateRequestSummary | undefined>(fallback)
+  const numericId = Number(requestId)
+  const isNumeric = Number.isInteger(numericId) && numericId > 0
+  const [request, setRequest] = useState<EstimateRequestSummary | undefined>(isNumeric ? undefined : fallback)
   const [quotes, setQuotes] = useState<QuoteResponse[]>([])
   const [usingLiveData, setUsingLiveData] = useState(false)
-  const numericId = Number(requestId)
+  const [loading, setLoading] = useState(isNumeric)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    setRequest(fallback)
+    setRequest(isNumeric ? undefined : fallback)
     setQuotes([])
     setUsingLiveData(false)
-    if (!Number.isInteger(numericId) || numericId <= 0) return
+    setError('')
+    if (!isNumeric) { setLoading(false); return }
     let active = true
+    setLoading(true)
     Promise.all([getRequest(numericId), getQuotesByRequest(numericId)])
       .then(([liveRequest, liveQuotes]) => {
         if (!active) return
@@ -80,11 +83,10 @@ export function useEstimateRequestDetail(requestId: string | undefined) {
         setQuotes(liveQuotes)
         setUsingLiveData(true)
       })
-      .catch(() => {
-        if (active) setUsingLiveData(false)
-      })
+      .catch((loadError) => { if (active) { setUsingLiveData(false); setError(loadError instanceof Error ? loadError.message : '견적 요청 상세를 불러오지 못했습니다.') } })
+      .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [fallback, numericId])
+  }, [fallback, isNumeric, numericId])
 
-  return { request, quotes, usingLiveData, numericId }
+  return { request, quotes, usingLiveData, numericId, loading, error }
 }

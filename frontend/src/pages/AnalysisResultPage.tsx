@@ -15,7 +15,7 @@ export default function AnalysisResultPage() {
           <div className="card p-8 text-slate-300">
             AI 분석 결과가 준비되면 공간별 면적과 개선 제안이 여기에 표시됩니다.
           </div>
-          <Link to={`/estimate/${id ?? ''}`} className="btn-primary mt-8">
+          <Link to="/estimate/summary" className="btn-primary mt-8">
             예상 견적 확인하기
           </Link>
         </section>

@@ -101,46 +101,66 @@ function toLightingProduct(product: CatalogMaterialProduct): LightingProduct {
 export function useMaterialProducts(
   theme: MaterialTheme,
   workType: Exclude<MaterialWorkType, 'LIGHTING'>,
-  fallback: ReadonlyArray<MaterialProduct>,
 ) {
-  const [products, setProducts] = useState<ReadonlyArray<MaterialProduct>>(fallback)
+  const [products, setProducts] = useState<ReadonlyArray<MaterialProduct>>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     let active = true
+    setLoading(true)
+    setError('')
     getMaterialCatalog(theme, workType)
       .then((catalog) => {
-        if (active && catalog.length > 0) setProducts(catalog.map(toMaterialProduct))
+        if (active) setProducts(catalog.map(toMaterialProduct))
       })
-      .catch(() => {
-        if (active) setProducts(fallback)
+      .catch((caught) => {
+        if (active) {
+          setProducts([])
+          setError(caught instanceof Error ? caught.message : '자재 카탈로그를 불러오지 못했습니다.')
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false)
       })
     return () => {
       active = false
     }
-  }, [fallback, theme, workType])
+  }, [retryKey, theme, workType])
 
-  return products
+  return { products, loading, error, retry: () => setRetryKey((value) => value + 1) }
 }
 
 export function useLightingProducts(
   theme: MaterialTheme,
-  fallback: ReadonlyArray<LightingProduct>,
 ) {
-  const [products, setProducts] = useState<ReadonlyArray<LightingProduct>>(fallback)
+  const [products, setProducts] = useState<ReadonlyArray<LightingProduct>>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     let active = true
+    setLoading(true)
+    setError('')
     getMaterialCatalog(theme, 'LIGHTING')
       .then((catalog) => {
-        if (active && catalog.length > 0) setProducts(catalog.map(toLightingProduct))
+        if (active) setProducts(catalog.map(toLightingProduct))
       })
-      .catch(() => {
-        if (active) setProducts(fallback)
+      .catch((caught) => {
+        if (active) {
+          setProducts([])
+          setError(caught instanceof Error ? caught.message : '조명 카탈로그를 불러오지 못했습니다.')
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false)
       })
     return () => {
       active = false
     }
-  }, [fallback, theme])
+  }, [retryKey, theme])
 
-  return products
+  return { products, loading, error, retry: () => setRetryKey((value) => value + 1) }
 }
