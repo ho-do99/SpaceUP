@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   useNavigate,
   useParams,
@@ -6,6 +6,16 @@ import {
 
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { getVisit, requestVisitChange } from '@/api/visitApi'
+import type { SiteVisit } from '@/types/backendContractor'
+
+function toApiTime(value: string) {
+  return /^\d{2}:\d{2}$/.test(value) ? `${value}:00` : value
+}
+
+function toInputTime(value: string | null | undefined) {
+  return value?.slice(0, 5) ?? ''
+}
 
 function CompanyIcon() {
   return (
@@ -93,10 +103,46 @@ export default function UserVisitSchedulePage() {
     useState('')
   const [submitted, setSubmitted] =
     useState(false)
+  const [visit, setVisit] = useState<SiteVisit | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  const numericRequestId = requestId && /^\d+$/.test(requestId)
+    ? Number(requestId)
+    : null
+
+  useEffect(() => {
+    if (!numericRequestId) return
+    let active = true
+    setIsLoading(true)
+    setErrorMessage('')
+
+    void getVisit(numericRequestId)
+      .then((currentVisit) => {
+        if (!active) return
+        setVisit(currentVisit)
+        setVisitDate(currentVisit.requestedDate ?? currentVisit.visitDate ?? '')
+        setVisitTime(toInputTime(currentVisit.requestedTime ?? currentVisit.visitTime))
+        setAddress(currentVisit.address ?? '')
+        setRequestMessage(currentVisit.requestReason ?? currentVisit.note ?? '')
+      })
+      .catch((error: unknown) => {
+        if (active) setErrorMessage(error instanceof Error ? error.message : '방문 일정을 불러오지 못했습니다.')
+      })
+      .finally(() => {
+        if (active) setIsLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [numericRequestId])
 
   const canSubmit =
     visitDate.trim().length > 0 &&
-    visitTime.trim().length > 0
+    visitTime.trim().length > 0 &&
+    (!visit || requestMessage.trim().length > 0)
 
   const returnToChat = () => {
     navigate(
@@ -104,20 +150,39 @@ export default function UserVisitSchedulePage() {
     )
   }
 
-  const submitSchedule = () => {
-    if (!canSubmit || submitted) return
+  const submitSchedule = async () => {
+    if (!canSubmit || submitted || isSubmitting || isLoading) return
 
-    sessionStorage.setItem(
-      `spaceup-visit-${requestId}-${contractorId}`,
-      JSON.stringify({
-        visitDate,
-        visitTime,
-        address,
-        requestMessage,
-        status: 'REQUESTED',
-      }),
-    )
+    setErrorMessage('')
+    setIsSubmitting(true)
 
+    if (visit) {
+      try {
+        const updatedVisit = await requestVisitChange(visit.id, {
+          requestedDate: visitDate,
+          requestedTime: toApiTime(visitTime),
+          reason: requestMessage.trim(),
+        })
+        setVisit(updatedVisit)
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : '방문 일정 변경 요청에 실패했습니다.')
+        setIsSubmitting(false)
+        return
+      }
+    } else {
+      sessionStorage.setItem(
+        `spaceup-visit-${requestId}-${contractorId}`,
+        JSON.stringify({
+          visitDate,
+          visitTime,
+          address,
+          requestMessage,
+          status: 'REQUESTED',
+        }),
+      )
+    }
+
+    setIsSubmitting(false)
     setSubmitted(true)
 
     window.setTimeout(() => {
@@ -207,7 +272,7 @@ export default function UserVisitSchedulePage() {
               <input
                 type="date"
                 value={visitDate}
-                disabled={submitted}
+                disabled={submitted || isLoading || isSubmitting}
                 onChange={(event) =>
                   setVisitDate(event.target.value)
                 }
@@ -222,7 +287,7 @@ export default function UserVisitSchedulePage() {
 
               <select
                 value={visitTime}
-                disabled={submitted}
+                disabled={submitted || isLoading || isSubmitting}
                 onChange={(event) =>
                   setVisitTime(event.target.value)
                 }
@@ -251,7 +316,7 @@ export default function UserVisitSchedulePage() {
               <input
                 type="text"
                 value={address}
-                disabled={submitted}
+                disabled={submitted || isLoading || isSubmitting}
                 onChange={(event) =>
                   setAddress(event.target.value)
                 }
@@ -268,7 +333,7 @@ export default function UserVisitSchedulePage() {
               <textarea
                 value={requestMessage}
                 maxLength={200}
-                disabled={submitted}
+                disabled={submitted || isLoading || isSubmitting}
                 onChange={(event) =>
                   setRequestMessage(event.target.value)
                 }
@@ -280,6 +345,7 @@ export default function UserVisitSchedulePage() {
                 {requestMessage.length} / 200
               </p>
             </label>
+            {errorMessage ? <p role="alert" className="mt-2 text-center text-[10px] leading-[17px] text-[#ef4444]">{errorMessage}</p> : null}
           </section>
 
           <section className="mt-5 rounded-[10px] bg-[#f8fafc] px-4 py-3">
@@ -293,7 +359,7 @@ export default function UserVisitSchedulePage() {
         <footer className="grid shrink-0 grid-cols-[1fr_1.4fr] gap-3 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))] pt-2">
           <button
             type="button"
-            disabled={submitted}
+            disabled={submitted || isSubmitting}
             onClick={returnToChat}
             className="h-12 rounded-[5px] border border-[#2563eb] bg-white text-[12px] font-bold text-[#2563eb] disabled:border-[#cbd5e1] disabled:text-[#94a3b8]"
           >
@@ -302,12 +368,14 @@ export default function UserVisitSchedulePage() {
 
           <button
             type="button"
-            disabled={!canSubmit || submitted}
-            onClick={submitSchedule}
+            disabled={!canSubmit || submitted || isLoading || isSubmitting}
+            onClick={() => { void submitSchedule() }}
             className="h-12 rounded-[5px] border border-[#2563eb] bg-[#2563eb] text-[12px] font-bold text-white disabled:border-[#93b4f5] disabled:bg-[#93b4f5]"
           >
             {submitted
               ? '요청 완료'
+              : isSubmitting
+                ? '요청 중'
               : '방문 일정 요청하기'}
           </button>
         </footer>

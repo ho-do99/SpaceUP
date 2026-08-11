@@ -3,7 +3,7 @@ import { apiRequest } from './axiosInstance'
 import { approveRequest, getAssignedRequests, rejectRequest } from './contractorApi'
 import { createQuote, extendQuote, submitQuote } from './estimateApi'
 import { getChatMessages } from './chatApi'
-import { getVisit } from './visitApi'
+import { getVisit, requestVisitChange } from './visitApi'
 import { getContractorProjects } from './projectApi'
 import { getContractorReviews } from './reviewApi'
 
@@ -40,9 +40,23 @@ describe('contractor workflow API paths', () => {
 
   it('extends and submits a quote through the documented action routes', async () => {
     request.mockResolvedValue({ success: true, message: 'ok', data: null })
-    await expect(extendQuote(1, '2026-12-31')).resolves.toBeUndefined()
-    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'POST', url: '/api/quotes/1/extend' }))
+    await expect(extendQuote(37, '2026-12-31', '사용자 확인 기간 연장')).resolves.toBeUndefined()
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({
+      method: 'POST', url: '/api/quotes/37/extend',
+      data: { newValidUntil: '2026-12-31', memo: '사용자 확인 기간 연장' },
+    }))
     await expect(submitQuote(1)).resolves.toBeUndefined()
+  })
+
+  it('uses the visit response id and documented change request body', async () => {
+    request.mockResolvedValue({ success: true, message: 'ok', data: { id: 55, requestId: 17, status: 'CHANGE_REQUESTED' } })
+    await requestVisitChange(55, {
+      requestedDate: '2026-08-20', requestedTime: '14:00:00', reason: '일정 조정이 필요합니다.',
+    })
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({
+      method: 'POST', url: '/api/visits/55/change-request',
+      data: { requestedDate: '2026-08-20', requestedTime: '14:00:00', reason: '일정 조정이 필요합니다.' },
+    }))
   })
 
   it('accepts empty success payloads for request decisions', async () => {
