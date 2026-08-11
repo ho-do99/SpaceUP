@@ -1,9 +1,11 @@
 # Spaceup 백엔드 전체 API 문서 (프론트엔드 전달용)
 
-작성일: 2026-08-06
-대상 브랜치: `backend` (커밋 `9e1faa5` 기준, push 완료)
+작성일: 2026-08-06 (2026-08-11 갱신: 회원 이메일 인증/비밀번호 변경 추가, 견적 수정요청 구조화, 주택가치 리포트 필드·`/api/schedules` 삭제 반영)
+대상 브랜치: `backend` (push 완료)
 
 프론트엔드팀에 넘겨드리는 **전체 API 목록**입니다. 이번 세션에 새로 만든 것뿐 아니라 기존에 이미 구현되어 있던 API까지 전부 포함합니다.
+
+> ⚠️ 의뢰당 여러 시공사가 동시에 참여하는 다중 시공사 구조(`request_contractors`, 채팅/방문의 `contractorId` 파라미터 등)는 이 문서에서 상세히 다루지 않습니다. 자세한 내용은 [`백엔드_다중시공사_견적채팅_전환_안내.md`](./백엔드_다중시공사_견적채팅_전환_안내.md)를 참고하세요.
 
 ## 공통 사항
 
@@ -32,6 +34,9 @@
 | PATCH | `/api/member/me/phone` | 로그인 | 휴대폰 번호 변경 (변경 즉시 `phoneVerified=false`) |
 | POST | `/api/member/me/phone/verify-code/send` | 로그인 | 로그인 후 인증코드 발송 (목업) |
 | POST | `/api/member/me/phone/verify-code/confirm` | 로그인 | 인증코드 확인 |
+| **POST** | **`/api/member/me/email/verify-code/send`** | 로그인 | **[신규]** 이메일 인증코드 발송 (목업 - 실제 메일 미발송, 코드가 응답에 그대로 포함됨) |
+| **POST** | **`/api/member/me/email/verify-code/confirm`** | 로그인 | **[신규]** 이메일 인증코드 확인 → `emailVerified=true` |
+| **PATCH** | **`/api/member/me/password`** | 로그인 | **[신규]** 비밀번호 변경 (현재 비밀번호 확인 후에만 변경) |
 | POST | `/api/member/me/resubmit` | 로그인 | 보완 자료 재제출 버튼 (NEEDS_REVISION 상태에서만) |
 | DELETE | `/api/member/{memberId}` | 로그인(본인) | 회원 탈퇴 |
 
@@ -39,7 +44,11 @@
 
 **로그인 응답** `LoginResponse`: `accessToken, memberId, role`
 
-**회원 조회 응답** `MemberResponse`: `id, username, email, name, phoneNumber, phoneVerified, role, approvalStatus, applicationNumber, approvalNumber, revisionMessage, revisionDeadline, createdAt`
+**회원 조회 응답** `MemberResponse`: `id, username, email, emailVerified, name, phoneNumber, phoneVerified, role, approvalStatus, applicationNumber, approvalNumber, revisionMessage, revisionDeadline, createdAt`
+
+> `PUT /api/member/{memberId}`로 이메일이 실제로 바뀌면 `emailVerified`가 자동으로 `false`로 초기화됩니다(이름만 바뀔 때는 초기화 안 함). 휴대폰 인증과 동일한 목업 OTP 방식이라 실제 메일 발송 연동 전까지는 `me/email/verify-code/send` 응답의 코드값을 그대로 확인 API에 넣으면 인증됩니다.
+
+**비밀번호 변경 요청** `PasswordUpdateRequest{currentPassword(필수), newPassword(필수, 영문+숫자+특수문자 8~16자)}` — 현재 비밀번호가 틀리면 400.
 
 **enum MemberRole**: `LANDLORD | CONTRACTOR | ADMIN`
 **enum MemberApprovalStatus**: `PENDING | NEEDS_REVISION | APPROVED` (LANDLORD/ADMIN은 즉시 APPROVED, CONTRACTOR는 관리자 승인 필요)
@@ -88,13 +97,13 @@
 | PATCH | `/api/analysis/request/{requestId}` | 본인 의뢰 | 사용자가 방개수/욕실개수/발코니/주방형태/층고/전용면적 직접 수정 |
 | POST | `/api/analysis/request/{requestId}/fail` | 내부용 | 분석 실패 처리 |
 | **POST** | **`/api/analysis/request/{requestId}/floorplan-scan`** | 본인 의뢰 | **[신규]** 평면도 이미지를 AI 세그멘테이션 서비스로 분석해 방개수/욕실개수/발코니유무/방이름 자동 채움 |
-| GET | `/api/analysis/request/{requestId}` | 로그인 | 분석 결과 조회 (임대가치 상승 리포트 데이터도 여기 포함 — 아래 참고) |
+| GET | `/api/analysis/request/{requestId}` | 로그인 | 분석 결과 조회 |
 | PUT | `/api/analysis/request/{requestId}/spaces` | 본인 의뢰 | 공간(방) 목록 전체 교체 저장 |
 | GET | `/api/analysis/request/{requestId}/spaces` | 로그인 | 공간 목록 조회 |
 | GET | `/api/analysis/request/{requestId}/recommended-products` | 로그인 | 분석 결과 기반 추천 상품 (바닥재/벽지/조명/주방상부장) |
 | **POST** | **`/api/analysis/request/{requestId}/interior-images`** | 본인 의뢰 | **[신규]** AI 인테리어 이미지 생성 (Gemini) |
 
-### 3-1. 분석 결과 조회 응답 `AnalysisJobResponse` (= 임대가치 상승 리포트 데이터)
+### 3-1. 분석 결과 조회 응답 `AnalysisJobResponse`
 
 ```
 id, requestId, status(PENDING|COMPLETED|FAILED),
@@ -102,14 +111,11 @@ roomCount, bathroomCount, hasBalcony, kitchenType,
 spaceScore, conditionScore, issueTags(콤마구분),
 matchingScore,
 estimatedQuoteMin, estimatedQuoteMax,
-expectedRentIncreaseMin, expectedRentIncreaseMax,        // 예상 월세 상승 범위(확정)
-paybackPeriodMonthsMin, paybackPeriodMonthsMax,          // 회수기간(개월)
-depositIncreaseMin, depositIncreaseMax,                   // 확정 전세가치 상승분(시공사 견적 수락 후)
-preliminaryDepositIncreaseMin, preliminaryDepositIncreaseMax,  // 예비값(시공사 매칭 전, 희망예산 기준)
-preliminaryRentIncreaseMin, preliminaryRentIncreaseMax,
+expectedRentIncreaseMin, expectedRentIncreaseMax,        // ROI 요약 - 예상 월세 상승 범위 (ML 분석 결과)
+paybackPeriodMonthsMin, paybackPeriodMonthsMax,          // ROI 요약 - 회수기간(개월)
 ceilingHeightM, totalFloorAreaM2, totalWallpaperAreaM2
 ```
-> ⚠️ **"임대가치 상승 리포트"는 별도 API가 아니라 이 응답을 그대로 씁니다.** 연간 추가 임대수익/회수율처럼 화면에 표시되는 파생값(예: `expectedRentIncreaseMin × 12`)은 이 필드들로 프론트에서 계산하면 됩니다.
+> ⚠️ **[변경, 2026-08-11]** 최신 기획에서 "주택가치 상승 리포트"(전세가치 상승분 별도 계산 기능)가 빠지면서 `depositIncreaseMin/Max`, `preliminaryDepositIncreaseMin/Max`, `preliminaryRentIncreaseMin/Max` 필드를 삭제했습니다. `expectedRentIncreaseMin/Max`·`paybackPeriodMonthsMin/Max`(ROI 요약 카드용)는 ML 분석 결과 필드라 그대로 유지됩니다.
 
 ### 3-2. 공간 목록 (`AnalysisSpaceRequest`/`Response`)
 `spaceName`(필수), `spaceAreaM2`, `floorAreaM2`, `wallpaperAreaM2`, `selectedForConstruction`(기본 true). 시공 선택된 공간들의 면적 합이 `totalFloorAreaM2`/`totalWallpaperAreaM2`에 자동 반영됩니다.
@@ -144,7 +150,7 @@ ceilingHeightM, totalFloorAreaM2, totalWallpaperAreaM2
 **응답** `ApartmentResponse{id, name, roadAddress, lotAddress, region, variants: [FloorPlanVariantResponse]}`
 `FloorPlanVariantResponse{id, exclusiveAreaM2, supplyAreaM2, exclusivePyeong, supplyPyeong(서버가 평 단위 자동 환산), typeLabel, roomCount, floorPlanImageUrl}`
 
-> ⚠️ **현재 데이터가 비어 있는 빈 카탈로그입니다.** 실제 아파트/평면도 데이터는 이후 채워 넣을 예정이라고 들었습니다 — 그 전까지 검색은 항상 빈 결과를 반환합니다.
+> **[변경, 2026-08-11]** local/dev 서버 기동 시 샘플 데이터가 자동으로 채워집니다(카탈로그가 비어있을 때만). 그중 상무센트럴/상무리버뷰/상무스카이 3곳은 프론트 목업(`mocks/apartments.ts`)과 이름·주소·면적(59/74/84㎡)을 동일하게 맞췄고, 나머지는 지역 필터 확인용 샘플입니다.
 
 ---
 
@@ -214,14 +220,16 @@ ceilingHeightM, totalFloorAreaM2, totalWallpaperAreaM2
 | GET | `/api/quotes/{quoteId}` | 로그인 | 견적 조회 |
 | GET | `/api/quotes/request/{requestId}` | 로그인 | 의뢰에 달린 견적 이력 전체 |
 | POST | `/api/quotes/{quoteId}/submit` | 시공사(본인) | 견적 발송 |
-| POST | `/api/quotes/{quoteId}/accept` | 임대인 | 견적 최종 선택 |
+| POST | `/api/quotes/{quoteId}/accept` | 임대인 | 견적 최종 선택 (해당 시공사를 `SELECTED`, 나머지 참여 시공사를 `CLOSED`로 전환 — 다중 시공사 구조 참고) |
 | POST | `/api/quotes/{quoteId}/reject` | 임대인 | 견적 거절 |
 | POST | `/api/quotes/{quoteId}/extend` | 시공사(본인) | 유효기간 연장 |
-| POST | `/api/quotes/{quoteId}/request-revision` | 임대인(본인) | 수정 요청 메모 전달 |
+| POST | `/api/quotes/{quoteId}/request-revision` | 임대인(본인) | 수정 요청 전달 |
 
 **견적 생성 요청** `ContractorQuoteCreateRequest`: `requestId`(필수), `title, startDate, durationDays, materialCost, laborCost, vat, discount, detailContent, items`(1개 이상 필수, `{category(필수), description, amount(필수)}` 배열)
 
-**응답** `ContractorQuoteResponse`: `id, requestId, contractorId, title, startDate, durationDays, totalAmount(자재비+인건비+부가세-할인 자동계산), status, validUntil, revisionRequestNote, revisionCount, items[{category, description, amount}]`
+**응답** `ContractorQuoteResponse`: `id, requestId, contractorId, title, startDate, durationDays, totalAmount(자재비+인건비+부가세-할인 자동계산), status, validUntil, revisionRequestNote, revisionTargetItemIds, revisionRequestedAmount, revisionCount, items[{category, description, amount}]`
+
+**[변경, 2026-08-11] 수정 요청** `ContractorQuoteRevisionRequest{note(필수), targetItemIds?, requestedAmount?}` — `targetItemIds`(수정이 필요한 견적 항목 id 목록)와 `requestedAmount`(희망 조정 금액)는 항목별로 구조화해서 요청하고 싶을 때만 채우는 선택 항목이고, 둘 다 생략하면 이전과 동일하게 `note` 텍스트만으로 동작합니다.
 
 **enum QuoteStatus**: `DRAFT → SUBMITTED → ACCEPTED | REJECTED`
 
@@ -250,26 +258,11 @@ ceilingHeightM, totalFloorAreaM2, totalWallpaperAreaM2
 
 ---
 
-## 10. 공사 일정 (`/api/schedules`) — 레거시, 계속 사용 가능
-
-PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 단건 관리입니다.
-
-| Method | URL | 인증 | 설명 |
-|---|---|---|---|
-| POST | `/api/schedules` | 시공사 | 착공 일정 등록(`{requestId, title, scheduledAt}`) |
-| GET | `/api/schedules/me` | 시공사 | 내 일정 목록 |
-| PATCH | `/api/schedules/{scheduleId}` | 시공사(본인) | 일정 변경 |
-| POST | `/api/schedules/{scheduleId}/start` | 시공사(본인) | 시공 시작 |
-| POST | `/api/schedules/{scheduleId}/complete` | 시공사(본인) | 시공 완료 |
-
-**응답** `ScheduleResponse`: `id, requestId, contractorId, title, scheduledAt, status`
-**enum ScheduleStatus**: `SCHEDULED → IN_PROGRESS → COMPLETED`
-
-> ⚠️ **`/api/projects`와 병행 사용 시 주의**: 두 도메인 모두 견적 확정 이후의 "일정" 개념을 다루지만 서로 다른 화면(PDF 초기 스펙 vs 실제 프론트 contractorPortal 화면)에서 나왔습니다. 시공사 완료 실적(`ContractorProfile.completedProjectCount`) 집계는 `/api/projects`의 완료 확인 쪽으로만 일원화했습니다. 두 도메인을 계속 병행할지, 하나로 합칠지는 아직 결정되지 않았습니다.
+> **[삭제, 2026-08-11] `/api/schedules`(공사 일정)** — `/api/projects`와 기능이 중복되어 도메인 자체를 삭제했습니다. 공사 일정/진행 관련 기능은 전부 `/api/projects`로 일원화되어 있습니다(§9 참고).
 
 ---
 
-## 11. 채팅 (`/api/chats`) — 신규
+## 10. 채팅 (`/api/chats`) — 신규
 
 의뢰(`requestId`) 1건당 스레드 1개.
 
@@ -288,7 +281,7 @@ PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 
 
 ---
 
-## 12. 리뷰 (`/api/reviews`) — 신규
+## 11. 리뷰 (`/api/reviews`) — 신규
 
 | Method | URL | 인증 | 설명 |
 |---|---|---|---|
@@ -307,7 +300,7 @@ PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 
 
 ---
 
-## 13. 자재 카탈로그 (`/api/material-products`)
+## 12. 자재 카탈로그 (`/api/material-products`)
 
 | Method | URL | 인증 | 설명 |
 |---|---|---|---|
@@ -323,7 +316,7 @@ PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 
 
 ---
 
-## 15. 정산 (`/api/settlements`)
+## 13. 정산 (`/api/settlements`)
 
 | Method | URL | 인증 | 설명 |
 |---|---|---|---|
@@ -337,7 +330,7 @@ PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 
 
 ---
 
-## 16. 알림 (`/api/notifications`)
+## 14. 알림 (`/api/notifications`)
 
 알림 생성 API는 없습니다 — 다른 도메인 이벤트(의뢰배정/견적발송/채팅/방문/리뷰/정산 등)가 발생할 때 서버가 자동 생성합니다.
 
@@ -352,7 +345,7 @@ PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 
 
 ---
 
-## 17. 국토부 전월세 실거래가 (`/api/rental-transactions`)
+## 15. 국토부 전월세 실거래가 (`/api/rental-transactions`)
 
 | Method | URL | 인증 | 설명 |
 |---|---|---|---|
@@ -364,7 +357,7 @@ PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 
 
 ---
 
-## 18. 이미지 업로드 (`/api/files/images`)
+## 16. 이미지 업로드 (`/api/files/images`)
 
 | Method | URL | 인증 | 설명 |
 |---|---|---|---|
@@ -375,7 +368,7 @@ PDF "일정관리" 화면 대응, `/api/projects`보다 단순한 착공 일정 
 
 ---
 
-## 19. 관리자 (`/api/admin`) — 전체 `hasRole("ADMIN")`
+## 17. 관리자 (`/api/admin`) — 전체 `hasRole("ADMIN")`
 
 | Method | URL | 설명 |
 |---|---|---|
