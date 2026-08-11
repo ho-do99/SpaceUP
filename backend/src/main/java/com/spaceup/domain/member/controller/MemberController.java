@@ -5,11 +5,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import com.spaceup.domain.member.dto.EmailVerificationConfirmRequest;
 import com.spaceup.domain.member.dto.LoginRequest;
 import com.spaceup.domain.member.dto.LoginResponse;
 import com.spaceup.domain.member.dto.MemberJoinRequest;
 import com.spaceup.domain.member.dto.MemberResponse;
 import com.spaceup.domain.member.dto.MemberUpdateRequest;
+import com.spaceup.domain.member.dto.PasswordUpdateRequest;
 import com.spaceup.domain.member.dto.PhoneUpdateRequest;
 import com.spaceup.domain.member.dto.PhoneVerificationConfirmRequest;
 import com.spaceup.domain.member.dto.PhoneVerificationPublicConfirmRequest;
@@ -93,6 +95,15 @@ public class MemberController {
 		return ResponseEntity.ok(ApiResponse.success("회원정보가 수정되었습니다.", null));
 	}
 
+	// ⭐ [Figma 반영] 마이페이지 - 계정설정의 "비밀번호 변경". 현재 비밀번호 확인 후에만 변경됩니다.
+	@PatchMapping("/me/password")
+	public ResponseEntity<ApiResponse<Void>> updatePassword(@Valid @RequestBody PasswordUpdateRequest request,
+			Authentication authentication) {
+		Long memberId = getMemberIdFromAuthentication(authentication);
+		memberService.updatePassword(memberId, request.getCurrentPassword(), request.getNewPassword());
+		return ResponseEntity.ok(ApiResponse.success("비밀번호가 변경되었습니다.", null));
+	}
+
 	// ⭐ [Figma 반영] 마이페이지 - 계정설정의 "휴대폰 번호 변경". 실제 SMS 재인증은 아직 없어 변경 즉시
 	// phoneVerified=false로만 표시됩니다 (OTP 연동 전까지의 임시 동작).
 	@PatchMapping("/me/phone")
@@ -118,6 +129,23 @@ public class MemberController {
 		Long memberId = getMemberIdFromAuthentication(authentication);
 		memberService.confirmPhoneVerification(memberId, request.getCode());
 		return ResponseEntity.ok(ApiResponse.success("휴대폰 인증이 완료되었습니다.", null));
+	}
+
+	// ⭐ [이메일 인증, 목업 OTP] 인증코드 발송 - 실제 메일 발송 벤더 연동 전까지는 발급한 코드를 응답에 그대로 실어 보냅니다.
+	@PostMapping("/me/email/verify-code/send")
+	public ResponseEntity<ApiResponse<String>> sendEmailVerificationCode(Authentication authentication) {
+		Long memberId = getMemberIdFromAuthentication(authentication);
+		String code = memberService.sendEmailVerificationCode(memberId);
+		return ResponseEntity.ok(ApiResponse.success("인증코드가 발급되었습니다. (목업: 실제 메일 미발송, 아래 코드를 그대로 사용하세요)", code));
+	}
+
+	// ⭐ [이메일 인증, 목업 OTP] 인증코드 확인
+	@PostMapping("/me/email/verify-code/confirm")
+	public ResponseEntity<ApiResponse<Void>> confirmEmailVerification(
+			@Valid @RequestBody EmailVerificationConfirmRequest request, Authentication authentication) {
+		Long memberId = getMemberIdFromAuthentication(authentication);
+		memberService.confirmEmailVerification(memberId, request.getCode());
+		return ResponseEntity.ok(ApiResponse.success("이메일 인증이 완료되었습니다.", null));
 	}
 
 	// ⭐ [Figma 반영] "보완 요청" 화면의 "보완 자료 재제출" 버튼 - 본인만, NEEDS_REVISION 상태에서만 가능
