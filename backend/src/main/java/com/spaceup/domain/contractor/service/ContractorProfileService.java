@@ -47,7 +47,7 @@ public class ContractorProfileService {
 	public void updateProfile(Long memberId, ContractorProfileUpdateRequest dto) {
 		ContractorProfile profile = findOrCreateProfile(memberId);
 		profile.updateProfile(dto.getBusinessRegistrationNumber(), dto.getCompanyName(), dto.getActivityRegions(),
-				dto.getSpecialties(), dto.getPortfolioUrl(), dto.getIntroduction());
+				dto.getTravelDistanceKm(), dto.getSpecialties(), dto.getPortfolioUrl(), dto.getIntroduction());
 	}
 
 	// ⭐ [Figma 반영] "담당자 정보 저장" 버튼

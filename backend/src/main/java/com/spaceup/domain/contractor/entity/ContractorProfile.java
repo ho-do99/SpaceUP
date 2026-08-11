@@ -51,6 +51,9 @@ public class ContractorProfile extends BaseTimeEntity {
 	@Column(name = "activity_regions", length = 200)
 	private String activityRegions; // 활동 지역 (콤마 구분, 예: "광주 북구,광주 서구")
 
+	@Column(name = "travel_distance_km")
+	private Integer travelDistanceKm; // 출장 가능 거리(km), 예: 10/30/50
+
 	@Column(name = "specialties", length = 200)
 	private String specialties; // 전문 분야 (콤마 구분, 예: "도배,바닥재,조명")
 
@@ -117,10 +120,11 @@ public class ContractorProfile extends BaseTimeEntity {
 	private boolean availableForConsult = true; // 신규 상담 가능 상태
 
 	public void updateProfile(String businessRegistrationNumber, String companyName, String activityRegions,
-			String specialties, String portfolioUrl, String introduction) {
+			Integer travelDistanceKm, String specialties, String portfolioUrl, String introduction) {
 		this.businessRegistrationNumber = businessRegistrationNumber;
 		this.companyName = companyName;
 		this.activityRegions = activityRegions;
+		this.travelDistanceKm = travelDistanceKm;
 		this.specialties = specialties;
 		this.portfolioUrl = portfolioUrl;
 		this.introduction = introduction;

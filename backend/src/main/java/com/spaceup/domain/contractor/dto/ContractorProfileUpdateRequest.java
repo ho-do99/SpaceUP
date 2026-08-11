@@ -13,6 +13,7 @@ public class ContractorProfileUpdateRequest {
 	private String businessRegistrationNumber;
 	private String companyName;
 	private String activityRegions; // "광주 북구,광주 서구" 형태로 콤마 구분해 전달
+	private Integer travelDistanceKm; // 출장 가능 거리(km), 예: 10/30/50
 	private String specialties; // "도배,바닥재,조명"
 	private String portfolioUrl;
 	private String introduction;
