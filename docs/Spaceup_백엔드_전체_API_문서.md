@@ -1,7 +1,8 @@
 # Spaceup 백엔드 전체 API 문서 (프론트엔드 전달용)
 
-작성일: 2026-08-06 (2026-08-11 갱신: 회원 이메일 인증/비밀번호 변경 추가, 견적 수정요청 구조화, 주택가치 리포트 필드·`/api/schedules` 삭제 반영)
+작성일: 2026-08-06 (2026-08-11 갱신: 회원 이메일 인증/비밀번호 변경 추가, 견적 수정요청 구조화, 주택가치 리포트 필드·`/api/schedules` 삭제 반영, `ProjectResponse.contractorId` 추가)
 대상 브랜치: `backend` (push 완료)
+검증: `origin/frontend` 최신 커밋(`61d9cdf`) 기준 실제 프론트 코드와 필드명 대조 완료 — 대조 상세는 [`2026-08-11_보류항목_DTO_확인_회신.md`](./2026-08-11_보류항목_DTO_확인_회신.md) 참고
 
 프론트엔드팀에 넘겨드리는 **전체 API 목록**입니다. 이번 세션에 새로 만든 것뿐 아니라 기존에 이미 구현되어 있던 API까지 전부 포함합니다.
 
@@ -252,7 +253,7 @@ ceilingHeightM, totalFloorAreaM2, totalWallpaperAreaM2
 | POST | `/api/projects/{projectId}/checklist` | 시공사 | 체크리스트 항목 추가(`{label}`) |
 | PATCH | `/api/projects/{projectId}/checklist/{itemId}` | 시공사 | 체크리스트 완료 토글(`{completed}`) |
 
-**응답** `ProjectResponse`: `id, requestId, quoteId, requestCode, customerName, contractorName, address, status, contractDate, contractAmount, startDate, completionDate, constructionItems, customerRequest, checklist[{id, label, completed}]`
+**응답** `ProjectResponse`: `id(=projectId), requestId, quoteId, requestCode, customerName, contractorId, contractorName, address, status, contractDate, contractAmount, startDate, completionDate, constructionItems, customerRequest, checklist[{id, label, completed}]`
 
 **enum ProjectStatus**: `VISIT_SCHEDULED`(방문 미완료 상태로 전환) / `START_SCHEDULED`(방문 완료 후 전환, 기본) `→ IN_PROGRESS → COMPLETION_REQUESTED → COMPLETED`
 
