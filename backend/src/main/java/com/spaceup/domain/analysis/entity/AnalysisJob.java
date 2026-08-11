@@ -29,7 +29,7 @@ import lombok.NoArgsConstructor;
  * ⭐ [DB 명칭 정합화] DB팀 명세의 analysis_job에 테이블/PK명을 맞췄습니다(클래스명도 SpaceAnalysis→AnalysisJob).
  * PDF의 analysis_job은 floorplan_id/pipeline_version/ocr_result_json 등 OCR·세그멘테이션 파이프라인
  * 필드를 갖고 있지만, 지금 ML 콜백(AnalysisJobResultRequest)이 그런 값을 보내주지 않아서 채울 수 없는
- * 컬럼은 추가하지 않았습니다. 대신 이 앱의 핵심 가치인 roomCount~expectedRentIncrease 등 집계 필드는
+ * 컬럼은 추가하지 않았습니다. 대신 이 앱의 핵심 가치인 roomCount 등의 집계 필드는
  * PDF에 없지만 그대로 유지합니다. PDF의 space_result(공간별 세부 결과, 1:N)도 같은 이유로 만들지 않았습니다.
  */
 @Entity
@@ -84,14 +84,7 @@ public class AnalysisJob extends BaseTimeEntity {
 	@Column(name = "estimated_quote_max")
 	private Long estimatedQuoteMax;
 
-	// ⭐ [Figma 반영] "ROI 요약" 카드. 현재 월세는 Property.currentMonthlyRent를 그대로 참조해서 쓰고(중복 저장 안 함),
-	// 여기서는 ML 콜백(completeWith())이 채워주는 예상 상승분/회수기간만 보관합니다.
-	@Column(name = "expected_rent_increase_min")
-	private Long expectedRentIncreaseMin;
-
-	@Column(name = "expected_rent_increase_max")
-	private Long expectedRentIncreaseMax;
-
+	// ⭐ [Figma 반영] "ROI 요약" 카드의 예상 회수기간을 보관합니다.
 	@Column(name = "payback_period_months_min")
 	private Integer paybackPeriodMonthsMin;
 
@@ -113,8 +106,7 @@ public class AnalysisJob extends BaseTimeEntity {
 	// ⭐ ML 파이프라인 콜백이 이 메서드로 결과를 채웁니다.
 	public void completeWith(Integer roomCount, Integer bathroomCount, Boolean hasBalcony, String kitchenType,
 			Integer spaceScore, Integer conditionScore, String issueTags, Long estimatedQuoteMin,
-			Long estimatedQuoteMax, Long expectedRentIncreaseMin, Long expectedRentIncreaseMax,
-			Integer paybackPeriodMonthsMin, Integer paybackPeriodMonthsMax) {
+			Long estimatedQuoteMax, Integer paybackPeriodMonthsMin, Integer paybackPeriodMonthsMax) {
 		this.roomCount = roomCount;
 		this.bathroomCount = bathroomCount;
 		this.hasBalcony = hasBalcony;
@@ -124,8 +116,6 @@ public class AnalysisJob extends BaseTimeEntity {
 		this.issueTags = issueTags;
 		this.estimatedQuoteMin = estimatedQuoteMin;
 		this.estimatedQuoteMax = estimatedQuoteMax;
-		this.expectedRentIncreaseMin = expectedRentIncreaseMin;
-		this.expectedRentIncreaseMax = expectedRentIncreaseMax;
 		this.paybackPeriodMonthsMin = paybackPeriodMonthsMin;
 		this.paybackPeriodMonthsMax = paybackPeriodMonthsMax;
 		this.status = AnalysisStatus.COMPLETED;
