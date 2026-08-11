@@ -8,7 +8,7 @@ import { saveAuthSession } from '@/utils/authSession'
 type LoginRole = 'LANDLORD' | 'CONTRACTOR'
 
 interface LoginFormErrors {
-  username?: string
+  email?: string
   password?: string
 }
 
@@ -44,7 +44,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const abortControllerRef = useRef<AbortController | null>(null)
   const [loginRole, setLoginRole] = useState<LoginRole>('LANDLORD')
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<LoginFormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -58,14 +58,14 @@ export default function LoginPage() {
     [],
   )
 
-  const canSubmit = Boolean(username.trim()) && Boolean(password) && !isSubmitting
+  const canSubmit = Boolean(email.trim()) && Boolean(password) && !isSubmitting
 
-  const handleUsernameChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setUsername(event.target.value)
+  const handleEmailChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setEmail(event.target.value)
     setErrorMessage('')
     setRoleNotice('')
-    if (errors.username) {
-      setErrors((currentErrors) => ({ ...currentErrors, username: undefined }))
+    if (errors.email) {
+      setErrors((currentErrors) => ({ ...currentErrors, email: undefined }))
     }
   }
 
@@ -83,18 +83,18 @@ export default function LoginPage() {
 
     if (isSubmitting) return
 
-    const trimmedUsername = username.trim()
+    const trimmedEmail = email.trim()
     const nextErrors: LoginFormErrors = {}
 
-    if (!trimmedUsername) {
-      nextErrors.username = '이메일을 입력해주세요.'
+    if (!trimmedEmail) {
+      nextErrors.email = '이메일을 입력해주세요.'
     }
 
     if (!password) {
       nextErrors.password = '비밀번호를 입력해주세요.'
     }
 
-    setUsername(trimmedUsername)
+    setEmail(trimmedEmail)
     setErrors(nextErrors)
     setErrorMessage('')
     setRoleNotice('')
@@ -109,7 +109,7 @@ export default function LoginPage() {
 
     try {
       const loginResponse = await login(
-        { username: trimmedUsername, password },
+        { email: trimmedEmail, password },
         abortController.signal,
       )
 
@@ -121,7 +121,8 @@ export default function LoginPage() {
       }
 
       if (loginResponse.role === 'CONTRACTOR') {
-        setRoleNotice('시공사 화면은 아직 준비 중입니다.')
+        navigate('/signup/contractor/status', { replace: true })
+        return
       } else if (loginResponse.role === 'ADMIN') {
         setRoleNotice('관리자 화면은 아직 준비 중입니다.')
       } else {
@@ -204,30 +205,30 @@ export default function LoginPage() {
             <div className="relative mt-5">
               <label
                 className="block h-[22px] text-[14px] font-medium leading-[22px] tracking-[-0.14px] text-[#475569]"
-                htmlFor="login-username"
+                htmlFor="login-email"
               >
                 이메일
               </label>
               <input
-                id="login-username"
-                name="username"
-                type="text"
+                id="login-email"
+                name="email"
+                type="email"
                 inputMode="email"
-                autoComplete="username"
-                value={username}
+                autoComplete="email"
+                value={email}
                 placeholder="example@email.com"
-                aria-invalid={Boolean(errors.username)}
-                aria-describedby={errors.username ? 'login-username-error' : undefined}
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? 'login-email-error' : undefined}
                 className="mt-[6px] h-[52px] w-full rounded-[12px] border border-[#cbd5e1] bg-[#f8fafc] px-4 text-[15px] leading-[22px] tracking-[-0.15px] text-[#0f172a] outline-none placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/15"
-                onChange={handleUsernameChange}
+                onChange={handleEmailChange}
               />
-              {errors.username && (
+              {errors.email && (
                 <p
-                  id="login-username-error"
+                  id="login-email-error"
                   className="absolute left-0 top-[82px] text-[12px] leading-4 text-red-600"
                   role="alert"
                 >
-                  {errors.username}
+                  {errors.email}
                 </p>
               )}
             </div>
@@ -288,8 +289,8 @@ export default function LoginPage() {
             <span>아직 계정이 없으신가요?</span>
             <button
               type="button"
-              disabled
-              className="font-semibold text-[#2563eb] disabled:cursor-default disabled:opacity-100"
+              className="font-semibold text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
+              onClick={() => navigate(loginRole === 'LANDLORD' ? '/signup/landlord' : '/signup/contractor')}
             >
               회원가입
             </button>
