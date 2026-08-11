@@ -16,6 +16,8 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from PIL import Image
 
+from .area_pixels import total_area_pixel_count
+
 app = FastAPI(title="SpaceUP SPA API", version="1.0.0")
 
 MODEL_PATHS = {
@@ -1249,6 +1251,7 @@ async def segment(
             payload = {
                 "image_width": int(mask.shape[1]),
                 "image_height": int(mask.shape[0]),
+                "total_area_pixel_count": total_area_pixel_count(instances),
                 "model_type": model_type,
                 "spa_model_modified": False,
                 "method": "SPA + OCR labels + confirmed axis-aligned wall post-processing",
