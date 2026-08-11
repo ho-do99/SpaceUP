@@ -34,6 +34,51 @@ services:
     volumes:
       - ./storage/floorplans:/app/storage/floorplans
 
+  # ⭐ [AI 평면도 분석] 실제로 동작하는 파이프라인은 viewerwall의 POST /api/analyze 하나뿐이고,
+  # viewerwall/viewer3d는 내부적으로 ocr+spa를 호출한다(ai/docker-compose.yml 구성을 그대로 이관).
+  # ⚠️ ocr은 이 저장소에 없는 로컬 이미지 floorplan4:latest를 FROM으로 사용하므로, 배포 서버에
+  # 미리 docker load로 그 이미지를 올려둬야 build가 성공한다. spa는 CUDA 런타임 베이스 이미지라
+  # GPU 없이도 기동은 되지만 이미지 용량이 크고 추론이 느릴 수 있다.
+  ocr:
+    build:
+      context: ./ai
+      dockerfile: ocr/Dockerfile
+    restart: unless-stopped
+
+  spa:
+    build:
+      context: ./ai/spa
+    restart: unless-stopped
+    volumes:
+      - ./ai/model_weights/segmentation:/models:ro
+    environment:
+      SPA_FP_MODEL: /models/SPA_FP_test_model.pth
+      SPA_CS_MODEL: /models/SPA_CS_test_model.pth
+
+  viewer3d:
+    build:
+      context: ./ai
+      dockerfile: viewerselect/Dockerfile
+    restart: unless-stopped
+    environment:
+      SPA_URL: http://spa:8000
+      OCR_URL: http://ocr:8000
+    depends_on:
+      - ocr
+      - spa
+
+  viewerwall:
+    build:
+      context: ./ai
+      dockerfile: viewerwall/Dockerfile
+    restart: unless-stopped
+    environment:
+      SPA_URL: http://spa:8000
+      OCR_URL: http://ocr:8000
+    depends_on:
+      - ocr
+      - spa
+
   backend:
     build:
       context: ./backend
@@ -44,12 +89,15 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       AI_BASE_URL: http://ai:8000
+      AI_FLOORPLAN_BASE_URL: http://viewerwall:8000
     ports:
       - "${BACKEND_BIND_HOST:-127.0.0.1}:${BACKEND_PORT:-8080}:8080"
     volumes:
       - ./storage:/app/storage
     depends_on:
       ai:
+        condition: service_started
+      viewerwall:
         condition: service_started
 
   frontend:
