@@ -29,7 +29,7 @@ public class AiFloorplanAnalysisClient {
 		this.restClient = restClient;
 	}
 
-	public List<AiFloorplanRoom> analyze(byte[] imageBytes, String filename, String contentType) {
+	public AiFloorplanAnalysisResponse analyze(byte[] imageBytes, String filename, String contentType) {
 		MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 		ByteArrayResource fileResource = new ByteArrayResource(imageBytes) {
 			@Override
@@ -42,6 +42,9 @@ public class AiFloorplanAnalysisClient {
 		try {
 			String responseJson = restClient.post().uri("/api/analyze")
 					.contentType(MediaType.MULTIPART_FORM_DATA).body(body).retrieve().body(String.class);
+			if (responseJson == null || responseJson.isBlank()) {
+				throw new AiFloorplanAnalysisException("AI 평면도 분석 응답 본문이 비어 있습니다.");
+			}
 			return parseRooms(responseJson);
 		} catch (RestClientException e) {
 			throw new AiFloorplanAnalysisException("AI 평면도 분석 서비스 호출에 실패했습니다.", e);
@@ -50,16 +53,56 @@ public class AiFloorplanAnalysisClient {
 		}
 	}
 
-	private List<AiFloorplanRoom> parseRooms(String responseJson) {
+	private AiFloorplanAnalysisResponse parseRooms(String responseJson) {
 		JsonNode root = objectMapper.readTree(responseJson);
-		List<AiFloorplanRoom> rooms = new ArrayList<>();
-		for (JsonNode room : root.path("rooms")) {
-			String roomName = room.path("room_name").asString(null);
-			int classId = room.path("class_id").asInt(0);
-			if (roomName != null) {
-				rooms.add(new AiFloorplanRoom(roomName, classId));
-			}
+		if (!root.isObject()) {
+			throw new AiFloorplanAnalysisException("AI 응답은 JSON 객체여야 합니다.");
 		}
-		return rooms;
+
+		JsonNode totalNode = root.get("total_area_pixel_count");
+		if (totalNode == null || !totalNode.isIntegralNumber()) {
+			throw new AiFloorplanAnalysisException("AI 응답에 정수 total_area_pixel_count가 필요합니다.");
+		}
+		long totalAreaPixelCount = totalNode.asLong();
+		if (totalAreaPixelCount <= 0) {
+			throw new AiFloorplanAnalysisException("AI 응답의 total_area_pixel_count는 0보다 커야 합니다.");
+		}
+
+		JsonNode roomsNode = root.get("rooms");
+		if (roomsNode == null || !roomsNode.isArray()) {
+			throw new AiFloorplanAnalysisException("AI 응답에 rooms 배열이 필요합니다.");
+		}
+
+		List<AiFloorplanRoom> rooms = new ArrayList<>();
+		for (JsonNode room : roomsNode) {
+			if (!room.isObject()) {
+				throw new AiFloorplanAnalysisException("AI 응답의 rooms 항목은 JSON 객체여야 합니다.");
+			}
+			JsonNode roomNameNode = room.get("room_name");
+			JsonNode classIdNode = room.get("class_id");
+			JsonNode pixelCountNode = room.get("pixel_count");
+			JsonNode includedNode = room.get("included_in_total_area");
+			if (roomNameNode == null || !roomNameNode.isTextual() || roomNameNode.asString().isBlank()
+					|| classIdNode == null || !classIdNode.isIntegralNumber()
+					|| pixelCountNode == null || !pixelCountNode.isIntegralNumber()
+					|| includedNode == null || !includedNode.isBoolean()) {
+				throw new AiFloorplanAnalysisException("AI 응답의 방 필드가 누락되었거나 형식이 잘못되었습니다.");
+			}
+
+			String roomName = roomNameNode.asString();
+			long pixelCount = pixelCountNode.asLong();
+			boolean includedInTotalArea = includedNode.asBoolean();
+			if (pixelCount <= 0) {
+				continue;
+			}
+			if (includedInTotalArea && pixelCount > totalAreaPixelCount) {
+				throw new AiFloorplanAnalysisException("AI 응답의 방 pixel_count가 전체 픽셀 수보다 큽니다: " + roomName);
+			}
+			rooms.add(new AiFloorplanRoom(roomName, classIdNode.asInt(), pixelCount, includedInTotalArea));
+		}
+		if (rooms.isEmpty()) {
+			throw new AiFloorplanAnalysisException("AI 응답에서 유효한 방을 찾을 수 없습니다.");
+		}
+		return new AiFloorplanAnalysisResponse(totalAreaPixelCount, List.copyOf(rooms));
 	}
 }

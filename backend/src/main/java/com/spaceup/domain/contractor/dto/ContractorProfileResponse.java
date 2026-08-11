@@ -14,6 +14,7 @@ public class ContractorProfileResponse {
 	private final String businessRegistrationNumber;
 	private final String companyName;
 	private final String activityRegions;
+	private final Integer travelDistanceKm;
 	private final String specialties;
 	private final String portfolioUrl;
 	private final String introduction;
@@ -39,6 +40,7 @@ public class ContractorProfileResponse {
 		this.businessRegistrationNumber = profile.getBusinessRegistrationNumber();
 		this.companyName = profile.getCompanyName();
 		this.activityRegions = profile.getActivityRegions();
+		this.travelDistanceKm = profile.getTravelDistanceKm();
 		this.specialties = profile.getSpecialties();
 		this.portfolioUrl = profile.getPortfolioUrl();
 		this.introduction = profile.getIntroduction();

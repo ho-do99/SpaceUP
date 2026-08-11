@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.spaceup.domain.analysis.ai.client.AiFloorplanAnalysisClient;
+import com.spaceup.domain.analysis.ai.client.AiFloorplanAnalysisResponse;
 import com.spaceup.domain.analysis.ai.client.AiFloorplanRoom;
 import com.spaceup.domain.analysis.ai.exception.AiFloorplanAnalysisException;
 import com.spaceup.domain.analysis.dto.AnalysisJobResponse;
@@ -22,9 +23,8 @@ import com.spaceup.global.error.RequestNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 // ⭐ [프론트 연동] "평면도 업로드 → AI 분석" 화면. 평면도 이미지를 AI 세그멘테이션/OCR 파이프라인에 보내고,
-// 결과(방 이름/개수/욕실개수/발코니유무)를 기존 AnalysisJobService의 콜백 API에 그대로 반영합니다.
-// ⚠️ AI 파이프라인이 픽셀 단위 데이터만 반환하고 m² 실면적을 계산하지 않아서, 공간별 면적(spaceAreaM2 등)은
-// 채우지 못합니다 - 사용자가 "공간 정보 확인" 화면에서 직접 입력/수정해야 합니다(기존 PATCH/PUT API 그대로 사용).
+// 결과(방 이름/개수/욕실개수/발코니유무)를 기존 AnalysisJobService의 콜백 API에 반영합니다.
+// 전용면적과 AI 마스크 픽셀 비율로 전용면적 포함 공간의 spaceAreaM2/floorAreaM2를 자동 계산합니다.
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -44,10 +44,15 @@ public class AiFloorplanAnalysisService {
 		if (floorplanImage == null || floorplanImage.isEmpty()) {
 			throw new IllegalArgumentException("분석할 평면도 이미지가 없습니다.");
 		}
+		Double exclusiveAreaM2 = request.getProperty().getExclusiveAreaM2();
+		if (exclusiveAreaM2 == null || !Double.isFinite(exclusiveAreaM2) || exclusiveAreaM2 <= 0) {
+			throw new IllegalArgumentException("전용면적은 유한한 양수여야 합니다.");
+		}
 
 		byte[] imageBytes = readBytes(floorplanImage);
-		List<AiFloorplanRoom> rooms = aiFloorplanAnalysisClient.analyze(imageBytes, floorplanImage.getOriginalFilename(),
-				floorplanImage.getContentType());
+		AiFloorplanAnalysisResponse analysisResponse = aiFloorplanAnalysisClient.analyze(imageBytes,
+				floorplanImage.getOriginalFilename(), floorplanImage.getContentType());
+		List<AiFloorplanRoom> rooms = analysisResponse.rooms();
 
 		int bedroomCount = (int) rooms.stream().filter(AiFloorplanRoom::isBedroom).count();
 		int bathroomCount = (int) rooms.stream().filter(AiFloorplanRoom::isBathroom).count();
@@ -62,7 +67,11 @@ public class AiFloorplanAnalysisService {
 		List<AnalysisSpaceRequest> spaceRequests = rooms.stream().map(room -> {
 			AnalysisSpaceRequest spaceRequest = new AnalysisSpaceRequest();
 			spaceRequest.setSpaceName(room.roomName());
-			// ⭐ AI가 m² 면적을 계산하지 못하므로 면적 필드는 비워둡니다 - 사용자가 이후 직접 입력합니다.
+			if (room.includedInTotalArea()) {
+				double roomAreaM2 = exclusiveAreaM2 * room.pixelCount() / analysisResponse.totalAreaPixelCount();
+				spaceRequest.setSpaceAreaM2(roomAreaM2);
+				spaceRequest.setFloorAreaM2(roomAreaM2);
+			}
 			return spaceRequest;
 		}).toList();
 		if (!spaceRequests.isEmpty()) {

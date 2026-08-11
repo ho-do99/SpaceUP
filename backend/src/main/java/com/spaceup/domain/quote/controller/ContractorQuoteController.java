@@ -87,7 +87,8 @@ public class ContractorQuoteController {
 	@PostMapping("/{quoteId}/request-revision")
 	public ResponseEntity<ApiResponse<Void>> requestRevision(@PathVariable Long quoteId,
 			@Valid @RequestBody ContractorQuoteRevisionRequest request, Authentication authentication) {
-		contractorQuoteService.requestRevision(quoteId, getMemberId(authentication), request.getNote());
+		contractorQuoteService.requestRevision(quoteId, getMemberId(authentication), request.getNote(),
+				request.getTargetItemIds(), request.getRequestedAmount());
 		return ResponseEntity.ok(ApiResponse.success("수정 요청을 전달했습니다.", null));
 	}
 

@@ -66,6 +66,18 @@ public class Member {
 	@Column(name = "phone_verification_expires_at")
 	private LocalDateTime phoneVerificationExpiresAt;
 
+	// ⭐ [이메일 인증] 휴대폰 인증과 동일한 목업 OTP 방식. 가입 시 이메일 인증을 강제하지는 않아 기본값은 false이고,
+	// 마이페이지에서 본인이 원할 때 인증할 수 있습니다.
+	@Builder.Default
+	@Column(name = "email_verified", nullable = false)
+	private boolean emailVerified = false;
+
+	@Column(name = "email_verification_code", length = 10)
+	private String emailVerificationCode;
+
+	@Column(name = "email_verification_expires_at")
+	private LocalDateTime emailVerificationExpiresAt;
+
 	@Column(name = "created_at", updatable = false)
 	private LocalDateTime createdAt; // 가입 일시
 
@@ -121,7 +133,16 @@ public class Member {
 		this.updatedAt = LocalDateTime.now();
 	}
 
+	// ⭐ [이메일 인증] 이메일이 실제로 바뀐 경우에만 인증 상태를 초기화합니다(이름만 바뀌는 경우까지 재인증을 요구하지 않기 위함).
+	// ⭐ [비밀번호 변경] 이미 암호화된 비밀번호를 그대로 저장합니다 - 암호화는 호출부(MemberService)의 책임입니다.
+	public void changePassword(String encodedPassword) {
+		this.password = encodedPassword;
+	}
+
 	public void updateProfile(String email, String name) {
+		if (!email.equals(this.email)) {
+			this.emailVerified = false;
+		}
 		this.email = email;
 		this.name = name;
 	}
@@ -160,6 +181,29 @@ public class Member {
 	// ⭐ 실제 SMS OTP 검증 로직이 붙기 전까지 쓰는 수동 인증완료 처리(관리자/테스트용으로 남겨둠).
 	public void verifyPhone() {
 		this.phoneVerified = true;
+	}
+
+	// ⭐ [이메일 인증, 목업 OTP] 인증코드를 발급해서 저장합니다. 실제 이메일 발송은 MemberService에서 처리(지금은 목업).
+	public void issueEmailVerificationCode(String code, LocalDateTime expiresAt) {
+		this.emailVerificationCode = code;
+		this.emailVerificationExpiresAt = expiresAt;
+	}
+
+	// ⭐ [이메일 인증, 목업 OTP] 저장된 코드/만료시각과 대조해 일치하면 인증 완료 처리하고 코드를 비웁니다(재사용 방지).
+	public boolean verifyEmailCode(String code) {
+		if (emailVerificationCode == null || emailVerificationExpiresAt == null) {
+			return false;
+		}
+		if (emailVerificationExpiresAt.isBefore(LocalDateTime.now())) {
+			return false;
+		}
+		if (!emailVerificationCode.equals(code)) {
+			return false;
+		}
+		this.emailVerified = true;
+		this.emailVerificationCode = null;
+		this.emailVerificationExpiresAt = null;
+		return true;
 	}
 
 	public void assignApplicationNumber(String applicationNumber) {
