@@ -93,7 +93,7 @@ class ContractorProfileRepositoryTest {
 	private void saveProfile(String username, MemberApprovalStatus approvalStatus, boolean withdrawn,
 			boolean availableForConsult, boolean profilePublic, Long estimateMin, Long estimateMax,
 			LocalDate availableFromDate) {
-		Member member = Member.builder().username(username).password("encoded").email(username + "@test.com")
+		Member member = Member.builder().password("encoded").email(username + "@test.com")
 				.name("테스트시공사").role(MemberRole.CONTRACTOR).approvalStatus(approvalStatus).withdrawn(withdrawn)
 				.build();
 		memberRepository.save(member);

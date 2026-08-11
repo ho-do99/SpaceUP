@@ -19,12 +19,13 @@ public class CustomUserDetailsService implements UserDetailsService {
 	private final MemberRepository memberRepository;
 
 	/**
-	 * ⭐ 시큐리티 핵심 연동 메서드: 사용자가 입력한 ID로 DB에서 회원을 찾아 시큐리티 규격으로 리턴합니다.
+	 * ⭐ 시큐리티 핵심 연동 메서드: 로그인 식별자(email)로 DB에서 회원을 찾아 시큐리티 규격으로 리턴합니다.
+	 * 메서드명은 Spring Security의 UserDetailsService 계약이라 loadUserByUsername으로 고정입니다.
 	 */
 	@Override
-	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-		Member member = memberRepository.findByUsername(username)
-				.orElseThrow(() -> new UsernameNotFoundException("DB에 존재하지 않는 사용자 아이디입니다: " + username));
+	public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+		Member member = memberRepository.findByEmail(email)
+				.orElseThrow(() -> new UsernameNotFoundException("DB에 존재하지 않는 이메일입니다: " + email));
 		return new MemberPrincipal(member);
 	}
 }

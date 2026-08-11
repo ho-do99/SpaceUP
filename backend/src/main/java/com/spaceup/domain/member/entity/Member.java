@@ -36,15 +36,12 @@ public class Member {
 	@Column(name = "user_id")
 	private Long id;
 
-	// ⭐ PDF의 user_account엔 별도 로그인 아이디 컬럼이 없지만(email/user_name만 있음), 지금 로그인 플로우가
-	// username 기반이라 그룹 B 전용 컬럼으로 그대로 유지합니다.
-	@Column(nullable = false, unique = true, length = 50) // 아이디는 필수, 중복 불가
-	private String username;
-
 	@Column(name = "password_hash", nullable = false, length = 100) // 암호화된 비밀번호가 들어가므로 길이를 여유 있게 설정
 	private String password;
 
-	@Column(nullable = false, length = 100)
+	// ⭐ [로그인 식별자 전환] 최신 Figma 기준 회원가입에는 별도 아이디 입력이 없어, username 필드를 없애고
+	// 로그인 식별자를 email로 통일했습니다. unique 제약을 여기로 옮겼습니다.
+	@Column(nullable = false, unique = true, length = 100)
 	private String email;
 
 	@Column(name = "user_name", nullable = false, length = 30)
@@ -238,12 +235,15 @@ public class Member {
 	}
 
 	/**
-	 * 소프트 삭제: 계정을 비활성화하고 개인정보를 익명화합니다. username은 유니크 제약 때문에 그대로 두어 재사용을 막고(예약 처리),
-	 * 과거 업무 이력은 유지하되 개인정보 노출을 줄이기 위해 표시 이름과 이메일을 익명화합니다.
+	 * 소프트 삭제: 계정을 비활성화하고 개인정보를 익명화합니다. 과거 업무 이력은 유지하되 개인정보 노출을
+	 * 줄이기 위해 표시 이름과 이메일을 익명화합니다.
+	 *
+	 * ⭐ [로그인 식별자 전환] email이 이제 유니크 제약이라, 고정값으로 바꾸면 두 번째 탈퇴부터
+	 * DataIntegrityViolationException이 납니다. id를 섞어 항상 고유한 값을 만듭니다.
 	 */
 	public void withdraw() {
 		this.name = "탈퇴한 회원";
-		this.email = "withdrawn@deleted.local";
+		this.email = "withdrawn+" + this.id + "@deleted.local";
 		this.withdrawn = true;
 		this.withdrawnAt = LocalDateTime.now();
 	}
