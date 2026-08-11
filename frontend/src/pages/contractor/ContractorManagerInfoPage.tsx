@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import { getMyContractorProfile, updateMyContractorManager } from '@/api/contractorApi'
+import { getMember, updateMember, updateMyPhoneNumber } from '@/api/memberApi'
+import { getMemberId } from '@/utils/authSession'
 
 interface ManagerFormState {
   managerName: string
@@ -38,7 +40,21 @@ export default function ContractorManagerInfoPage() {
   const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
-    getMyContractorProfile().then((profile) => setForm((current) => ({ ...current, position: profile.managerPosition || current.position, consultationHours: profile.consultationHours || current.consultationHours }))).catch(() => undefined)
+    const memberId = getMemberId()
+    if (!memberId) {
+      setSaveError('회원 정보를 확인할 수 없습니다.')
+      return
+    }
+    Promise.all([getMember(memberId), getMyContractorProfile()])
+      .then(([member, profile]) => setForm((current) => ({
+        ...current,
+        managerName: member.name,
+        email: member.email,
+        phoneNumber: member.phoneNumber,
+        position: profile.managerPosition || current.position,
+        consultationHours: profile.consultationHours || current.consultationHours,
+      })))
+      .catch((error) => setSaveError(error instanceof Error ? error.message : '담당자 정보를 불러오지 못했습니다.'))
   }, [])
 
   const updateField = (
@@ -138,7 +154,26 @@ export default function ContractorManagerInfoPage() {
     setSaving(true)
     setSaveError('')
     try {
-      await updateMyContractorManager({ managerPosition: form.position, consultationHours: form.consultationHours })
+      const memberId = getMemberId()
+      if (!memberId) throw new Error('회원 정보를 확인할 수 없습니다.')
+      const managerName = form.managerName.trim()
+      const email = form.email.trim()
+      const phoneNumber = form.phoneNumber.trim()
+      const managerPosition = form.position.trim()
+      const consultationHours = form.consultationHours.trim()
+      await Promise.all([
+        updateMember(memberId, { email, name: managerName }),
+        updateMyPhoneNumber(phoneNumber),
+        updateMyContractorManager({ managerPosition, consultationHours }),
+      ])
+      const [member, profile] = await Promise.all([getMember(memberId), getMyContractorProfile()])
+      setForm({
+        managerName: member.name,
+        email: member.email,
+        phoneNumber: member.phoneNumber,
+        position: profile.managerPosition || managerPosition,
+        consultationHours: profile.consultationHours || consultationHours,
+      })
       setShowSavedToast(true)
     } catch (error) {
       setShowSavedToast(false)

@@ -17,7 +17,7 @@ const regionOptions = [
 ] as const
 
 type ContractorRegion = (typeof regionOptions)[number]
-type TravelDistance = 30 | 50 | 100
+type TravelDistance = number
 
 interface RegionInformation {
   fullName: string
@@ -85,6 +85,7 @@ export default function ContractorCompanyRegionsPage() {
       const labels = new Set((profile.activityRegions || '').split(',').map((item) => item.trim()))
       if (!labels.size) return
       setSelectedRegions(regionOptions.filter((region) => labels.has(region) || labels.has(regionInformation[region].fullName)))
+      if (Number.isInteger(profile.travelDistanceKm)) setTravelDistance(profile.travelDistanceKm as number)
     }).catch(() => undefined)
   }, [])
 
@@ -115,7 +116,7 @@ export default function ContractorCompanyRegionsPage() {
     setSaving(true)
     setSaveError('')
     try {
-      await updateMyContractorProfile({ activityRegions: selectedRegions.map((region) => regionInformation[region].fullName).join(',') })
+      await updateMyContractorProfile({ activityRegions: selectedRegions.map((region) => regionInformation[region].fullName).join(','), travelDistanceKm: travelDistance })
       setShowSavedToast(true)
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : '시공 지역 저장에 실패했습니다.')
@@ -125,6 +126,7 @@ export default function ContractorCompanyRegionsPage() {
   }
 
   const isSaveDisabled = selectedRegions.length === 0 || saving
+  const visibleTravelDistanceOptions = travelDistanceOptions.includes(travelDistance) ? travelDistanceOptions : [travelDistance, ...travelDistanceOptions]
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
@@ -245,7 +247,7 @@ export default function ContractorCompanyRegionsPage() {
             className="mt-3 grid grid-cols-3 gap-[10px]"
             aria-label="출장 가능 거리 선택"
           >
-            {travelDistanceOptions.map((distance) => {
+            {visibleTravelDistanceOptions.map((distance) => {
               const isSelected = travelDistance === distance
 
               return (

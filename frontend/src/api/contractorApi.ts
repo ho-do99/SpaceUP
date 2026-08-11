@@ -42,6 +42,7 @@ export interface ContractorProfileUpdateInput {
   specialties?: string
   portfolioUrl?: string
   introduction?: string
+  travelDistanceKm?: number
 }
 
 export interface ContractorManagerUpdateInput {

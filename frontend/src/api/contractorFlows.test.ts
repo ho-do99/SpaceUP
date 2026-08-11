@@ -74,6 +74,8 @@ describe('contractor workflow API paths', () => {
     const disclosure = { profilePublic: true, contactPublic: false, specialtyPublic: true, regionPublic: true, portfolioPublic: false, availableForConsult: true }
     await updateMyContractorDisclosure(disclosure)
     expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ url: '/api/contractors/me/disclosure', data: disclosure }))
+    await updateMyContractorProfile({ activityRegions: '광주광역시,전라남도', travelDistanceKm: 30 })
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ url: '/api/contractors/me', data: { activityRegions: '광주광역시,전라남도', travelDistanceKm: 30 } }))
   })
 
   it('uses note as the quote revision request field', async () => {

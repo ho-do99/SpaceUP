@@ -59,6 +59,7 @@ export interface ContractorProfile {
   estimateMin?: number | null
   estimateMax?: number | null
   availableFromDate?: string | null
+  travelDistanceKm?: number | null
 }
 
 export interface ContractorDashboard {
