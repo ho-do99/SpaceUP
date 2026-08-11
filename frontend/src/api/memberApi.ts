@@ -96,3 +96,23 @@ export async function confirmEmailVerificationCode(code: string): Promise<void> 
   })
   unwrapEmptyApiResponse(response, '이메일 인증에 실패했습니다.')
 }
+
+export async function updateMyPhoneNumber(phoneNumber: string): Promise<void> {
+  const response = await apiRequest<ApiResponse<null>, { phoneNumber: string }>({
+    method: 'PATCH',
+    url: '/api/member/me/phone',
+    data: { phoneNumber },
+    authenticated: true,
+  })
+  unwrapEmptyApiResponse(response, '휴대폰 번호 변경에 실패했습니다.')
+}
+
+export async function updateMyPassword(input: { currentPassword: string; newPassword: string }): Promise<void> {
+  const response = await apiRequest<ApiResponse<null>, { currentPassword: string; newPassword: string }>({
+    method: 'PATCH',
+    url: '/api/member/me/password',
+    data: input,
+    authenticated: true,
+  })
+  unwrapEmptyApiResponse(response, '비밀번호 변경에 실패했습니다.')
+}

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiRequest } from './axiosInstance'
-import { confirmEmailVerificationCode, sendEmailVerificationCode, updateMember } from './memberApi'
+import { confirmEmailVerificationCode, sendEmailVerificationCode, updateMember, updateMyPassword, updateMyPhoneNumber } from './memberApi'
 import { confirmAndRefreshProject, getLandlordProjects, getProject } from './projectApi'
 import { createReview } from './reviewApi'
 
@@ -21,6 +21,14 @@ describe('2026-08-11 confirmed contracts', () => {
     expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'POST', url: '/api/member/me/email/verify-code/send', authenticated: true }))
     await confirmEmailVerificationCode('123456')
     expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'POST', url: '/api/member/me/email/verify-code/confirm', data: { code: '123456' }, authenticated: true }))
+  })
+
+  it('changes the current member phone and password with exact bodies', async () => {
+    await updateMyPhoneNumber('010-1234-5678')
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'PATCH', url: '/api/member/me/phone', data: { phoneNumber: '010-1234-5678' }, authenticated: true }))
+    await updateMyPassword({ currentPassword: 'current-secret', newPassword: 'new-secret' })
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'PATCH', url: '/api/member/me/password', data: { currentPassword: 'current-secret', newPassword: 'new-secret' }, authenticated: true }))
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ newPasswordConfirm: expect.anything() }) }))
   })
 
   it('uses project.id for detail and project.requestId for review creation', async () => {
