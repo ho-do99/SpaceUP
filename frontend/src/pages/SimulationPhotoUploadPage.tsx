@@ -9,9 +9,8 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   getImageUploadErrorMessage,
-  uploadImage,
 } from '@/api/fileApi'
-import { attachRequestImage } from '@/api/requestApi'
+import { deleteRequestImage } from '@/api/requestApi'
 
 import simulationImageUploadIcon from '@/assets/user/icons/simulation-image-upload.svg'
 import Button from '@/components/Button'
@@ -22,6 +21,11 @@ import UserScreenShell from '@/components/user/UserScreenShell'
 import { interiorStyleOptions } from '@/mocks/interiorStyles'
 import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
 import { getActiveRequestId } from '@/utils/requestFlow'
+import {
+  replaceRequestImage,
+  uploadAndAttachRequestImage,
+  type LinkedRequestImage,
+} from '@/utils/requestImageFlow'
 import { clearSimulationResult } from '@/utils/simulationResult'
 
 const acceptedImageTypes = ['image/jpeg', 'image/png']
@@ -48,6 +52,8 @@ export default function SimulationPhotoUploadPage() {
 
   const [selectedFile, setSelectedFile] =
     useState<File | null>(null)
+  const [linkedImage, setLinkedImage] =
+    useState<LinkedRequestImage | null>(null)
 
   const [errorMessage, setErrorMessage] = useState('')
   const [isUploading, setIsUploading] = useState(false)
@@ -80,7 +86,7 @@ export default function SimulationPhotoUploadPage() {
     }
   }, [previewUrl])
 
-  const handleFileChange = (
+  const handleFileChange = async (
     event: ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0]
@@ -92,22 +98,57 @@ export default function SimulationPhotoUploadPage() {
     const fileError = validateSimulationImage(file)
 
     if (fileError) {
-      setSelectedFile(null)
       setErrorMessage(fileError)
       event.target.value = ''
       return
     }
 
-    setSelectedFile(file)
+    const requestId = getActiveRequestId()
+    if (!requestId) {
+      setErrorMessage('진행 중인 의뢰 정보를 찾을 수 없습니다. 처음부터 다시 진행해 주세요.')
+      event.target.value = ''
+      return
+    }
+
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
     setErrorMessage('')
+    setIsUploading(true)
+
+    try {
+      const nextLinkedImage = linkedImage
+        ? await replaceRequestImage(requestId, linkedImage.id, file, 'PHOTO', abortController.signal)
+        : await uploadAndAttachRequestImage(requestId, file, 'PHOTO', abortController.signal)
+      setSelectedFile(file)
+      setLinkedImage(nextLinkedImage)
+    } catch (error) {
+      if (!abortController.signal.aborted) setErrorMessage(getImageUploadErrorMessage(error))
+    } finally {
+      if (!abortController.signal.aborted) setIsUploading(false)
+      if (abortControllerRef.current === abortController) abortControllerRef.current = null
+      event.target.value = ''
+    }
   }
 
-  const handleDelete = () => {
-    setSelectedFile(null)
-    setErrorMessage('')
+  const handleDelete = async () => {
+    if (!linkedImage || isUploading) return
+    const requestId = getActiveRequestId()
+    if (!requestId) {
+      setErrorMessage('진행 중인 의뢰 정보를 찾을 수 없습니다. 처음부터 다시 진행해 주세요.')
+      return
+    }
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+    setIsUploading(true)
+    setErrorMessage('')
+    try {
+      await deleteRequestImage(requestId, linkedImage.id)
+      setSelectedFile(null)
+      setLinkedImage(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '이미지 삭제에 실패했습니다.')
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -116,69 +157,24 @@ export default function SimulationPhotoUploadPage() {
   ) => {
     event.preventDefault()
 
-    if (!selectedFile || isUploading) {
+    if (!selectedFile || !linkedImage || isUploading) {
       return
     }
-
-    const requestId = getActiveRequestId()
-    if (!requestId) {
-      setErrorMessage('진행 중인 의뢰 정보를 찾을 수 없습니다. 처음부터 다시 진행해 주세요.')
-      return
-    }
-
-    const abortController = new AbortController()
-    abortControllerRef.current = abortController
-
-    setErrorMessage('')
-    setIsUploading(true)
     clearSimulationResult()
 
-    try {
-      const uploadResponse = await uploadImage(
-        selectedFile,
-        abortController.signal,
-      )
-
-      const uploadedImageUrl = resolveApiAssetUrl(
-        uploadResponse.imageUrl,
-      )
-
-      if (!uploadedImageUrl) {
-        setErrorMessage(
-          '서버 응답을 확인할 수 없습니다.',
-        )
-        return
-      }
-
-      await attachRequestImage(requestId, {
-        imageType: 'PHOTO',
-        imageUrl: uploadResponse.imageUrl,
-      })
-
-      navigate('/analysis/simulation/generating', {
-        state: {
-          styleId: selectedStyle.id,
-          uploadedImagePath: uploadResponse.imageUrl,
-          uploadedImageUrl,
-        },
-      })
-    } catch (error: unknown) {
-      if (!abortController.signal.aborted) {
-        setErrorMessage(
-          getImageUploadErrorMessage(error),
-        )
-      }
-    } finally {
-      if (!abortController.signal.aborted) {
-        setIsUploading(false)
-      }
-
-      if (
-        abortControllerRef.current === abortController
-      ) {
-        abortControllerRef.current = null
-      }
+    const uploadedImageUrl = resolveApiAssetUrl(linkedImage.imageUrl)
+    if (!uploadedImageUrl) {
+      setErrorMessage('서버 응답을 확인할 수 없습니다.')
+      return
     }
+
+    navigate('/analysis/simulation/generating', {
+      state: {
+        styleId: selectedStyle.id,
+        uploadedImagePath: linkedImage.imageUrl,
+        uploadedImageUrl,
+      },
+    })
   }
 
   return (
@@ -330,10 +326,10 @@ export default function SimulationPhotoUploadPage() {
         <footer className="shrink-0 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
           <Button
             type="submit"
-            disabled={!selectedFile || isUploading}
+            disabled={!selectedFile || !linkedImage || isUploading}
             isLoading={isUploading}
             className={`h-12 w-full !rounded-[5px] !border !px-4 !py-0 !text-[12px] !font-bold !shadow-none hover:!translate-y-0 hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] ${
-              selectedFile && !isUploading
+              selectedFile && linkedImage && !isUploading
                 ? '!border-[#2563eb] !bg-[#2563eb] hover:!bg-[#2563eb]'
                 : '!border-[#2563eb] !bg-[#cbd5e1] !opacity-100'
             }`}

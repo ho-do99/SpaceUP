@@ -8,7 +8,11 @@ import {
 
 import useContractorPortalFlow from './useContractorPortalFlow'
 
-export default function ContractorHeaderActions() {
+interface ContractorHeaderActionsProps {
+  mode?: 'all' | 'chat'
+}
+
+export default function ContractorHeaderActions({ mode = 'all' }: ContractorHeaderActionsProps) {
   const { notifications } =
     useContractorPortalFlow()
 
@@ -41,14 +45,14 @@ export default function ContractorHeaderActions() {
     '/contractor/notifications'
 
   return (
-    <div className="flex shrink-0 items-center gap-3">
+    <div className="flex h-10 shrink-0 items-start">
       <Link
         to="/contractor/chats"
         aria-label="채팅"
         aria-current={
           isChatActive ? 'page' : undefined
         }
-        className={`rounded-[10px] p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb] ${
+        className={`flex h-10 w-9 items-center justify-center rounded-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb] ${
           isChatActive ? 'bg-[#eff6ff]' : ''
         }`}
       >
@@ -59,13 +63,13 @@ export default function ContractorHeaderActions() {
         />
       </Link>
 
-      <Link
+      {mode === 'all' ? <Link
         to="/contractor/mypage"
         aria-label="마이페이지"
         aria-current={
           isMyPageActive ? 'page' : undefined
         }
-        className={`rounded-[10px] p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb] ${
+        className={`flex h-10 w-9 items-center justify-center rounded-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb] ${
           isMyPageActive ? 'bg-[#eff6ff]' : ''
         }`}
       >
@@ -74,9 +78,9 @@ export default function ContractorHeaderActions() {
           alt=""
           className="h-5 w-5"
         />
-      </Link>
+      </Link> : null}
 
-      <Link
+      {mode === 'all' ? <Link
         to="/contractor/notifications"
         aria-label={`알림${
           unreadCount
@@ -88,7 +92,7 @@ export default function ContractorHeaderActions() {
             ? 'page'
             : undefined
         }
-        className={`relative rounded-[10px] p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb] ${
+        className={`relative flex h-10 w-9 items-center justify-center rounded-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb] ${
           isNotificationActive
             ? 'bg-[#eff6ff]'
             : ''
@@ -103,12 +107,12 @@ export default function ContractorHeaderActions() {
         {unreadCount > 0 ? (
           <span
             aria-hidden="true"
-            className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ef4444] px-1 text-[9px] font-bold text-white"
+            className="absolute right-0 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-white bg-[#ef4444] px-[3px] text-[9px] font-bold leading-[10px] text-white"
           >
             {unreadCount}
           </span>
         ) : null}
-      </Link>
+      </Link> : null}
     </div>
   )
 }

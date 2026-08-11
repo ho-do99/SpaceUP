@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorCompanyTabs from '@/components/contractor/ContractorCompanyTabs'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { getMyContractorProfile, updateMyContractorProfile } from '@/api/contractorApi'
 
 const regionOptions = [
   '서울',
@@ -16,7 +17,7 @@ const regionOptions = [
 ] as const
 
 type ContractorRegion = (typeof regionOptions)[number]
-type TravelDistance = 30 | 50 | 100
+type TravelDistance = number
 
 interface RegionInformation {
   fullName: string
@@ -76,6 +77,17 @@ export default function ContractorCompanyRegionsPage() {
     useState<TravelDistance>(50)
 
   const [showSavedToast, setShowSavedToast] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  useEffect(() => {
+    getMyContractorProfile().then((profile) => {
+      const labels = new Set((profile.activityRegions || '').split(',').map((item) => item.trim()))
+      if (!labels.size) return
+      setSelectedRegions(regionOptions.filter((region) => labels.has(region) || labels.has(regionInformation[region].fullName)))
+      if (Number.isInteger(profile.travelDistanceKm)) setTravelDistance(profile.travelDistanceKm as number)
+    }).catch(() => undefined)
+  }, [])
 
   const toggleRegion = (region: ContractorRegion) => {
     setShowSavedToast(false)
@@ -96,15 +108,25 @@ export default function ContractorCompanyRegionsPage() {
     setShowSavedToast(false)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (selectedRegions.length === 0) {
       return
     }
 
-    setShowSavedToast(true)
+    setSaving(true)
+    setSaveError('')
+    try {
+      await updateMyContractorProfile({ activityRegions: selectedRegions.map((region) => regionInformation[region].fullName).join(','), travelDistanceKm: travelDistance })
+      setShowSavedToast(true)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : '시공 지역 저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const isSaveDisabled = selectedRegions.length === 0
+  const isSaveDisabled = selectedRegions.length === 0 || saving
+  const visibleTravelDistanceOptions = travelDistanceOptions.includes(travelDistance) ? travelDistanceOptions : [travelDistance, ...travelDistanceOptions]
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
@@ -225,7 +247,7 @@ export default function ContractorCompanyRegionsPage() {
             className="mt-3 grid grid-cols-3 gap-[10px]"
             aria-label="출장 가능 거리 선택"
           >
-            {travelDistanceOptions.map((distance) => {
+            {visibleTravelDistanceOptions.map((distance) => {
               const isSelected = travelDistance === distance
 
               return (
@@ -259,7 +281,7 @@ export default function ContractorCompanyRegionsPage() {
 
       <ContractorBottomNavigation />
 
-      {showSavedToast ? (
+          {showSavedToast ? (
         <div
           role="status"
           aria-live="polite"
@@ -277,6 +299,7 @@ export default function ContractorCompanyRegionsPage() {
           </button>
         </div>
       ) : null}
+      {saveError ? <p role="alert" className="sr-only">{saveError}</p> : null}
     </ContractorMobileShell>
   )
 }

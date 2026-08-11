@@ -2,6 +2,7 @@ import type { QuoteInput } from '@/types/backendContractor'
 import type { ContractorEstimateDraft } from '@/types/contractorPortal'
 
 const quoteKey = (requestId: number) => `spaceup.quoteDraft.${requestId}`
+const submittedQuoteKey = (estimateId: string) => `spaceup.submittedQuote.${estimateId}`
 
 export function getStoredQuoteId(requestId: number): number | null {
   const stored = sessionStorage.getItem(quoteKey(requestId))
@@ -11,6 +12,17 @@ export function getStoredQuoteId(requestId: number): number | null {
 
 export function storeQuoteId(requestId: number, quoteId: number) {
   sessionStorage.setItem(quoteKey(requestId), String(quoteId))
+}
+
+export function getSubmittedQuoteId(estimateId: string): number | null {
+  const stored = sessionStorage.getItem(submittedQuoteKey(estimateId))
+  if (!stored || !/^\d+$/.test(stored)) return null
+  const quoteId = Number(stored)
+  return Number.isSafeInteger(quoteId) && quoteId > 0 ? quoteId : null
+}
+
+export function storeSubmittedQuoteId(estimateId: string, quoteId: number) {
+  sessionStorage.setItem(submittedQuoteKey(estimateId), String(quoteId))
 }
 
 export function estimateDraftToQuoteInput(requestId: number, draft: ContractorEstimateDraft): QuoteInput {

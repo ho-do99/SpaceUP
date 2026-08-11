@@ -1,6 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
-import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
@@ -15,31 +14,29 @@ export default function ContractorRequestApprovedPage() {
   if (!request) return <ContractorRequestNotFound />
 
   return (
-    <ContractorMobileShell>
+    <ContractorMobileShell innerClassName="h-dvh min-h-0">
       <ContractorAppBar title="의뢰 승인 완료" back />
-      <main className="flex-1 space-y-4 px-4 pb-5 pt-4">
-        <p className="text-xs leading-5 text-[#64748b]">승인된 의뢰는 실시간 채팅에서 방문 일정을 조율할 수 있습니다.</p>
-        <section className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] p-5 text-center">
-          <span aria-hidden="true" className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#22c55e] text-2xl font-bold text-white">✓</span>
-          <h2 className="mt-3 text-base font-bold text-[#166534]">의뢰 승인 완료 · 채팅 가능</h2>
-          <p className="mt-1 text-xs text-[#15803d]">현재 상태: 사용자와 채팅 가능</p>
+      <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4">
+        <p className="text-xs leading-[17px] text-[#64748b]">의뢰 승인과 동시에 이 의뢰 전용 실시간 채팅방이 개설됩니다.</p>
+        <section className="mt-3 rounded-xl bg-[#eaf8f1] p-[14px]">
+          <span aria-hidden="true" className="text-[30px] leading-[34px] text-[#12a66a]">✓</span>
+          <h2 className="mt-2 text-[17px] font-bold leading-6 text-[#0b2b59]">의뢰 승인 · 채팅방 개설 완료</h2>
+          <p className="mt-1 text-xs font-bold text-[#12a66a]">현재 상태: 사용자와 채팅 가능</p>
         </section>
-        <ContractorSectionCard>
-          <p className="text-sm font-bold text-[#2563eb]">{request.requestId} · {request.property.region}</p>
-          <p className="mt-2 text-xs text-[#64748b]">사용자 {request.customerName} · 연락처 계약 전 마스킹</p>
+        <ContractorSectionCard className="mt-3 p-[14px] shadow-none" title="의뢰 정보">
+          <p className="text-[11px] leading-[17px] text-[#64748b]">{request.requestId} · {request.property.region}</p>
+          <p className="text-[11px] leading-[17px] text-[#64748b]">사용자 {request.customerName} · 연락처 계약 전 마스킹</p>
         </ContractorSectionCard>
-        <ContractorSectionCard title="7일 자동 취소 정책">
-          <ul className="space-y-2 text-xs leading-5 text-[#64748b]">
-            <li>의뢰 승인 시 마지막 활동 시간이 시작됩니다.</li>
-            <li>144시간 경과 시 D-1 알림을 제공합니다.</li>
-            <li>168시간 동안 활동이 없으면 자동 취소됩니다.</li>
+        <ContractorSectionCard className="mt-3 border-[#d6e5f8] bg-[#eff6ff] p-[14px] shadow-none" title="7일 자동 취소 정책">
+          <ul className="text-[11px] leading-[17px] text-[#64748b]">
+            <li>의뢰 승인 시 lastActivityAt을 시작합니다.</li>
+            <li>마지막 활동 후 144시간: D-1 알림</li>
+            <li>마지막 활동 후 168시간: 자동 취소</li>
           </ul>
-          <p className="mt-3 rounded-lg bg-[#eff6ff] p-3 text-[11px] font-semibold leading-4 text-[#2563eb]">채팅에서 방문 일정을 조율하고 실제 현장 방문을 완료해야 견적서 작성이 활성화됩니다.</p>
+          <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">채팅에서 방문 일정을 조율하고 실제 현장 방문을 완료해야 견적서 작성이 활성화됩니다.</p>
         </ContractorSectionCard>
-        <Link to={`/contractor/requests/${request.requestId}/chat`} className="flex h-12 w-full items-center justify-center rounded-lg bg-[#2563eb] text-sm font-bold text-white">실시간 채팅 시작</Link>
-        <Link to="/contractor/requests" className="flex h-11 items-center justify-center rounded-lg border border-[#2563eb] text-sm font-bold text-[#2563eb]">의뢰 목록으로 돌아가기</Link>
+        <Link to={`/contractor/requests/${request.requestId}/chat`} className="mt-3 flex h-12 w-full items-center justify-center rounded-lg bg-[#2563eb] text-sm font-bold text-white">실시간 채팅 시작</Link>
       </main>
-      <ContractorBottomNavigation />
     </ContractorMobileShell>
   )
 }

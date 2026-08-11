@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorEmptyState from '@/components/contractor/ContractorEmptyState'
@@ -8,8 +8,6 @@ import useContractorPortalFlow from '@/components/contractor/useContractorPortal
 import { contractorSentEstimates } from '@/mocks/contractorPortalMockData'
 import type { ContractorEstimateListFilter, ContractorEstimateLifecycleStatus } from '@/types/contractorPortal'
 import type { ContractorSentEstimate } from '@/types/contractorPortal'
-import { getAssignedRequests } from '@/api/contractorApi'
-import { getQuotesByRequest } from '@/api/estimateApi'
 
 interface EstimateWithStatus { estimate: ContractorSentEstimate; status: ContractorEstimateLifecycleStatus; validUntil: string }
 
@@ -31,33 +29,14 @@ export default function ContractorEstimateListPage() {
   const { estimateLifecycleStatus, estimateValidUntil } = useContractorPortalFlow()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<ContractorEstimateListFilter>('all')
-  const [liveEstimates, setLiveEstimates] = useState<EstimateWithStatus[] | null>(null)
-  useEffect(() => {
-    getAssignedRequests({ size: 100 }).then(async (page) => {
-      const requests = Array.isArray(page) ? page : page.content
-      const groups = await Promise.all(requests.map(async (request) => ({ request, quotes: await getQuotesByRequest(request.id) })))
-      setLiveEstimates(groups.flatMap(({ request, quotes }) => quotes
-        .filter((quote) => quote.status !== 'DRAFT')
-        .map((quote) => ({
-          estimate: {
-            estimateId: String(quote.id), requestId: String(request.id), customerName: request.landlordName || '사용자',
-            contractorName: quote.contractorName || '시공사', region: request.region, propertyType: request.propertyType,
-            areaLabel: `${request.areaM2}㎡`, address: request.region, submittedDate: request.createdAt?.slice(0, 10) || '-',
-            initialValidUntil: quote.validUntil || '-', finalAmount: quote.totalAmount ?? 0,
-          },
-          status: quote.status === 'ACCEPTED' ? 'ACCEPTED' : 'SUBMITTED',
-          validUntil: quote.validUntil || '-',
-        }))))
-    }).catch(() => setLiveEstimates(null))
-  }, [])
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase()
-    const source: EstimateWithStatus[] = liveEstimates ?? contractorSentEstimates.map((estimate) => ({ estimate, status: estimateLifecycleStatus, validUntil: estimateValidUntil }))
+    const source: EstimateWithStatus[] = contractorSentEstimates.map((estimate) => ({ estimate, status: estimateLifecycleStatus, validUntil: estimateValidUntil }))
     return source.filter(({ estimate, status }) => {
       const haystack = [estimate.estimateId, estimate.requestId, estimate.customerName, estimate.region].join(' ').toLowerCase()
       return (!normalized || haystack.includes(normalized)) && matchesFilter(filter, status)
     })
-  }, [estimateLifecycleStatus, estimateValidUntil, filter, liveEstimates, query])
+  }, [estimateLifecycleStatus, estimateValidUntil, filter, query])
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">

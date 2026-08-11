@@ -85,10 +85,7 @@ public class AnalysisJob extends BaseTimeEntity {
 	private Long estimatedQuoteMax;
 
 	// ⭐ [Figma 반영] "ROI 요약" 카드. 현재 월세는 Property.currentMonthlyRent를 그대로 참조해서 쓰고(중복 저장 안 함),
-	// 여기서는 AI가 계산한 예상 상승분/회수기간만 보관합니다.
-	// ⭐ [고도화] 이 두 필드는 "확정값"입니다 - completeWith()(ML 콜백)이 먼저 채울 수도 있지만, 시공사 견적이
-	// 수락되면 RentalValueCalculator가 실제 확정 견적금액으로 다시 계산해 더 정확한 값으로 덮어씁니다
-	// (ContractorQuoteService.accept() 참고).
+	// 여기서는 ML 콜백(completeWith())이 채워주는 예상 상승분/회수기간만 보관합니다.
 	@Column(name = "expected_rent_increase_min")
 	private Long expectedRentIncreaseMin;
 
@@ -100,27 +97,6 @@ public class AnalysisJob extends BaseTimeEntity {
 
 	@Column(name = "payback_period_months_max")
 	private Integer paybackPeriodMonthsMax;
-
-	// ⭐ [고도화] 확정 전세가치 상승분(원). RentalValueCalculator가 시공사 견적 수락 시점에 채웁니다.
-	@Column(name = "deposit_increase_min")
-	private Long depositIncreaseMin;
-
-	@Column(name = "deposit_increase_max")
-	private Long depositIncreaseMax;
-
-	// ⭐ [고도화] 예비값 - 시공사 매칭/견적 전, 임대인이 입력한 희망예산(QuoteRequest.budgetMax)을 인테리어비용으로
-	// 임시 사용해 미리 계산한 값입니다(임대인 화면용). 시공사 견적이 수락되면 위 확정 필드가 실제 금액으로 채워집니다.
-	@Column(name = "preliminary_deposit_increase_min")
-	private Long preliminaryDepositIncreaseMin;
-
-	@Column(name = "preliminary_deposit_increase_max")
-	private Long preliminaryDepositIncreaseMax;
-
-	@Column(name = "preliminary_rent_increase_min")
-	private Long preliminaryRentIncreaseMin;
-
-	@Column(name = "preliminary_rent_increase_max")
-	private Long preliminaryRentIncreaseMax;
 
 	// ⭐ [프론트 연동] "공간 정보 확인" 화면 - 층고는 공간별이 아니라 매물 전체 기준 단일 값으로 요청받았습니다.
 	@Column(name = "ceiling_height_m")
@@ -188,23 +164,5 @@ public class AnalysisJob extends BaseTimeEntity {
 
 	public void updateMatchingScore(int matchingScore) {
 		this.matchingScore = matchingScore;
-	}
-
-	// ⭐ [고도화] 시공사 매칭 전 예비 임대가치 상승분 반영 (AnalysisJobService.requestAnalysis 참고)
-	public void applyPreliminaryRentalValue(Long depositIncreaseMin, Long depositIncreaseMax, Long rentIncreaseMin,
-			Long rentIncreaseMax) {
-		this.preliminaryDepositIncreaseMin = depositIncreaseMin;
-		this.preliminaryDepositIncreaseMax = depositIncreaseMax;
-		this.preliminaryRentIncreaseMin = rentIncreaseMin;
-		this.preliminaryRentIncreaseMax = rentIncreaseMax;
-	}
-
-	// ⭐ [고도화] 시공사 견적 수락 시점의 확정 임대가치 상승분 반영 (ContractorQuoteService.accept 참고)
-	public void applyConfirmedRentalValue(Long depositIncreaseMin, Long depositIncreaseMax, Long rentIncreaseMin,
-			Long rentIncreaseMax) {
-		this.depositIncreaseMin = depositIncreaseMin;
-		this.depositIncreaseMax = depositIncreaseMax;
-		this.expectedRentIncreaseMin = rentIncreaseMin;
-		this.expectedRentIncreaseMax = rentIncreaseMax;
 	}
 }

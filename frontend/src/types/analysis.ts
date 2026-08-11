@@ -37,7 +37,16 @@ export interface AnalysisSpaceInput {
   selectedForConstruction: boolean
 }
 
-export interface AnalysisSpaceResponse extends AnalysisSpaceInput { id?: number }
+export interface AnalysisSpaceResponse extends AnalysisSpaceInput { id?: number; sortOrder?: number }
+
+export interface AnalysisJobEditInput {
+  roomCount?: number
+  bathroomCount?: number
+  hasBalcony?: boolean
+  kitchenType?: string
+  exclusiveAreaM2?: number
+  ceilingHeightM?: number
+}
 
 export interface RecommendedProduct {
   productId: number

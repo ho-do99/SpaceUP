@@ -12,6 +12,7 @@ public record ProjectResponse(
 		Long quoteId,
 		String requestCode,
 		String customerName,
+		Long contractorId,
 		String contractorName,
 		String address,
 		ProjectStatus status,
@@ -26,7 +27,8 @@ public record ProjectResponse(
 	public ProjectResponse(ContractorProject project) {
 		this(project.getId(), project.getRequest().getId(), project.getQuote().getId(),
 				project.getRequest().getRequestCode(), project.getRequest().getOwner().getName(),
-				project.getRequest().getContractor().getName(), project.getRequest().getProperty().getRegion(),
+				project.getRequest().getContractor().getId(), project.getRequest().getContractor().getName(),
+				project.getRequest().getProperty().getRegion(),
 				project.getStatus(), project.getContractDate(), project.getContractAmount(), project.getStartDate(),
 				project.getCompletionDate(), project.getConstructionItems(), project.getCustomerRequest(),
 				project.getChecklist().stream().map(ProjectChecklistItemResponse::new).toList());
