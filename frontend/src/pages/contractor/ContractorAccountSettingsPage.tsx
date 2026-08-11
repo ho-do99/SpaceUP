@@ -1,9 +1,13 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorEmailChangeDialog from '@/components/contractor/ContractorEmailChangeDialog'
+import { MemberPasswordChangeDialog, MemberPhoneChangeDialog } from '@/components/member/MemberAccountChangeDialogs'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
+import { confirmEmailVerificationCode, getMember, sendEmailVerificationCode, updateMember, updateMyPassword, updateMyPhoneNumber } from '@/api/memberApi'
+import { getMemberId } from '@/utils/authSession'
 
 interface AccountInformationRowProps {
   label: string
@@ -51,6 +55,9 @@ export default function ContractorAccountSettingsPage() {
   const [loginEmail, setLoginEmail] = useState(
     'contractor@spaceup.co.kr',
   )
+  const [phoneNumber, setPhoneNumber] = useState('010-1234-5678')
+  const [memberName, setMemberName] = useState('')
+  const [accountError, setAccountError] = useState('')
   const [newDeviceLoginAlert, setNewDeviceLoginAlert] =
     useState(true)
   const [showSavedMessage, setShowSavedMessage] = useState(false)
@@ -58,23 +65,63 @@ export default function ContractorAccountSettingsPage() {
     useState(false)
   const [isEmailDialogOpen, setIsEmailDialogOpen] =
     useState(false)
+  const [isPhoneDialogOpen, setIsPhoneDialogOpen] = useState(false)
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
+  const [accountSuccessMessage, setAccountSuccessMessage] = useState('')
 
   const handleCloseEmailDialog = useCallback(() => {
     setIsEmailDialogOpen(false)
   }, [])
 
-  const handleEmailChangeComplete = useCallback(
-    (email: string) => {
-      setLoginEmail(email)
-      setShowEmailChangedMessage(true)
-      setShowSavedMessage(false)
+  useEffect(() => {
+    const memberId = getMemberId()
+    if (!memberId) {
+      setAccountError('로그인 정보가 없습니다.')
+      return
+    }
+
+    getMember(memberId).then((member) => {
+      setLoginEmail(member.email)
+      setPhoneNumber(member.phoneNumber)
+      setMemberName(member.name)
+    }).catch((error) => {
+      setAccountError(error instanceof Error ? error.message : '계정 정보를 불러오지 못했습니다.')
+    })
+  }, [])
+
+  const handleEmailCodeRequest = useCallback(
+    async (email: string) => {
+      const memberId = getMemberId()
+      if (!memberId || !memberName) throw new Error('회원 정보를 확인할 수 없습니다.')
+      await updateMember(memberId, { email, name: memberName })
+      await sendEmailVerificationCode()
     },
-    [],
+    [memberName],
   )
+
+  const handleEmailChangeComplete = useCallback(async (email: string, code: string) => {
+    await confirmEmailVerificationCode(code)
+    setLoginEmail(email)
+    setShowEmailChangedMessage(true)
+  }, [])
 
   const handleToggleNewDeviceAlert = () => {
     setNewDeviceLoginAlert((current) => !current)
     setShowSavedMessage(false)
+  }
+
+  const handlePhoneChange = async (nextPhoneNumber: string) => {
+    const memberId = getMemberId()
+    if (!memberId) throw new Error('회원 정보를 확인할 수 없습니다.')
+    await updateMyPhoneNumber(nextPhoneNumber)
+    const member = await getMember(memberId)
+    setPhoneNumber(member.phoneNumber)
+    setAccountSuccessMessage('휴대폰 번호가 변경되었습니다.')
+  }
+
+  const handlePasswordChange = async (input: { currentPassword: string; newPassword: string }) => {
+    await updateMyPassword(input)
+    setAccountSuccessMessage('비밀번호가 변경되었습니다.')
   }
 
   return (
@@ -102,7 +149,9 @@ export default function ContractorAccountSettingsPage() {
 
           <AccountInformationRow
             label="휴대폰 번호"
-            value="010-1234-5678"
+            value={phoneNumber}
+            actionLabel="변경"
+            onAction={() => { setAccountSuccessMessage(''); setIsPhoneDialogOpen(true) }}
           />
 
           <div className="mt-2 flex items-center gap-2 rounded-lg bg-[#f0fdf4] px-3 py-2">
@@ -125,6 +174,8 @@ export default function ContractorAccountSettingsPage() {
           </div>
         </ContractorSectionCard>
 
+        {accountError ? <p role="alert" className="mt-3 text-xs font-semibold text-[#dc2626]">{accountError}</p> : null}
+
         <ContractorSectionCard
           className="mt-3"
           title="비밀번호"
@@ -142,9 +193,8 @@ export default function ContractorAccountSettingsPage() {
 
             <button
               type="button"
-              disabled
-              aria-disabled="true"
-              className="shrink-0 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-[11px] font-bold text-[#94a3b8] disabled:cursor-not-allowed"
+              onClick={() => { setAccountSuccessMessage(''); setIsPasswordDialogOpen(true) }}
+              className="shrink-0 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-[11px] font-bold text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
             >
               변경
             </button>
@@ -239,14 +289,12 @@ export default function ContractorAccountSettingsPage() {
           로그아웃
         </button>
 
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          className="mt-3 h-12 w-full rounded-lg border border-[#e5484d] bg-white text-sm font-bold text-[#e5484d] disabled:cursor-not-allowed disabled:opacity-70"
+        <Link
+          to="/contractor/settings/withdrawal"
+          className="mt-3 flex h-12 w-full items-center justify-center rounded-lg border border-[#e5484d] bg-white text-sm font-bold text-[#e5484d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5484d]"
         >
           회원 탈퇴
-        </button>
+        </Link>
       </main>
 
       <ContractorBottomNavigation />
@@ -272,12 +320,23 @@ export default function ContractorAccountSettingsPage() {
         </div>
       ) : null}
 
+      {accountSuccessMessage ? (
+        <div role="status" aria-live="polite" className="absolute bottom-[76px] left-4 right-4 z-40 flex min-h-12 items-center justify-between gap-3 rounded-xl bg-[#1e293b] px-4 py-3 shadow-lg">
+          <p className="text-xs font-semibold text-white">{accountSuccessMessage}</p>
+          <button type="button" aria-label="계정 변경 완료 안내 닫기" onClick={() => setAccountSuccessMessage('')} className="shrink-0 rounded-md px-2 py-1 text-xs font-bold text-white">닫기</button>
+        </div>
+      ) : null}
+
       <ContractorEmailChangeDialog
         isOpen={isEmailDialogOpen}
         currentEmail={loginEmail}
         onClose={handleCloseEmailDialog}
-        onComplete={handleEmailChangeComplete}
+        onRequestCode={handleEmailCodeRequest}
+        onConfirm={handleEmailChangeComplete}
+        onResendCode={sendEmailVerificationCode}
       />
+      <MemberPhoneChangeDialog open={isPhoneDialogOpen} onClose={() => setIsPhoneDialogOpen(false)} onSubmit={handlePhoneChange} />
+      <MemberPasswordChangeDialog open={isPasswordDialogOpen} onClose={() => setIsPasswordDialogOpen(false)} onSubmit={handlePasswordChange} />
     </ContractorMobileShell>
   )
 }

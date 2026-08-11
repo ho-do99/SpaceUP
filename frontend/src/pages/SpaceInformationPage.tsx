@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import floorPlanPreview from '@/assets/user/images/floor-plan-preview.png'
@@ -14,6 +14,9 @@ import {
   analyzedSpaceSummary,
   type SpaceOptionId,
 } from '@/mocks/analysisSpaces'
+import { getAnalysis, getAnalysisSpaces, replaceAnalysisSpaces, updateAnalysis } from '@/api/analysisApi'
+import { getActiveRequestId } from '@/utils/requestFlow'
+import type { AnalysisSpaceInput, AnalysisSpaceResponse } from '@/types/analysis'
 
 const initialCeilingHeight =
   analyzedSpaceSummary
@@ -46,6 +49,29 @@ export default function SpaceInformationPage() {
 
   const [isEditingCeilingHeight, setIsEditingCeilingHeight] =
     useState(false)
+  const [spaces, setSpaces] = useState<AnalysisSpaceResponse[]>([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [apiError, setApiError] = useState('')
+
+  useEffect(() => {
+    const requestId = getActiveRequestId()
+    if (!requestId) return
+    let active = true
+    setLoading(true)
+    Promise.all([getAnalysis(requestId), getAnalysisSpaces(requestId)])
+      .then(([analysis, liveSpaces]) => {
+        if (!active) return
+        setSpaces(liveSpaces)
+        setSelectedSpaceIds(new Set(analyzedSpaceOptions
+          .filter((option) => liveSpaces.some((space) => space.spaceName === option.name && space.selectedForConstruction))
+          .map((option) => option.id)))
+        if (analysis.ceilingHeightM != null) setCeilingHeight(String(analysis.ceilingHeightM))
+      })
+      .catch((error) => { if (active) setApiError(error instanceof Error ? error.message : '공간 정보를 불러오지 못했습니다.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
 
   const canContinue = selectedSpaceIds.size > 0
 
@@ -63,7 +89,7 @@ export default function SpaceInformationPage() {
     })
   }
 
-  const handleSubmit = (
+  const handleSubmit = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault()
@@ -76,7 +102,35 @@ export default function SpaceInformationPage() {
      * 현재는 UI 수정 단계이므로
      * 별도 백엔드 요청 없이 다음 스타일 선택 화면으로 이동합니다.
      */
-    navigate('/analysis/style')
+    const requestId = getActiveRequestId()
+    if (!requestId) {
+      navigate('/analysis/style')
+      return
+    }
+
+    setSaving(true)
+    setApiError('')
+    try {
+      const sourceSpaces: AnalysisSpaceInput[] = spaces.length ? spaces : analyzedSpaceOptions.map((option) => ({
+        spaceName: option.name,
+        selectedForConstruction: selectedSpaceIds.has(option.id),
+      }))
+      await Promise.all([
+        replaceAnalysisSpaces(requestId, sourceSpaces.map((space) => ({
+          spaceName: space.spaceName,
+          spaceAreaM2: space.spaceAreaM2,
+          floorAreaM2: space.floorAreaM2,
+          wallpaperAreaM2: space.wallpaperAreaM2,
+          selectedForConstruction: analyzedSpaceOptions.some((option) => option.name === space.spaceName && selectedSpaceIds.has(option.id)),
+        }))),
+        updateAnalysis(requestId, { ceilingHeightM: Number(ceilingHeight) }),
+      ])
+      navigate('/analysis/style')
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : '공간 정보 저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -245,20 +299,21 @@ export default function SpaceInformationPage() {
               </p>
             ) : null}
           </fieldset>
+          {apiError ? <p role="alert" className="mx-[5px] mt-3 text-[11px] font-semibold text-[#dc2626]">{apiError}</p> : null}
         </main>
 
         {/* 하단 고정 버튼 */}
         <footer className="shrink-0 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
           <Button
             type="submit"
-            disabled={!canContinue}
+            disabled={!canContinue || loading || saving}
             className={`h-12 w-full !rounded-[5px] !border !px-4 !py-0 !text-[12px] !font-bold !shadow-none hover:!translate-y-0 hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] ${
               canContinue
                 ? '!border-[#2563eb] !bg-[#2563eb] hover:!bg-[#2563eb]'
                 : '!border-[#cbd5e1] !bg-[#cbd5e1] !opacity-100'
             }`}
           >
-            다음
+            {saving ? '저장 중...' : '다음'}
           </Button>
         </footer>
       </form>

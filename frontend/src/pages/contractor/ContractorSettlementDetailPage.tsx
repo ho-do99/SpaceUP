@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
@@ -8,10 +9,31 @@ import ContractorSectionCard from '@/components/contractor/ContractorSectionCard
 import ContractorSettlementStatusBadge from '@/components/contractor/ContractorSettlementStatusBadge'
 import { findContractorSettlement } from '@/mocks/contractorPortalMockData'
 import ContractorSettlementNotFound from './ContractorSettlementNotFound'
+import { getSettlement } from '@/api/settlementApi'
+import type { ContractorSettlement } from '@/types/contractorPortal'
 
 export default function ContractorSettlementDetailPage() {
   const { settlementId } = useParams()
-  const settlement = findContractorSettlement(settlementId)
+  const numericId = Number(settlementId)
+  const isNumeric = Number.isInteger(numericId) && numericId > 0
+  const [liveSettlement, setLiveSettlement] = useState<ContractorSettlement | null>(null)
+  const [loading, setLoading] = useState(isNumeric)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    if (!isNumeric) return
+    let active = true
+    getSettlement(numericId).then((item) => {
+      if (!active) return
+      setLiveSettlement({ settlementId: String(item.id), projectName: item.transactionCode, customerName: item.partnerName, contractorName: item.partnerName,
+        status: item.status === 'SETTLED' ? 'PAID' : 'SCHEDULED',
+        breakdown: { customerPaymentAmount: item.transactionAmount, platformFeeRate: item.transactionAmount ? (item.commissionAmount / item.transactionAmount) * 100 : 0, platformFeeAmount: item.commissionAmount, settlementAmount: item.payoutAmount },
+        statement: { bankName: '-', maskedAccountNumber: '-', taxInvoiceStatus: '-' } })
+    }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : '정산 내역을 불러오지 못했습니다.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [isNumeric, numericId])
+  const settlement = isNumeric ? liveSettlement : findContractorSettlement(settlementId)
+  if (loading || error) return <ContractorMobileShell innerClassName="h-dvh min-h-0"><ContractorAppBar title="정산 상세" back /><main className="flex flex-1 items-center justify-center px-6"><p role={error ? 'alert' : 'status'} className={`text-xs ${error ? 'text-[#dc2626]' : 'text-[#64748b]'}`}>{error || '정산 내역을 불러오는 중입니다.'}</p></main></ContractorMobileShell>
   if (!settlement) return <ContractorSettlementNotFound />
 
   const dateLabel = settlement.status === 'PAID' ? '지급 완료일' : settlement.status === 'ON_HOLD' ? '보류 발생일' : '지급 예정일'

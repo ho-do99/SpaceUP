@@ -3,6 +3,7 @@ import { unwrapApiResponse } from './apiResponse'
 import type { ApiResponse } from '@/types/api'
 import type {
   AnalysisJobResponse,
+  AnalysisJobEditInput,
   AnalysisSpaceInput,
   AnalysisSpaceResponse,
   InteriorImageGenerateInput,
@@ -17,6 +18,13 @@ export async function getAnalysis(requestId: number) {
     method: 'GET', url: `/api/analysis/request/${requestId}`, authenticated: true,
   })
   return unwrapApiResponse<AnalysisJobResponse>(response, '분석 조회에 실패했습니다.')
+}
+
+export async function updateAnalysis(requestId: number, input: AnalysisJobEditInput) {
+  const response = await apiRequest<ApiResponse<null>, AnalysisJobEditInput>({
+    method: 'PATCH', url: `/api/analysis/request/${requestId}`, data: input, authenticated: true,
+  })
+  if (!response.success) throw new ApiClientError(response.message || '분석 정보 수정에 실패했습니다.', 'business')
 }
 
 export async function scanFloorPlan(requestId: number, file: File) {

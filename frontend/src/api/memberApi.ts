@@ -4,6 +4,7 @@ import {
 } from '@/api/axiosInstance'
 import type { ApiResponse } from '@/types/api'
 import type { MemberResponse } from '@/types/member'
+import { unwrapEmptyApiResponse } from '@/api/apiResponse'
 
 /**
  * 로그인한 회원의 회원번호로 회원정보를 조회합니다.
@@ -41,4 +42,77 @@ export async function getMember(
   }
 
   return response.data
+}
+
+export async function deleteMember(memberId: number): Promise<void> {
+  if (!Number.isInteger(memberId) || memberId <= 0) {
+    throw new ApiClientError(
+      '회원 번호가 올바르지 않습니다.',
+      'invalid-response',
+    )
+  }
+
+  const response = await apiRequest<ApiResponse<null>>({
+    method: 'DELETE',
+    url: `/api/member/${memberId}`,
+    authenticated: true,
+  })
+
+  unwrapEmptyApiResponse(response, '회원탈퇴에 실패했습니다.')
+}
+
+export async function updateMember(
+  memberId: number,
+  input: { email: string; name: string },
+): Promise<void> {
+  if (!Number.isInteger(memberId) || memberId <= 0) {
+    throw new ApiClientError('회원 번호가 올바르지 않습니다.', 'invalid-response')
+  }
+
+  const response = await apiRequest<ApiResponse<null>, { email: string; name: string }>({
+    method: 'PUT',
+    url: `/api/member/${memberId}`,
+    data: input,
+    authenticated: true,
+  })
+  unwrapEmptyApiResponse(response, '회원정보 수정에 실패했습니다.')
+}
+
+export async function sendEmailVerificationCode(): Promise<void> {
+  const response = await apiRequest<ApiResponse<unknown>>({
+    method: 'POST',
+    url: '/api/member/me/email/verify-code/send',
+    authenticated: true,
+  })
+  unwrapEmptyApiResponse(response, '이메일 인증번호 발송에 실패했습니다.')
+}
+
+export async function confirmEmailVerificationCode(code: string): Promise<void> {
+  const response = await apiRequest<ApiResponse<unknown>, { code: string }>({
+    method: 'POST',
+    url: '/api/member/me/email/verify-code/confirm',
+    data: { code },
+    authenticated: true,
+  })
+  unwrapEmptyApiResponse(response, '이메일 인증에 실패했습니다.')
+}
+
+export async function updateMyPhoneNumber(phoneNumber: string): Promise<void> {
+  const response = await apiRequest<ApiResponse<null>, { phoneNumber: string }>({
+    method: 'PATCH',
+    url: '/api/member/me/phone',
+    data: { phoneNumber },
+    authenticated: true,
+  })
+  unwrapEmptyApiResponse(response, '휴대폰 번호 변경에 실패했습니다.')
+}
+
+export async function updateMyPassword(input: { currentPassword: string; newPassword: string }): Promise<void> {
+  const response = await apiRequest<ApiResponse<null>, { currentPassword: string; newPassword: string }>({
+    method: 'PATCH',
+    url: '/api/member/me/password',
+    data: input,
+    authenticated: true,
+  })
+  unwrapEmptyApiResponse(response, '비밀번호 변경에 실패했습니다.')
 }

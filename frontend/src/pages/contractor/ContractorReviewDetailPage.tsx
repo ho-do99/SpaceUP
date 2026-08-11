@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
@@ -5,10 +6,31 @@ import ContractorReviewStars from '@/components/contractor/ContractorReviewStars
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
 import { findContractorReview } from '@/mocks/contractorPortalMockData'
 import ContractorReviewNotFound from './ContractorReviewNotFound'
+import { getReview } from '@/api/reviewApi'
+import type { ContractorReview } from '@/types/contractorPortal'
+
+const keywordLabels = { SCHEDULE_KEPT: '일정을 잘 지켰어요', CLEAN_FINISH: '마감이 깔끔해요', DETAILED_CONSULT: '상담이 자세해요', FAST_COMMUNICATION: '소통이 빨라요' } as const
 
 export default function ContractorReviewDetailPage() {
   const { reviewId } = useParams()
-  const review = findContractorReview(reviewId)
+  const numericId = Number(reviewId)
+  const isNumeric = Number.isInteger(numericId) && numericId > 0
+  const [liveReview, setLiveReview] = useState<ContractorReview | null>(null)
+  const [loading, setLoading] = useState(isNumeric)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    if (!isNumeric) return
+    let active = true
+    getReview(numericId).then((value) => {
+      if (!active) return
+      const rating = Math.min(5, Math.max(1, value.rating)) as 1 | 2 | 3 | 4 | 5
+      setLiveReview({ reviewId: String(value.id), userName: value.reviewerName, rating, createdAt: value.createdAt.slice(0, 10), projectName: `의뢰 #${value.requestId}`, projectStatusLabel: '시공 완료', constructionItem: '리모델링', completedAt: value.createdAt.slice(0, 10), satisfactionLabel: `${rating}점`, content: value.content, excerpt: value.content, keywords: value.keywords.map((keyword) => keywordLabels[keyword as keyof typeof keywordLabels]).filter(Boolean) as ContractorReview['keywords'] })
+    }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : '리뷰를 불러오지 못했습니다.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [isNumeric, numericId])
+  const review = isNumeric ? liveReview : findContractorReview(reviewId)
+  if (loading || error) return <ContractorMobileShell innerClassName="h-dvh min-h-0"><ContractorAppBar title="리뷰 상세" back /><main className="flex flex-1 items-center justify-center px-6"><p role={error ? 'alert' : 'status'} className={`text-xs ${error ? 'text-[#dc2626]' : 'text-[#64748b]'}`}>{error || '리뷰를 불러오는 중입니다.'}</p></main></ContractorMobileShell>
   if (!review) return <ContractorReviewNotFound />
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">

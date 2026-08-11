@@ -20,6 +20,7 @@ import ContractorVisitStatusTabs from '@/components/contractor/ContractorVisitSt
 import useContractorPortalFlow from '@/components/contractor/useContractorPortalFlow'
 import {
   contractorDefaultVisitSchedule,
+  findContractorProjectByRequestId,
   findContractorRequestDetail,
 } from '@/mocks/contractorPortalMockData'
 import type {
@@ -42,6 +43,7 @@ export default function ContractorVisitPage() {
   const liveRequest = useContractorRequest(requestId)
   const isLive = /^\d+$/.test(requestId ?? '')
   const request = isLive ? liveRequest.request : findContractorRequestDetail(requestId)
+  const linkedProject = findContractorProjectByRequestId(requestId)
   const [liveVisit, setLiveVisit] = useState<SiteVisit | null>(null)
 
   const {
@@ -90,10 +92,25 @@ export default function ContractorVisitPage() {
   const isCompletedView =
     searchParams.get('mode') === 'completed'
 
+  const projectVisitSchedule: ContractorVisitSchedule | null =
+    linkedProject?.status === 'VISIT_SCHEDULED' &&
+    linkedProject.schedule.visitDate &&
+    linkedProject.schedule.visitTime
+      ? {
+          date: linkedProject.schedule.visitDate,
+          time: linkedProject.schedule.visitTime,
+          address: request.property.address,
+          managerName: linkedProject.managerName,
+          note: '',
+        }
+      : null
+
   const effectiveVisitStatus: ContractorVisitStatus =
     isCompletedView
       ? 'COMPLETED'
-      : (liveVisit?.status as ContractorVisitStatus | undefined) ?? visitStatus
+      : projectVisitSchedule
+        ? 'SCHEDULED'
+        : (liveVisit?.status as ContractorVisitStatus | undefined) ?? visitStatus
 
   const completedPreviewSchedule: ContractorVisitSchedule =
     {
@@ -113,7 +130,7 @@ export default function ContractorVisitPage() {
     address: liveVisit.address || request.property.address,
     managerName: liveVisit.managerName || '',
     note: liveVisit.note || '',
-    completedAt: liveVisit.completedAt,
+    completedAt: liveVisit.completedAt ?? undefined,
   } : null
 
   const currentSchedule =
@@ -121,7 +138,7 @@ export default function ContractorVisitPage() {
       ? (liveSchedule?.completedAt || visitSchedule?.completedAt)
         ? (liveSchedule ?? visitSchedule!)
         : completedPreviewSchedule
-      : liveSchedule ?? visitSchedule ??
+      : liveSchedule ?? projectVisitSchedule ?? visitSchedule ??
         contractorDefaultVisitSchedule
 
   const register = async (

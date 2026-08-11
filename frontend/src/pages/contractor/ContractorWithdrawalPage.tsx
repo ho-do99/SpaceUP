@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import ContractorWithdrawalConfirmDialog from '@/components/contractor/ContractorWithdrawalConfirmDialog'
+import { deleteMember } from '@/api/memberApi'
+import { clearAuthSession, getMemberId } from '@/utils/authSession'
 
 const withdrawalReasons = [
   '더 이상 서비스를 이용하지 않아요',
@@ -68,6 +70,12 @@ export default function ContractorWithdrawalPage() {
   const [dialogOpen, setDialogOpen] =
     useState(false)
 
+  const [isSubmitting, setIsSubmitting] =
+    useState(false)
+
+  const [submitError, setSubmitError] =
+    useState('')
+
   useEffect(() => {
     const previousBodyOverflow =
       document.body.style.overflow
@@ -95,7 +103,8 @@ export default function ContractorWithdrawalPage() {
 
   const isWithdrawalDisabled =
     currentPassword.trim().length === 0 ||
-    !agreed
+    !agreed ||
+    isSubmitting
 
   const handleReasonSelect = (
     reason: WithdrawalReason,
@@ -113,12 +122,34 @@ export default function ContractorWithdrawalPage() {
     })
   }
 
-  const handleConfirmWithdrawal = () => {
-    setDialogOpen(false)
+  const handleConfirmWithdrawal = async () => {
+    if (isSubmitting) return
 
-    navigate(
-      '/contractor/settings/withdrawal/completed',
-    )
+    const memberId = getMemberId()
+    if (!memberId) {
+      setDialogOpen(false)
+      setSubmitError('로그인이 만료되었습니다. 다시 로그인해 주세요.')
+      return
+    }
+
+    setIsSubmitting(true)
+    setSubmitError('')
+
+    try {
+      await deleteMember(memberId)
+      clearAuthSession()
+      setDialogOpen(false)
+      navigate('/contractor/settings/withdrawal/completed')
+    } catch (error) {
+      setDialogOpen(false)
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : '회원탈퇴에 실패했습니다.',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -369,13 +400,18 @@ export default function ContractorWithdrawalPage() {
       </main>
 
       <footer className="absolute bottom-0 left-0 right-0 z-20 h-[67px] border-t border-[#e2e8f0] bg-white px-4 pt-[9px]">
+        {submitError ? (
+          <p role="alert" className="absolute bottom-full left-4 right-4 mb-2 rounded-lg bg-[#fef2f2] px-3 py-2 text-xs font-semibold text-[#b91c1c]">
+            {submitError}
+          </p>
+        ) : null}
         <button
           type="button"
           disabled={isWithdrawalDisabled}
           onClick={() => setDialogOpen(true)}
           className="h-12 w-full rounded-[10px] bg-[#ef4444] text-[15px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#dc2626] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          회원탈퇴
+          {isSubmitting ? '처리 중...' : '회원탈퇴'}
         </button>
       </footer>
 

@@ -26,6 +26,7 @@ import com.spaceup.domain.member.entity.MemberApprovalStatus;
 import com.spaceup.domain.member.entity.MemberRole;
 import com.spaceup.domain.member.repository.MemberRepository;
 import com.spaceup.global.error.DuplicateMemberException;
+import com.spaceup.global.error.InvalidPasswordException;
 import com.spaceup.global.error.InvalidRoleException;
 import com.spaceup.global.error.InvalidStatusTransitionException;
 import com.spaceup.global.error.InvalidVerificationCodeException;
@@ -139,6 +140,17 @@ public class MemberService {
 		member.updatePhoneNumber(phoneNumber);
 	}
 
+	// ⭐ [Figma 반영] 마이페이지 - 계정설정의 비밀번호 변경. 현재 비밀번호를 먼저 확인한 뒤에만 변경을 허용합니다.
+	@Transactional
+	public void updatePassword(Long memberId, String currentPassword, String newPassword) {
+		Member member = memberRepository.findById(memberId)
+				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원 번호입니다: " + memberId));
+		if (!passwordEncoder.matches(currentPassword, member.getPassword())) {
+			throw new InvalidPasswordException("현재 비밀번호가 일치하지 않습니다.");
+		}
+		member.changePassword(passwordEncoder.encode(newPassword));
+	}
+
 	// ⭐ [Figma 반영] "보완 요청" 화면의 "보완 자료 재제출" 버튼 - 본인만 가능, NEEDS_REVISION 상태에서만 허용
 	@Transactional
 	public void resubmit(Long memberId) {
@@ -248,6 +260,28 @@ public class MemberService {
 		Member member = memberRepository.findById(memberId)
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원 번호입니다: " + memberId));
 		if (!member.verifyCode(code)) {
+			throw new InvalidVerificationCodeException("인증코드가 올바르지 않거나 만료되었습니다.");
+		}
+	}
+
+	// ⭐ [이메일 인증, 목업] 휴대폰 인증과 동일한 패턴. 실제 이메일 발송 연동 전까지는 발급한 코드값을 응답에
+	// 그대로 실어 보냅니다.
+	// TODO: 실제 이메일 발송은 외부 메일 발송 서비스(예: NCP Cloud Outbound Mailer, SES) 연동이 필요합니다.
+	@Transactional
+	public String sendEmailVerificationCode(Long memberId) {
+		Member member = memberRepository.findById(memberId)
+				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원 번호입니다: " + memberId));
+		String code = String.format("%06d", secureRandom.nextInt(1_000_000));
+		member.issueEmailVerificationCode(code, LocalDateTime.now().plusMinutes(VERIFICATION_CODE_TTL_MINUTES));
+		return code;
+	}
+
+	// ⭐ [이메일 인증, 목업] 발급된 코드와 대조해 일치하면 emailVerified=true로 전환합니다.
+	@Transactional
+	public void confirmEmailVerification(Long memberId, String code) {
+		Member member = memberRepository.findById(memberId)
+				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원 번호입니다: " + memberId));
+		if (!member.verifyEmailCode(code)) {
 			throw new InvalidVerificationCodeException("인증코드가 올바르지 않거나 만료되었습니다.");
 		}
 	}
