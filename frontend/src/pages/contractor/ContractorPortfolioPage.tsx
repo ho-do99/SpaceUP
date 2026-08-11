@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { deletePortfolio, getMyPortfolios } from '@/api/portfolioApi'
+import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
 
 interface PortfolioItem {
   id: string
@@ -16,6 +18,7 @@ interface PortfolioItem {
   propertyType: string
   area: string
   visibility: '공개' | '비공개'
+  imageUrl?: string
 }
 
 interface DeleteDialogProps {
@@ -23,25 +26,6 @@ interface DeleteDialogProps {
   onCancel: () => void
   onConfirm: () => void
 }
-
-const INITIAL_PORTFOLIOS: PortfolioItem[] = [
-  {
-    id: 'portfolio-1',
-    title: '성수 오피스텔 리모델링',
-    location: '서울 성동구',
-    propertyType: '오피스텔',
-    area: '33㎡',
-    visibility: '공개',
-  },
-  {
-    id: 'portfolio-2',
-    title: '광주 아파트 거실 리모델링',
-    location: '광주 북구',
-    propertyType: '아파트',
-    area: '84㎡',
-    visibility: '공개',
-  },
-]
 
 function PortfolioDeleteDialog({
   portfolio,
@@ -190,27 +174,39 @@ export default function ContractorPortfolioPage() {
   const navigate = useNavigate()
 
   const [portfolios, setPortfolios] =
-    useState<PortfolioItem[]>(INITIAL_PORTFOLIOS)
+    useState<PortfolioItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    getMyPortfolios().then((items) => {
+      if (!active) return
+      setPortfolios(items.map((item) => ({ id: String(item.id), title: item.projectName, location: item.region, propertyType: item.propertyType, area: `${item.areaM2}㎡`, visibility: item.isPublic ? '공개' : '비공개', imageUrl: resolveApiAssetUrl(item.mainImageUrl) || undefined })))
+    }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : '포트폴리오를 불러오지 못했습니다.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
 
   const [
     portfolioPendingDeletion,
     setPortfolioPendingDeletion,
   ] = useState<PortfolioItem | null>(null)
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!portfolioPendingDeletion) {
       return
     }
 
-    setPortfolios((current) =>
-      current.filter(
-        (portfolio) =>
-          portfolio.id !==
-          portfolioPendingDeletion.id,
-      ),
-    )
-
-    setPortfolioPendingDeletion(null)
+    const id = Number(portfolioPendingDeletion.id)
+    if (!Number.isInteger(id)) return
+    try {
+      await deletePortfolio(id)
+      setPortfolios((current) => current.filter((portfolio) => portfolio.id !== portfolioPendingDeletion.id))
+      setPortfolioPendingDeletion(null)
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : '포트폴리오 삭제에 실패했습니다.')
+    }
   }
 
   return (
@@ -232,7 +228,7 @@ export default function ContractorPortfolioPage() {
             </p>
 
             <p className="mt-1 text-xl font-bold text-[#1e293b]">
-              12건
+              {portfolios.length}건
             </p>
           </div>
 
@@ -242,7 +238,7 @@ export default function ContractorPortfolioPage() {
             </p>
 
             <p className="mt-1 text-xl font-bold text-[#2563eb]">
-              10건
+              {portfolios.filter((item) => item.visibility === '공개').length}건
             </p>
           </div>
 
@@ -252,7 +248,7 @@ export default function ContractorPortfolioPage() {
             </p>
 
             <p className="mt-1 text-xl font-bold text-[#64748b]">
-              2건
+              {portfolios.filter((item) => item.visibility === '비공개').length}건
             </p>
           </div>
         </section>
@@ -267,9 +263,7 @@ export default function ContractorPortfolioPage() {
               className="rounded-xl border border-[#e2e8f0] bg-white p-[13px]"
             >
               <div className="flex gap-[14px]">
-                <div className="flex h-24 w-28 shrink-0 items-center justify-center rounded-[10px] bg-[#eff6ff] text-xs font-bold text-[#2563eb]">
-                  IMAGE
-                </div>
+                {portfolio.imageUrl ? <img src={portfolio.imageUrl} alt="" className="h-24 w-28 shrink-0 rounded-[10px] object-cover" /> : <div className="flex h-24 w-28 shrink-0 items-center justify-center rounded-[10px] bg-[#eff6ff] text-xs font-bold text-[#2563eb]">IMAGE</div>}
 
                 <div className="min-w-0 flex-1 pt-0.5">
                   <h2 className="break-words text-sm font-bold leading-5 text-[#1e293b]">
@@ -322,7 +316,9 @@ export default function ContractorPortfolioPage() {
             </article>
           ))}
 
-          {portfolios.length === 0 ? (
+          {loading ? <p className="py-10 text-center text-xs text-[#64748b]">포트폴리오를 불러오는 중입니다.</p> : null}
+          {error ? <p role="alert" className="py-6 text-center text-xs text-[#dc2626]">{error}</p> : null}
+          {!loading && !error && portfolios.length === 0 ? (
             <div className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border border-dashed border-[#cbd5e1] bg-white px-5 text-center">
               <p className="text-sm font-bold text-[#1e293b]">
                 등록된 포트폴리오가 없습니다.

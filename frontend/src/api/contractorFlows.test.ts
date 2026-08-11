@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiRequest } from './axiosInstance'
 import { approveRequest, getAssignedRequests, rejectRequest } from './contractorApi'
-import { createQuote, submitQuote, updateQuote } from './estimateApi'
+import { createQuote, extendQuote, submitQuote } from './estimateApi'
 import { getChatMessages } from './chatApi'
 import { getVisit } from './visitApi'
 import { getContractorProjects } from './projectApi'
@@ -38,11 +38,10 @@ describe('contractor workflow API paths', () => {
     }))
   })
 
-  it('updates one draft and accepts an empty submit response', async () => {
-    const input = { requestId: 7, items: [{ category: '바닥', amount: 1000 }] }
+  it('extends and submits a quote through the documented action routes', async () => {
     request.mockResolvedValue({ success: true, message: 'ok', data: null })
-    await expect(updateQuote(1, input)).resolves.toBeUndefined()
-    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'PATCH', url: '/api/quotes/1' }))
+    await expect(extendQuote(1, '2026-12-31')).resolves.toBeUndefined()
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'POST', url: '/api/quotes/1/extend' }))
     await expect(submitQuote(1)).resolves.toBeUndefined()
   })
 

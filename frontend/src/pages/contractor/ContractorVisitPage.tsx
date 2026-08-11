@@ -130,7 +130,7 @@ export default function ContractorVisitPage() {
     address: liveVisit.address || request.property.address,
     managerName: liveVisit.managerName || '',
     note: liveVisit.note || '',
-    completedAt: liveVisit.completedAt,
+    completedAt: liveVisit.completedAt ?? undefined,
   } : null
 
   const currentSchedule =

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import constructionIcon from '@/assets/user/icons/management/construction.svg'
@@ -9,10 +10,19 @@ import MyPageMenuItem from '@/components/user/MyPageMenuItem'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 
-import { userProfile } from '@/mocks/userProfile'
+import { getMember } from '@/api/memberApi'
+import { getMemberId } from '@/utils/authSession'
+import type { MemberResponse } from '@/types/member'
 
 export default function MyPage() {
   const navigate = useNavigate()
+  const [profile, setProfile] = useState<MemberResponse | null>(null)
+  const [profileError, setProfileError] = useState('')
+  useEffect(() => {
+    const memberId = getMemberId()
+    if (!memberId) { setProfileError('로그인 정보가 없습니다.'); return }
+    getMember(memberId).then(setProfile).catch((error) => setProfileError(error instanceof Error ? error.message : '회원정보를 불러오지 못했습니다.'))
+  }, [])
 
   return (
     <UserScreenShell>
@@ -46,15 +56,15 @@ export default function MyPage() {
 
             <div className="ml-3 min-w-0 pr-[86px]">
               <h2 className="text-[17px] font-bold leading-7 text-[#1e293b]">
-                {userProfile.name}
+                {profile?.name ?? '-'}
               </h2>
 
               <p className="text-[12px] leading-5 text-[#64748b]">
-                {userProfile.email}
+                {profile?.email ?? '-'}
               </p>
 
               <p className="text-[12px] leading-5 text-[#64748b]">
-                {userProfile.phone}
+                {profile?.phoneNumber ?? '-'}
               </p>
             </div>
 
@@ -67,6 +77,7 @@ export default function MyPage() {
               개인정보 수정
             </button>
           </div>
+          {profileError ? <p role="alert" className="px-4 pb-3 text-[11px] text-[#dc2626]">{profileError}</p> : null}
 
           <div className="mx-4 border-t border-[#e2e8f0]" />
 

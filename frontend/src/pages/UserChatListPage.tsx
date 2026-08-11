@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { getChatThreads } from '@/api/chatApi'
+import type { ChatThread } from '@/types/backendContractor'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 
@@ -12,74 +13,6 @@ interface UserChatListItem {
   lastMessage: string
   timeLabel: string
   unreadCount: number
-}
-
-const fallbackChats: readonly UserChatListItem[] = [
-  {
-    requestId: '1',
-    contractorId: '1',
-    contractorName: '공간디자인 인테리어',
-    lastMessage: '요청하신 견적서를 확인해 주세요.',
-    timeLabel: '오전 10:24',
-    unreadCount: 2,
-  },
-  {
-    requestId: '2',
-    contractorId: '2',
-    contractorName: '하우스업 인테리어',
-    lastMessage: '시공 가능 일정을 안내드립니다.',
-    timeLabel: '어제',
-    unreadCount: 0,
-  },
-  {
-    requestId: '3',
-    contractorId: '3',
-    contractorName: '더 좋은 집 인테리어',
-    lastMessage: '상담 요청을 확인했습니다.',
-    timeLabel: '7월 19일',
-    unreadCount: 1,
-  },
-]
-
-function getStringValue(
-  record: Record<string, unknown>,
-  keys: readonly string[],
-) {
-  for (const key of keys) {
-    const value = record[key]
-
-    if (
-      typeof value === 'string' ||
-      typeof value === 'number'
-    ) {
-      return String(value)
-    }
-  }
-
-  return ''
-}
-
-function getNumberValue(
-  record: Record<string, unknown>,
-  keys: readonly string[],
-) {
-  for (const key of keys) {
-    const value = record[key]
-
-    if (typeof value === 'number') {
-      return value
-    }
-
-    if (
-      typeof value === 'string' &&
-      value.trim() &&
-      Number.isFinite(Number(value))
-    ) {
-      return Number(value)
-    }
-  }
-
-  return 0
 }
 
 function formatChatTime(value: string) {
@@ -112,70 +45,15 @@ function formatChatTime(value: string) {
 }
 
 function normalizeChatThread(
-  thread: unknown,
-  index: number,
+  thread: ChatThread,
 ): UserChatListItem {
-  const fallback =
-    fallbackChats[index] ?? fallbackChats[0]
-
-  if (!thread || typeof thread !== 'object') {
-    return fallback
-  }
-
-  const record = thread as Record<string, unknown>
-
-  const requestId =
-    getStringValue(record, [
-      'requestId',
-      'request_id',
-      'chatRequestId',
-    ]) || fallback.requestId
-
-  const contractorId =
-    getStringValue(record, [
-      'contractorId',
-      'contractor_id',
-      'partnerId',
-      'otherMemberId',
-    ]) || fallback.contractorId
-
-  const contractorName =
-    getStringValue(record, [
-      'contractorName',
-      'companyName',
-      'partnerName',
-      'name',
-    ]) || fallback.contractorName
-
-  const lastMessage =
-    getStringValue(record, [
-      'lastMessage',
-      'lastMessageContent',
-      'message',
-      'content',
-    ]) || fallback.lastMessage
-
-  const rawTime =
-    getStringValue(record, [
-      'lastMessageAt',
-      'updatedAt',
-      'createdAt',
-      'timeLabel',
-    ]) || fallback.timeLabel
-
-  const unreadCount = getNumberValue(record, [
-    'unreadCount',
-    'unreadMessageCount',
-    'unread',
-  ])
-
   return {
-    requestId,
-    contractorId,
-    contractorName,
-    lastMessage,
-    timeLabel: formatChatTime(rawTime),
-    unreadCount,
+    requestId: String(thread.requestId),
+    contractorId: String(thread.contractorId),
+    contractorName: thread.counterpartName,
+    lastMessage: thread.lastMessage || '아직 메시지가 없습니다.',
+    timeLabel: formatChatTime(thread.lastMessageAt || ''),
+    unreadCount: thread.unreadCount,
   }
 }
 
@@ -224,26 +102,26 @@ export default function UserChatListPage() {
   const [query, setQuery] = useState('')
   const [chats, setChats] =
     useState<readonly UserChatListItem[]>(
-      fallbackChats,
+      [],
     )
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let active = true
 
     getChatThreads()
       .then((threads) => {
-        if (!active || !threads.length) return
+        if (!active) return
 
         setChats(
-          threads.map((thread, index) =>
-            normalizeChatThread(thread, index),
+          threads.map((thread) =>
+            normalizeChatThread(thread),
           ),
         )
+        setLoading(false)
       })
-      .catch(() => {
-        // API 연결이 되지 않는 개발 환경에서는
-        // Figma 확인용 예시 데이터를 유지합니다.
-      })
+      .catch((loadError) => { if (active) { setLoading(false); setError(loadError instanceof Error ? loadError.message : '채팅 목록을 불러오지 못했습니다.') } })
 
     return () => {
       active = false
@@ -328,6 +206,8 @@ export default function UserChatListPage() {
           className="mt-4 space-y-[15px]"
           aria-label="최근 채팅 목록"
         >
+          {loading ? <p className="py-12 text-center text-[12px] text-[#64748b]">채팅 목록을 불러오는 중입니다.</p> : null}
+          {error ? <p role="alert" className="py-12 text-center text-[12px] text-[#dc2626]">{error}</p> : null}
           {filteredChats.map((chat) => (
             <Link
               key={`${chat.requestId}-${chat.contractorId}`}

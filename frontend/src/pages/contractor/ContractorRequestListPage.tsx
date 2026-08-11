@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { getAssignedRequests } from '@/api/contractorApi'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorEmptyState from '@/components/contractor/ContractorEmptyState'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import ContractorRequestCard from '@/components/contractor/ContractorRequestCard'
-import { contractorRequests } from '@/mocks/contractorPortalMockData'
-import type { ContractorRequestFilter, ContractorUnsuccessfulReason } from '@/types/contractorPortal'
-import type { ContractorRequest } from '@/types/contractorPortal'
+import type { ContractorRequest, ContractorRequestFilter, ContractorUnsuccessfulReason } from '@/types/contractorPortal'
+import { getAssignedRequests } from '@/api/contractorApi'
 import { requestToContractorCard } from '@/utils/contractorRequestAdapter'
 
 const filters: readonly { id: ContractorRequestFilter; label: string }[] = [
@@ -31,15 +29,22 @@ export default function ContractorRequestListPage() {
   const initialFilter = (location.state as { filter?: ContractorRequestFilter } | null)?.filter
   const [filter, setFilter] = useState<ContractorRequestFilter>(initialFilter ?? 'all')
   const [unsuccessfulReason, setUnsuccessfulReason] = useState<ContractorUnsuccessfulReason>('contractor_rejected')
-  const [requests, setRequests] = useState<readonly ContractorRequest[]>(contractorRequests)
-  const [loadNotice, setLoadNotice] = useState('')
+  const [requests, setRequests] = useState<readonly ContractorRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
+    let active = true
+    setLoading(true)
+    setLoadError('')
     getAssignedRequests({ size: 100 }).then((page) => {
-      const content = Array.isArray(page) ? page : page.content
-      setRequests(content.map(requestToContractorCard))
-    }).catch(() => setLoadNotice('실제 의뢰를 불러오지 못해 예시 데이터를 표시합니다.'))
-  }, [])
+      if (active) setRequests(page.content.map(requestToContractorCard))
+    }).catch((error) => {
+      if (active) setLoadError(error instanceof Error ? error.message : '의뢰 목록을 불러오지 못했습니다.')
+    }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [loadAttempt])
 
   const visibleRequests = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ko-KR').replace(/\s+/g, '')
@@ -81,10 +86,9 @@ export default function ContractorRequestListPage() {
           </div>
         ) : null}
         <div className="mt-3 space-y-3">
-          {visibleRequests.length ? visibleRequests.map((request) => <ContractorRequestCard key={`${request.requestId}-${request.status}`} request={request} variant={cardVariant} />) : <ContractorEmptyState title="검색 결과가 없습니다" description="검색어나 상태 필터를 변경해 다시 확인해 주세요." />}
+          {loading ? <p className="py-10 text-center text-xs text-[#64748b]">의뢰 목록을 불러오는 중입니다.</p> : loadError ? <div className="py-8 text-center"><p role="alert" className="text-xs text-[#dc2626]">{loadError}</p><button type="button" onClick={() => setLoadAttempt((value) => value + 1)} className="mt-3 rounded-lg border border-[#2563eb] px-3 py-2 text-xs font-bold text-[#2563eb]">다시 시도</button></div> : visibleRequests.length ? visibleRequests.map((request) => <ContractorRequestCard key={`${request.requestId}-${request.status}`} request={request} variant={cardVariant} />) : <ContractorEmptyState title="검색 결과가 없습니다" description="검색어나 상태 필터를 변경해 다시 확인해 주세요." />}
         </div>
         {showUnsuccessful ? <button type="button" onClick={() => setFilter('in_progress')} className="mt-4 h-12 w-full rounded-lg bg-[#2563eb] text-[13px] font-bold text-white">진행 중 의뢰 보기</button> : null}
-        <p role="status" className="mt-3 text-center text-[10px] text-[#64748b]">{loadNotice}</p>
       </main>
       {showUnsuccessful ? null : <ContractorBottomNavigation />}
     </ContractorMobileShell>

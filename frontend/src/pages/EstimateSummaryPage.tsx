@@ -1,7 +1,5 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { updateRequest } from '@/api/requestApi'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import MaterialSummaryCard from '@/components/user/MaterialSummaryCard'
@@ -13,13 +11,9 @@ import {
   useMaterialProducts,
 } from '@/hooks/useMaterialCatalog'
 import {
-  floorMaterialProducts,
   getMaterialProduct,
-  lightingProducts,
-  wallpaperMaterialProducts,
 } from '@/mocks/estimateMaterials'
 import { getMaterialTheme } from '@/utils/materialTheme'
-import { getActiveRequestId } from '@/utils/requestFlow'
 
 export default function EstimateSummaryPage() {
   const navigate = useNavigate()
@@ -33,27 +27,34 @@ export default function EstimateSummaryPage() {
     selectWallpaper,
   } = useEstimateFlow()
 
-  const [isSaving, setIsSaving] = useState(false)
-  const [saveError, setSaveError] = useState('')
-
   const theme = getMaterialTheme()
 
-  const floorProducts = useMaterialProducts(
+  const {
+    products: floorProducts,
+    loading: floorLoading,
+    error: floorError,
+    retry: retryFloor,
+  } = useMaterialProducts(
     theme,
     'FLOORING',
-    floorMaterialProducts,
   )
 
-  const wallpaperProducts = useMaterialProducts(
+  const {
+    products: wallpaperProducts,
+    loading: wallpaperLoading,
+    error: wallpaperError,
+    retry: retryWallpaper,
+  } = useMaterialProducts(
     theme,
     'WALLPAPER',
-    wallpaperMaterialProducts,
   )
 
-  const availableLightingProducts = useLightingProducts(
-    theme,
-    lightingProducts,
-  )
+  const {
+    products: availableLightingProducts,
+    loading: lightingLoading,
+    error: lightingError,
+    retry: retryLighting,
+  } = useLightingProducts(theme)
 
   const selectedFloor = getMaterialProduct(
     floorProducts,
@@ -71,51 +72,22 @@ export default function EstimateSummaryPage() {
   )
 
   const hasRequiredMaterials = Boolean(
-    selectedFloor.id &&
-      selectedWallpaper.id &&
-      selectedLighting.id,
+    selectedFloor?.id &&
+      selectedWallpaper?.id &&
+      selectedLighting?.id,
   )
 
-  const completeSelection = async () => {
-    const requestId = getActiveRequestId()
+  const catalogLoading = floorLoading || wallpaperLoading || lightingLoading
+  const catalogError = floorError || wallpaperError || lightingError
 
-    const flooringId = Number(selectedFloor.id)
-    const wallpaperId = Number(selectedWallpaper.id)
-    const lightingId = Number(selectedLighting.id)
+  const completeSelection = () => {
+    if (!selectedFloor || !selectedWallpaper || !selectedLighting) {
+      return
+    }
 
     selectFloor(selectedFloor.id)
     selectWallpaper(selectedWallpaper.id)
     selectLighting(selectedLighting.id)
-
-    if (
-      requestId &&
-      [flooringId, wallpaperId, lightingId].every(
-        Number.isSafeInteger,
-      )
-    ) {
-      setIsSaving(true)
-      setSaveError('')
-
-      try {
-        await updateRequest(requestId, {
-          selectedTheme: theme,
-          selectedFlooringProductId: flooringId,
-          selectedWallpaperProductId: wallpaperId,
-          selectedLightingProductId: lightingId,
-        })
-      } catch (error) {
-        setSaveError(
-          error instanceof Error
-            ? error.message
-            : '선택 자재 저장에 실패했습니다.',
-        )
-
-        setIsSaving(false)
-        return
-      }
-
-      setIsSaving(false)
-    }
 
     navigate('/contractors')
   }
@@ -148,6 +120,32 @@ export default function EstimateSummaryPage() {
             </p>
           </section>
 
+          {catalogLoading ? (
+            <p className="mt-[22px] py-10 text-center text-[12px] text-[#64748b]">
+              추천 자재를 불러오는 중입니다.
+            </p>
+          ) : catalogError ? (
+            <div className="mt-[22px] rounded-[8px] border border-[#fecaca] bg-[#fef2f2] px-4 py-5 text-center">
+              <p className="text-[12px] leading-5 text-[#b91c1c]">{catalogError}</p>
+              <button
+                type="button"
+                className="mt-3 rounded-[7px] border border-[#dc2626] px-3 py-2 text-[11px] font-semibold text-[#b91c1c]"
+                onClick={() => {
+                  retryFloor()
+                  retryWallpaper()
+                  retryLighting()
+                }}
+              >
+                다시 시도
+              </button>
+            </div>
+          ) : !hasRequiredMaterials ? (
+            <p className="mt-[22px] py-10 text-center text-[12px] text-[#64748b]">
+              선택 가능한 추천 자재가 없습니다.
+            </p>
+          ) : null}
+
+          {selectedFloor ? (
           <section className="mt-[22px] flex min-h-[82px] items-center rounded-[10px] border border-[#bfdbfe] bg-[#eff6ff] px-3">
             <img
               src={selectedFloor.thumbnailSrc}
@@ -165,6 +163,7 @@ export default function EstimateSummaryPage() {
               </p>
             </div>
           </section>
+          ) : null}
 
           <section className="mt-8 rounded-[7px] border border-[#d5dfed] bg-[#f4f8ff] px-4 py-[14px] text-center">
             <p className="text-[9px] leading-4 text-[#15284c]">
@@ -187,29 +186,29 @@ export default function EstimateSummaryPage() {
             className="mt-3 space-y-2.5 pb-6"
             aria-label="추천 자재 목록"
           >
-            <MaterialSummaryCard
+            {selectedFloor ? <MaterialSummaryCard
               title="바닥재 교체"
               product={selectedFloor}
               onSelect={() =>
                 navigate('/estimate/materials/floor')
               }
-            />
+            /> : null}
 
-            <MaterialSummaryCard
+            {selectedWallpaper ? <MaterialSummaryCard
               title="벽지 교체"
               product={selectedWallpaper}
               onSelect={() =>
                 navigate('/estimate/materials/wallpaper')
               }
-            />
+            /> : null}
 
-            <MaterialSummaryCard
+            {selectedLighting ? <MaterialSummaryCard
               title="조명 교체"
               product={selectedLighting}
               onSelect={() =>
                 navigate('/estimate/materials/lighting')
               }
-            />
+            /> : null}
 
             <div className="rounded-[8px] border border-[#fdba74] bg-[#fff7ed] p-3 text-[11px] leading-4 text-[#9a3412]">
               <p>
@@ -241,10 +240,7 @@ export default function EstimateSummaryPage() {
 
           <Button
             type="button"
-            disabled={
-              !hasRequiredMaterials || isSaving
-            }
-            isLoading={isSaving}
+            disabled={catalogLoading || Boolean(catalogError) || !hasRequiredMaterials}
             className="h-12 w-full !rounded-[5px] !border !border-[#2563eb] !bg-[#2563eb] !px-2 !py-0 !text-[11px] !font-semibold !shadow-none hover:!translate-y-0 hover:!bg-[#2563eb] hover:!shadow-none active:!translate-y-0"
             onClick={completeSelection}
           >
@@ -252,14 +248,6 @@ export default function EstimateSummaryPage() {
           </Button>
         </footer>
 
-        {saveError && (
-          <p
-            role="alert"
-            className="shrink-0 bg-white px-[15px] pb-2 text-center text-[10px] text-[#ef4444]"
-          >
-            {saveError}
-          </p>
-        )}
       </div>
     </UserScreenShell>
   )

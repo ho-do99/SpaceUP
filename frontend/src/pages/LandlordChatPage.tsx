@@ -16,7 +16,6 @@ import {
   sendChatMessage,
 } from '@/api/chatApi'
 
-import { getQuotesByRequest } from '@/api/estimateApi'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 
@@ -524,6 +523,7 @@ export default function LandlordChatPage() {
 
   const [sending, setSending] =
     useState(false)
+  const [loadingMessages, setLoadingMessages] = useState(true)
 
   const containerRef =
     useRef<HTMLDivElement | null>(null)
@@ -559,33 +559,8 @@ export default function LandlordChatPage() {
       defaultContractorName,
     )
 
-    setMessages(
-      numericContractorId === 2
-        ? constructionFallbackMessages
-        : consultationFallbackMessages,
-    )
-
-    getQuotesByRequest(
-      numericRequestId,
-    )
-      .then((quotes) => {
-        if (!active) return
-
-        const quote = quotes.find(
-          (item) =>
-            item.contractorId ===
-            numericContractorId,
-        )
-
-        if (
-          quote?.contractorName
-        ) {
-          setContractorName(
-            quote.contractorName,
-          )
-        }
-      })
-      .catch(() => undefined)
+    setMessages([])
+    setLoadingMessages(true)
 
     getChatMessages(
       numericRequestId,
@@ -594,10 +569,7 @@ export default function LandlordChatPage() {
       .then((chatMessages) => {
         if (!active) return
 
-        if (
-          chatMessages.length > 0
-        ) {
-          setMessages(
+        setMessages(
             chatMessages.map(
               (message) => ({
                 id: message.id,
@@ -610,7 +582,7 @@ export default function LandlordChatPage() {
               }),
             ),
           )
-        }
+        setLoadingMessages(false)
 
         void readChat(
           numericRequestId,
@@ -619,10 +591,7 @@ export default function LandlordChatPage() {
           () => undefined,
         )
       })
-      .catch(() => {
-        // API 연결 실패 시 UI 확인용
-        // 예시 메시지를 그대로 유지합니다.
-      })
+      .catch((loadError) => { if (active) { setLoadingMessages(false); setError(loadError instanceof Error ? loadError.message : '채팅 내용을 불러오지 못했습니다.') } })
 
     return () => {
       active = false
@@ -870,6 +839,7 @@ export default function LandlordChatPage() {
           ) : null}
 
           <div className="space-y-[5px]">
+            {loadingMessages ? <p className="py-10 text-center text-xs text-[#64748b]">메시지를 불러오는 중입니다.</p> : null}
             {messages.map((message) => {
               const outgoing =
                 message.senderType ===

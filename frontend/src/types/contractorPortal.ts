@@ -4,6 +4,7 @@ export type ContractorRequestStatus =
   | 'in_progress'
   | 'matched'
   | 'contractor_rejected'
+  | 'canceled'
   | 'user_canceled'
   | 'auto_canceled'
   | 'expired'
@@ -273,7 +274,7 @@ export interface ContractorSettlement {
   statement: ContractorSettlementStatement
 }
 
-export type ContractorNotificationType = 'REQUEST' | 'ESTIMATE' | 'VISIT' | 'SETTLEMENT'
+export type ContractorNotificationType = 'REQUEST' | 'ESTIMATE' | 'VISIT' | 'SETTLEMENT' | 'CHAT' | 'REVIEW' | 'PROJECT'
 
 export type ContractorNotificationFilter = 'all' | 'request' | 'estimate' | 'visit' | 'settlement'
 
@@ -334,12 +335,6 @@ export interface AnalysisSummary {
   ceilingHeight: string
 }
 
-export interface ValueIncreaseSummary {
-  currentMonthlyRent: string
-  expectedMonthlyIncrease: string
-  recoveryPeriod: string
-}
-
 export interface ContractorRequest {
   requestId: string
   customerName: string
@@ -366,7 +361,6 @@ export interface ContractorRequestDetail extends ContractorRequest {
   analysis: AnalysisSummary
   selectedItems: readonly string[]
   lightingNotice: string
-  valueIncrease: ValueIncreaseSummary
   floorPlanImage: string
   photos: readonly {
     id: string

@@ -6,6 +6,7 @@ import ContractorRequestDetailLayout from '@/components/contractor/ContractorReq
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 import useContractorRequest from '@/hooks/useContractorRequest'
+import { approveContractorRequest, rejectContractorRequest } from '@/utils/contractorRequestDecision'
 
 export default function ContractorRequestAnalysisPage() {
   const { requestId } = useParams()
@@ -14,12 +15,13 @@ export default function ContractorRequestAnalysisPage() {
   const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectedReason, setRejectedReason] = useState('')
+  const [actionError, setActionError] = useState('')
 
   if (!request) return <ContractorRequestNotFound />
 
   return (
     <>
-      <ContractorRequestDetailLayout request={request} activeTab="analysis" statusMessage={rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined} actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={() => navigate(`/contractor/requests/${request.requestId}/approved`)} />}>
+      <ContractorRequestDetailLayout request={request} activeTab="analysis" statusMessage={actionError || (rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined)} actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={() => { void approveContractorRequest(request.requestId).then(() => navigate(`/contractor/requests/${request.requestId}/approved`)).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.')) }} />}>
         <section className="rounded-xl border border-[#e2e8f0] bg-white p-[13px]">
           <h2 className="mb-1.5 text-xs font-bold leading-[18px] text-[#1e293b]">사용자 선택 항목</h2>
           <p className="text-[11px] leading-[17px] text-[#64748b]">{request.selectedItems.join(' · ')}</p>
@@ -29,7 +31,7 @@ export default function ContractorRequestAnalysisPage() {
           <p className="text-[11px] leading-[17px] text-[#64748b]">{request.estimatedCostLabel} · 조명 금액 미포함</p>
         </section>
       </ContractorRequestDetailLayout>
-      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={(reason) => { setRejectedReason(reason); setRejectOpen(false) }} />
+      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={(reason) => { void rejectContractorRequest(request.requestId, reason).then(() => { setRejectedReason(reason); setRejectOpen(false) }).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.')) }} />
     </>
   )
 }

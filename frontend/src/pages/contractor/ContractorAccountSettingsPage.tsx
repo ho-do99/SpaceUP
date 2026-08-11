@@ -1,10 +1,12 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorEmailChangeDialog from '@/components/contractor/ContractorEmailChangeDialog'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
+import { getMember } from '@/api/memberApi'
+import { getMemberId } from '@/utils/authSession'
 
 interface AccountInformationRowProps {
   label: string
@@ -52,6 +54,8 @@ export default function ContractorAccountSettingsPage() {
   const [loginEmail, setLoginEmail] = useState(
     'contractor@spaceup.co.kr',
   )
+  const [phoneNumber, setPhoneNumber] = useState('010-1234-5678')
+  const [accountError, setAccountError] = useState('')
   const [newDeviceLoginAlert, setNewDeviceLoginAlert] =
     useState(true)
   const [showSavedMessage, setShowSavedMessage] = useState(false)
@@ -64,11 +68,25 @@ export default function ContractorAccountSettingsPage() {
     setIsEmailDialogOpen(false)
   }, [])
 
+  useEffect(() => {
+    const memberId = getMemberId()
+    if (!memberId) {
+      setAccountError('로그인 정보가 없습니다.')
+      return
+    }
+
+    getMember(memberId).then((member) => {
+      setLoginEmail(member.email)
+      setPhoneNumber(member.phoneNumber)
+    }).catch((error) => {
+      setAccountError(error instanceof Error ? error.message : '계정 정보를 불러오지 못했습니다.')
+    })
+  }, [])
+
   const handleEmailChangeComplete = useCallback(
-    (email: string) => {
-      setLoginEmail(email)
-      setShowEmailChangedMessage(true)
-      setShowSavedMessage(false)
+    async (email: string) => {
+      void email
+      throw new Error('이메일 인증 API 계약이 없어 변경을 진행할 수 없습니다.')
     },
     [],
   )
@@ -103,7 +121,7 @@ export default function ContractorAccountSettingsPage() {
 
           <AccountInformationRow
             label="휴대폰 번호"
-            value="010-1234-5678"
+            value={phoneNumber}
           />
 
           <div className="mt-2 flex items-center gap-2 rounded-lg bg-[#f0fdf4] px-3 py-2">
@@ -125,6 +143,8 @@ export default function ContractorAccountSettingsPage() {
             </p>
           </div>
         </ContractorSectionCard>
+
+        {accountError ? <p role="alert" className="mt-3 text-xs font-semibold text-[#dc2626]">{accountError}</p> : null}
 
         <ContractorSectionCard
           className="mt-3"

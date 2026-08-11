@@ -5,7 +5,6 @@ import Button from '@/components/Button'
 import ContractorCard from '@/components/user/ContractorCard'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
-import { contractors } from '@/mocks/contractors'
 import type { ContractorSummary } from '@/mocks/contractors'
 import { recommendationToSummary } from '@/utils/contractorAdapter'
 import { getActiveRequestId } from '@/utils/requestFlow'
@@ -14,28 +13,24 @@ export default function ContractorPage() {
   const navigate = useNavigate()
 
   const [visibleContractors, setVisibleContractors] =
-    useState<readonly ContractorSummary[]>(contractors)
+    useState<readonly ContractorSummary[]>([])
 
-  const [loadNotice, setLoadNotice] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   const topRecommendation = visibleContractors[0]
 
   useEffect(() => {
     const requestId = getActiveRequestId()
 
-    if (!requestId) return
+    if (!requestId) { setLoading(false); setLoadError('진행 중인 의뢰 정보를 찾을 수 없습니다.'); return }
 
     getRecommendedContractors(requestId)
       .then((items) => {
-        if (items.length > 0) {
-          setVisibleContractors(items.map(recommendationToSummary))
-        }
+        setVisibleContractors(items.map(recommendationToSummary))
+        setLoading(false)
       })
-      .catch(() => {
-        setLoadNotice(
-          '추천 API를 불러오지 못해 예시 시공사를 표시합니다.',
-        )
-      })
+      .catch((error) => { setLoading(false); setLoadError(error instanceof Error ? error.message : '추천 시공사를 불러오지 못했습니다.') })
   }, [])
 
   return (
@@ -63,6 +58,9 @@ export default function ContractorPage() {
             className="space-y-[15px] pb-6 pt-[28px]"
             aria-label="추천 시공사 목록"
           >
+            {loading ? <p className="py-10 text-center text-xs text-[#64748b]">추천 시공사를 불러오는 중입니다.</p> : null}
+            {loadError ? <p role="alert" className="py-10 text-center text-xs text-[#dc2626]">{loadError}</p> : null}
+            {!loading && !loadError && visibleContractors.length === 0 ? <p className="py-10 text-center text-xs text-[#64748b]">추천 가능한 시공사가 없습니다.</p> : null}
             {visibleContractors.map((contractor) => (
               <ContractorCard
                 key={contractor.id}
@@ -71,14 +69,6 @@ export default function ContractorPage() {
             ))}
           </section>
 
-          {loadNotice && (
-            <p
-              role="status"
-              className="pb-3 text-center text-[10px] text-[#64748b]"
-            >
-              {loadNotice}
-            </p>
-          )}
         </main>
 
         <footer className="grid shrink-0 grid-cols-2 gap-3 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
@@ -95,7 +85,7 @@ export default function ContractorPage() {
             to="/estimate/request"
             state={
               topRecommendation
-                ? {contractorsId: topRecommendation.id}
+                ? {contractorId: topRecommendation.id}
                 : undefined
             }
             className="flex h-12 items-center justify-center rounded-[5px] border border-[#2563eb] bg-[#2563eb] px-2 text-center text-[12px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"

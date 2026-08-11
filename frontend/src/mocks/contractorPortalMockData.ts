@@ -216,11 +216,6 @@ function createContractorRequestDetail(request: ContractorRequest): ContractorRe
     },
     selectedItems: ['바닥재', '벽지', '조명'],
     lightingNotice: '조명은 현장 실측 후 별도 협의 · 현재 견적 금액 미포함',
-    valueIncrease: {
-      currentMonthlyRent: '600,000원',
-      expectedMonthlyIncrease: '200,000원/월',
-      recoveryPeriod: '약 29개월~39개월',
-    },
     floorPlanImage,
     photos: [
       { id: 'living-room', label: '거실', image: livingRoomImage },

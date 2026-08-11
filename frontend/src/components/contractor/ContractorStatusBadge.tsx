@@ -6,6 +6,7 @@ const styles: Record<ContractorRequestStatus, string> = {
   in_progress: 'bg-[#dcfce7] text-[#166534]',
   matched: 'bg-[#dcfce7] text-[#166534]',
   contractor_rejected: 'bg-[#fdedee] text-[#e5484d]',
+  canceled: 'bg-[#f1f5f9] text-[#475569]',
   user_canceled: 'bg-[#fee2e2] text-[#b91c1c]',
   auto_canceled: 'bg-[#f1f5f9] text-[#475569]',
   expired: 'bg-[#f1f5f9] text-[#475569]',

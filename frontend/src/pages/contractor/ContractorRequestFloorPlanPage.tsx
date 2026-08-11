@@ -6,6 +6,7 @@ import ContractorRequestDetailLayout from '@/components/contractor/ContractorReq
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 import useContractorRequest from '@/hooks/useContractorRequest'
+import { approveContractorRequest, rejectContractorRequest } from '@/utils/contractorRequestDecision'
 
 export default function ContractorRequestFloorPlanPage() {
   const { requestId } = useParams()
@@ -15,12 +16,13 @@ export default function ContractorRequestFloorPlanPage() {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [rejectedReason, setRejectedReason] = useState('')
+  const [actionError, setActionError] = useState('')
 
   if (!request) return <ContractorRequestNotFound />
 
   return (
     <>
-      <ContractorRequestDetailLayout request={request} activeTab="floor-plan" statusMessage={rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined} actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={() => navigate(`/contractor/requests/${request.requestId}/approved`)} />}>
+      <ContractorRequestDetailLayout request={request} activeTab="floor-plan" statusMessage={actionError || (rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined)} actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={() => { void approveContractorRequest(request.requestId).then(() => navigate(`/contractor/requests/${request.requestId}/approved`)).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.')) }} />}>
         <button type="button" aria-label="평면도 크게 보기" onClick={() => setPreviewOpen(true)} className="flex h-[190px] w-full flex-col items-center justify-center rounded-xl border border-[#e2e8f0] bg-[#eff6ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]">
           <span aria-hidden="true" className="text-[38px] font-bold leading-[44px] text-[#2563eb]">⌗</span>
           <span className="mt-2 text-[13px] font-bold leading-[19px] text-[#1e293b]">아파트 {request.property.areaLabel} 평면도</span>
@@ -40,7 +42,7 @@ export default function ContractorRequestFloorPlanPage() {
           </section>
         </div>
       ) : null}
-      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={(reason) => { setRejectedReason(reason); setRejectOpen(false) }} />
+      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={(reason) => { void rejectContractorRequest(request.requestId, reason).then(() => { setRejectedReason(reason); setRejectOpen(false) }).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.')) }} />
     </>
   )
 }

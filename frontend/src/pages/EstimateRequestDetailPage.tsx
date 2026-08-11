@@ -128,6 +128,8 @@ export default function EstimateRequestDetailPage() {
     quotes,
     usingLiveData,
     numericId,
+    loading,
+    error,
   } = useEstimateRequestDetail(requestId)
 
   const [acceptedQuoteId, setAcceptedQuoteId] =
@@ -165,6 +167,10 @@ export default function EstimateRequestDetailPage() {
     } finally {
       setSelectingQuoteId(null)
     }
+  }
+
+  if (loading || error) {
+    return <UserScreenShell className="h-dvh"><UserHeader variant="detail" title="견적 요청 상세" onBack={() => navigate('/mypage/requests')} /><main className="flex flex-1 items-center justify-center px-6 text-center"><p role={error ? 'alert' : 'status'} className={`text-[13px] ${error ? 'text-[#dc2626]' : 'text-[#64748b]'}`}>{error || '견적 요청 정보를 불러오는 중입니다.'}</p></main></UserScreenShell>
   }
 
   if (!request) {
@@ -355,8 +361,7 @@ export default function EstimateRequestDetailPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <h3 className="truncate text-[11px] font-bold text-[#1e293b]">
-                              {quote.contractorName ??
-                                `시공사 #${quote.contractorId}`}
+                              {`시공사 #${quote.contractorId}`}
                             </h3>
 
                             <p className="mt-1 text-[10px] text-[#64748b]">

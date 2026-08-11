@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { getChatMessages, getChatThreads, sendChatMessage } from '@/api/chatApi'
+import { getChatMessages, getChatThreads, readChat, sendChatMessage } from '@/api/chatApi'
 
 import backIcon from '@/assets/user/icons/back.svg'
 import ContractorChatBubble from '@/components/contractor/ContractorChatBubble'
@@ -48,6 +48,7 @@ export default function ContractorChatPage({
           timeLabel: message.createdAt?.slice(11, 16) || '',
         })))
         setLiveThread(threads.find((thread) => thread.requestId === numericRequestId) ?? null)
+        void readChat(numericRequestId).catch(() => undefined)
       })
       .catch(() => {
         if (active) setLiveError('채팅 내용을 불러오지 못했습니다.')

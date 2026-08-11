@@ -4,7 +4,7 @@ interface ContractorEmailChangeDialogProps {
   isOpen: boolean
   currentEmail: string
   onClose: () => void
-  onComplete: (email: string) => void
+  onComplete: (email: string) => Promise<void>
 }
 
 type EmailChangeStep = 'email' | 'verification'
@@ -30,6 +30,7 @@ export default function ContractorEmailChangeDialog({
   const [email, setEmail] = useState('')
   const [verificationCode, setVerificationCode] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const dialogRef = useRef<HTMLDivElement>(null)
   const emailInputRef = useRef<HTMLInputElement>(null)
@@ -150,7 +151,7 @@ export default function ContractorEmailChangeDialog({
     setStep('verification')
   }
 
-  const handleVerificationSubmit = (
+  const handleVerificationSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault()
@@ -161,8 +162,15 @@ export default function ContractorEmailChangeDialog({
     }
 
     setErrorMessage('')
-    onComplete(email)
-    onClose()
+    setSubmitting(true)
+    try {
+      await onComplete(email)
+      onClose()
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '이메일 변경에 실패했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleVerificationCodeChange = (
@@ -261,6 +269,7 @@ export default function ContractorEmailChangeDialog({
             <div className="mt-4 flex flex-col gap-3">
               <button
                 type="submit"
+                disabled={submitting}
                 className="h-12 rounded-lg bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
               >
                 인증번호 받기
@@ -337,7 +346,7 @@ export default function ContractorEmailChangeDialog({
                 type="submit"
                 className="h-12 rounded-lg bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
               >
-                변경 완료
+                {submitting ? '변경 중...' : '변경 완료'}
               </button>
             </div>
           </form>

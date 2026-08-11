@@ -8,7 +8,7 @@ import { useEstimateRequestHistory } from '@/hooks/useEstimateRequests'
 export default function EstimateRequestHistoryPage() {
   const navigate = useNavigate()
 
-  const { requests } = useEstimateRequestHistory()
+  const { requests, loading, error, retry } = useEstimateRequestHistory()
 
   return (
     <UserScreenShell>
@@ -28,12 +28,15 @@ export default function EstimateRequestHistoryPage() {
         </p>
 
         <div className="mt-[18px] space-y-[13px]">
+          {loading ? <p className="py-10 text-center text-[12px] text-[#64748b]">요청 내역을 불러오는 중입니다.</p> : null}
+          {error ? <div className="py-8 text-center"><p role="alert" className="text-[12px] text-[#dc2626]">{error}</p><button type="button" onClick={retry} className="mt-3 rounded-lg border border-[#2563eb] px-3 py-2 text-[11px] font-bold text-[#2563eb]">다시 시도</button></div> : null}
           {requests.map((request) => (
             <EstimateRequestHistoryCard
               key={request.id}
               request={request}
             />
           ))}
+          {!loading && !error && requests.length === 0 ? <p className="py-10 text-center text-[12px] text-[#64748b]">견적 요청 내역이 없습니다.</p> : null}
         </div>
       </main>
     </UserScreenShell>

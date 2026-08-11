@@ -8,6 +8,7 @@ import afterImage from '@/assets/contractor/request-detail/ai-after.svg'
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 import useContractorRequest from '@/hooks/useContractorRequest'
+import { approveContractorRequest, rejectContractorRequest } from '@/utils/contractorRequestDecision'
 
 export default function ContractorRequestPhotosPage() {
   const { requestId } = useParams()
@@ -16,12 +17,13 @@ export default function ContractorRequestPhotosPage() {
   const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectedReason, setRejectedReason] = useState('')
+  const [actionError, setActionError] = useState('')
 
   if (!request) return <ContractorRequestNotFound />
 
   return (
     <>
-      <ContractorRequestDetailLayout request={request} activeTab="photos" statusMessage={rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined} actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={() => navigate(`/contractor/requests/${request.requestId}/approved`)} />}>
+      <ContractorRequestDetailLayout request={request} activeTab="photos" statusMessage={actionError || (rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined)} actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={() => { void approveContractorRequest(request.requestId).then(() => navigate(`/contractor/requests/${request.requestId}/approved`)).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.')) }} />}>
         <section>
           <h2 className="text-[15px] font-bold leading-normal text-[#1e293b]">AI 인테리어 시뮬레이션 결과</h2>
           <p className="mt-2 text-[11px] leading-[17px] text-[#64748b]">사용자가 선택한 스타일로 생성한 Before / After 이미지입니다.</p>
@@ -44,7 +46,7 @@ export default function ContractorRequestPhotosPage() {
           </div>
         </section>
       </ContractorRequestDetailLayout>
-      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={(reason) => { setRejectedReason(reason); setRejectOpen(false) }} />
+      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={(reason) => { void rejectContractorRequest(request.requestId, reason).then(() => { setRejectedReason(reason); setRejectOpen(false) }).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.')) }} />
     </>
   )
 }

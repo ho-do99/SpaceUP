@@ -5,6 +5,9 @@ const notificationMeta = {
   ESTIMATE: { label: '견적' },
   VISIT: { label: '일정' },
   SETTLEMENT: { label: '정산' },
+  CHAT: { label: '채팅' },
+  REVIEW: { label: '리뷰' },
+  PROJECT: { label: '시공' },
 } as const
 
 interface Props {
