@@ -11,7 +11,6 @@ import lombok.Getter;
 @Getter
 public class MemberResponse {
 	private final Long id;
-	private final String username;
 	private final String email;
 	private final boolean emailVerified;
 	private final String name;
@@ -27,7 +26,6 @@ public class MemberResponse {
 
 	public MemberResponse(Member member) {
 		this.id = member.getId();
-		this.username = member.getUsername();
 		this.email = member.getEmail();
 		this.emailVerified = member.isEmailVerified();
 		this.name = member.getName();

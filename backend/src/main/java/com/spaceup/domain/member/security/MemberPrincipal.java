@@ -11,14 +11,14 @@ import java.util.List;
 
 public class MemberPrincipal implements UserDetails {
 	private final Long id;
-	private final String username;
+	private final String email;
 	private final String password;
 	private final boolean enabled;
 	private final String role; // ⭐ Member.role을 그대로 실어서 SecurityConfig의 hasRole("CONTRACTOR") 등에 사용
 
 	public MemberPrincipal(Member member) {
 		this.id = member.getId();
-		this.username = member.getUsername();
+		this.email = member.getEmail();
 		this.password = member.getPassword();
 		this.enabled = !member.isWithdrawn(); // 탈퇴 회원은 비활성 계정으로 취급
 		this.role = member.getRole() != null ? member.getRole().name() : "LANDLORD";
@@ -39,9 +39,11 @@ public class MemberPrincipal implements UserDetails {
 		return password;
 	}
 
+	// ⭐ Spring Security UserDetails 계약상 메서드명은 getUsername()이지만, 실제로는 로그인 식별자인
+	// email을 반환합니다(이 프로젝트에는 별도 아이디 개념이 없음).
 	@Override
 	public String getUsername() {
-		return username;
+		return email;
 	}
 
 	@Override

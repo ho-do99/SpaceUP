@@ -53,7 +53,7 @@ class AiInteriorImageServiceTest {
 
 	@Test
 	void generatedObjectStoragePathIsConnectedToRequestAsAiGeneratedImage() {
-		Member owner = Member.builder().id(1L).username("owner").password("encoded").email("owner@test.com")
+		Member owner = Member.builder().id(1L).password("encoded").email("owner@test.com")
 				.name("임대인").role(MemberRole.LANDLORD).build();
 		Property property = Property.builder().id(2L).owner(owner).region("광주").housingType("아파트")
 				.exclusiveAreaM2(84.0).build();
