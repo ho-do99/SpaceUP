@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiRequest } from './axiosInstance'
-import { approveRequest, getAssignedRequests, rejectRequest } from './contractorApi'
-import { createQuote, extendQuote, submitQuote } from './estimateApi'
+import { approveRequest, getAssignedRequests, rejectRequest, updateMyContractorDisclosure, updateMyContractorManager, updateMyContractorProfile } from './contractorApi'
+import { createQuote, extendQuote, requestQuoteRevision, submitQuote } from './estimateApi'
 import { getChatMessages } from './chatApi'
 import { getVisit, requestVisitChange } from './visitApi'
 import { getContractorProjects } from './projectApi'
@@ -63,5 +63,22 @@ describe('contractor workflow API paths', () => {
     request.mockResolvedValue({ success: true, message: 'ok', data: null })
     await expect(approveRequest(7)).resolves.toBeUndefined()
     await expect(rejectRequest(8, 'SCHEDULE_CONFLICT')).resolves.toBeUndefined()
+  })
+
+  it('sends only confirmed contractor profile, manager and disclosure fields', async () => {
+    request.mockResolvedValue({ success: true, message: 'ok', data: null })
+    await updateMyContractorProfile({ activityRegions: '광주광역시,전라남도', specialties: '도배,장판·마루' })
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'PUT', url: '/api/contractors/me', data: { activityRegions: '광주광역시,전라남도', specialties: '도배,장판·마루' } }))
+    await updateMyContractorManager({ managerPosition: '팀장', consultationHours: '평일 09:00-18:00' })
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ url: '/api/contractors/me/manager', data: { managerPosition: '팀장', consultationHours: '평일 09:00-18:00' } }))
+    const disclosure = { profilePublic: true, contactPublic: false, specialtyPublic: true, regionPublic: true, portfolioPublic: false, availableForConsult: true }
+    await updateMyContractorDisclosure(disclosure)
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ url: '/api/contractors/me/disclosure', data: disclosure }))
+  })
+
+  it('uses note as the quote revision request field', async () => {
+    request.mockResolvedValue({ success: true, message: 'ok', data: null })
+    await requestQuoteRevision(33, { note: '자재비를 확인해주세요.', targetItemIds: [12], requestedAmount: 4_500_000 })
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'POST', url: '/api/quotes/33/request-revision', data: { note: '자재비를 확인해주세요.', targetItemIds: [12], requestedAmount: 4_500_000 } }))
   })
 })

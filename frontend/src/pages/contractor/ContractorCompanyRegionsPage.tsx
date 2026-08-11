@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorCompanyTabs from '@/components/contractor/ContractorCompanyTabs'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { getMyContractorProfile, updateMyContractorProfile } from '@/api/contractorApi'
 
 const regionOptions = [
   '서울',
@@ -76,6 +77,16 @@ export default function ContractorCompanyRegionsPage() {
     useState<TravelDistance>(50)
 
   const [showSavedToast, setShowSavedToast] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  useEffect(() => {
+    getMyContractorProfile().then((profile) => {
+      const labels = new Set((profile.activityRegions || '').split(',').map((item) => item.trim()))
+      if (!labels.size) return
+      setSelectedRegions(regionOptions.filter((region) => labels.has(region) || labels.has(regionInformation[region].fullName)))
+    }).catch(() => undefined)
+  }, [])
 
   const toggleRegion = (region: ContractorRegion) => {
     setShowSavedToast(false)
@@ -96,15 +107,24 @@ export default function ContractorCompanyRegionsPage() {
     setShowSavedToast(false)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (selectedRegions.length === 0) {
       return
     }
 
-    setShowSavedToast(true)
+    setSaving(true)
+    setSaveError('')
+    try {
+      await updateMyContractorProfile({ activityRegions: selectedRegions.map((region) => regionInformation[region].fullName).join(',') })
+      setShowSavedToast(true)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : '시공 지역 저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const isSaveDisabled = selectedRegions.length === 0
+  const isSaveDisabled = selectedRegions.length === 0 || saving
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
@@ -259,7 +279,7 @@ export default function ContractorCompanyRegionsPage() {
 
       <ContractorBottomNavigation />
 
-      {showSavedToast ? (
+          {showSavedToast ? (
         <div
           role="status"
           aria-live="polite"
@@ -277,6 +297,7 @@ export default function ContractorCompanyRegionsPage() {
           </button>
         </div>
       ) : null}
+      {saveError ? <p role="alert" className="sr-only">{saveError}</p> : null}
     </ContractorMobileShell>
   )
 }

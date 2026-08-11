@@ -77,3 +77,22 @@ export async function updateMember(
   })
   unwrapEmptyApiResponse(response, '회원정보 수정에 실패했습니다.')
 }
+
+export async function sendEmailVerificationCode(): Promise<void> {
+  const response = await apiRequest<ApiResponse<unknown>>({
+    method: 'POST',
+    url: '/api/member/me/email/verify-code/send',
+    authenticated: true,
+  })
+  unwrapEmptyApiResponse(response, '이메일 인증번호 발송에 실패했습니다.')
+}
+
+export async function confirmEmailVerificationCode(code: string): Promise<void> {
+  const response = await apiRequest<ApiResponse<unknown>, { code: string }>({
+    method: 'POST',
+    url: '/api/member/me/email/verify-code/confirm',
+    data: { code },
+    authenticated: true,
+  })
+  unwrapEmptyApiResponse(response, '이메일 인증에 실패했습니다.')
+}

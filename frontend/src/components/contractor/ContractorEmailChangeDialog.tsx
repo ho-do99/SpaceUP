@@ -4,7 +4,9 @@ interface ContractorEmailChangeDialogProps {
   isOpen: boolean
   currentEmail: string
   onClose: () => void
-  onComplete: (email: string) => Promise<void>
+  onRequestCode: (email: string) => Promise<void>
+  onConfirm: (email: string, code: string) => Promise<void>
+  onResendCode: () => Promise<void>
 }
 
 type EmailChangeStep = 'email' | 'verification'
@@ -24,7 +26,9 @@ export default function ContractorEmailChangeDialog({
   isOpen,
   currentEmail,
   onClose,
-  onComplete,
+  onRequestCode,
+  onConfirm,
+  onResendCode,
 }: ContractorEmailChangeDialogProps) {
   const [step, setStep] = useState<EmailChangeStep>('email')
   const [email, setEmail] = useState('')
@@ -124,7 +128,7 @@ export default function ContractorEmailChangeDialog({
     return null
   }
 
-  const handleEmailSubmit = (
+  const handleEmailSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault()
@@ -146,9 +150,17 @@ export default function ContractorEmailChangeDialog({
       return
     }
 
-    setEmail(trimmedEmail)
+    setSubmitting(true)
     setErrorMessage('')
-    setStep('verification')
+    try {
+      await onRequestCode(trimmedEmail)
+      setEmail(trimmedEmail)
+      setStep('verification')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '인증번호 발송에 실패했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleVerificationSubmit = async (
@@ -164,7 +176,7 @@ export default function ContractorEmailChangeDialog({
     setErrorMessage('')
     setSubmitting(true)
     try {
-      await onComplete(email)
+      await onConfirm(email, verificationCode)
       onClose()
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '이메일 변경에 실패했습니다.')
@@ -182,6 +194,18 @@ export default function ContractorEmailChangeDialog({
 
     setVerificationCode(onlyNumbers)
     setErrorMessage('')
+  }
+
+  const handleResend = async () => {
+    setSubmitting(true)
+    setErrorMessage('')
+    try {
+      await onResendCode()
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '인증번호 재전송에 실패했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -317,7 +341,7 @@ export default function ContractorEmailChangeDialog({
               placeholder="123456"
               className="mt-1 h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 text-center text-lg font-bold tracking-[0.35em] text-[#1e293b] outline-none placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#dbeafe]"
             />
-            <div className="mt-2 flex items-center justify-between text-[11px] text-[#64748b]"><span>남은 시간 03:00</span><button type="button" className="font-bold text-[#2563eb]">인증번호 재전송</button></div>
+            <div className="mt-2 flex items-center justify-between text-[11px] text-[#64748b]"><span>남은 시간 03:00</span><button type="button" disabled={submitting} onClick={handleResend} className="font-bold text-[#2563eb]">인증번호 재전송</button></div>
 
             {errorMessage ? (
               <p

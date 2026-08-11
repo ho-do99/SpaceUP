@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorCompanyTabs from '@/components/contractor/ContractorCompanyTabs'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { getMyContractorProfile, updateMyContractorProfile } from '@/api/contractorApi'
 
 interface CompanyInformation {
   companyName: string
@@ -25,6 +26,16 @@ export default function ContractorCompanyInfoPage() {
     useState<CompanyInformationErrors>({})
 
   const [showSavedToast, setShowSavedToast] = useState(false)
+  const [businessNumber, setBusinessNumber] = useState('123-45-67890')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  useEffect(() => {
+    getMyContractorProfile().then((profile) => {
+      setCompanyInformation((current) => ({ companyName: profile.companyName || current.companyName, representativeName: profile.memberName || current.representativeName }))
+      setBusinessNumber(profile.businessRegistrationNumber || '')
+    }).catch(() => undefined)
+  }, [])
 
   const updateField = (
     field: keyof CompanyInformation,
@@ -43,7 +54,7 @@ export default function ContractorCompanyInfoPage() {
     setShowSavedToast(false)
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     const companyName = companyInformation.companyName.trim()
@@ -72,7 +83,17 @@ export default function ContractorCompanyInfoPage() {
       representativeName,
     })
 
-    setShowSavedToast(true)
+    setSaving(true)
+    setSaveError('')
+    try {
+      await updateMyContractorProfile({ companyName })
+      setShowSavedToast(true)
+    } catch (error) {
+      setShowSavedToast(false)
+      setSaveError(error instanceof Error ? error.message : '업체 정보 저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const inputClassName = (hasError = false) =>
@@ -144,7 +165,7 @@ export default function ContractorCompanyInfoPage() {
             <input
               id="contractor-business-number"
               type="text"
-              value="123-45-67890"
+              value={businessNumber}
               readOnly
               aria-readonly="true"
               className={`mt-[5px] cursor-default ${inputClassName()}`}
@@ -240,10 +261,12 @@ export default function ContractorCompanyInfoPage() {
 
           <button
             type="submit"
+            disabled={saving}
             className="mt-3 h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
           >
-            정보 저장
+            {saving ? '저장 중...' : '정보 저장'}
           </button>
+          {saveError ? <p role="alert" className="mt-2 text-[11px] font-semibold text-[#dc2626]">{saveError}</p> : null}
         </form>
       </main>
 

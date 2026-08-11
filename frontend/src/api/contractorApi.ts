@@ -34,3 +34,41 @@ export async function getContractorDashboard() {
   const response = await apiRequest<ApiResponse<ContractorDashboard>>({ method: 'GET', url: '/api/contractors/me/dashboard', authenticated: true })
   return unwrapApiResponse<ContractorDashboard>(response, '대시보드 조회에 실패했습니다.')
 }
+
+export interface ContractorProfileUpdateInput {
+  businessRegistrationNumber?: string
+  companyName?: string
+  activityRegions?: string
+  specialties?: string
+  portfolioUrl?: string
+  introduction?: string
+}
+
+export interface ContractorManagerUpdateInput {
+  managerPosition?: string
+  consultationHours?: string
+}
+
+export interface ContractorDisclosureUpdateInput {
+  profilePublic: boolean
+  contactPublic: boolean
+  specialtyPublic: boolean
+  regionPublic: boolean
+  portfolioPublic: boolean
+  availableForConsult: boolean
+}
+
+export async function updateMyContractorProfile(input: ContractorProfileUpdateInput) {
+  const response = await apiRequest<ApiResponse<null>, ContractorProfileUpdateInput>({ method: 'PUT', url: '/api/contractors/me', data: input, authenticated: true })
+  unwrapEmptyApiResponse(response, '시공사 프로필 저장에 실패했습니다.')
+}
+
+export async function updateMyContractorManager(input: ContractorManagerUpdateInput) {
+  const response = await apiRequest<ApiResponse<null>, ContractorManagerUpdateInput>({ method: 'PUT', url: '/api/contractors/me/manager', data: input, authenticated: true })
+  unwrapEmptyApiResponse(response, '담당자 정보 저장에 실패했습니다.')
+}
+
+export async function updateMyContractorDisclosure(input: ContractorDisclosureUpdateInput) {
+  const response = await apiRequest<ApiResponse<null>, ContractorDisclosureUpdateInput>({ method: 'PUT', url: '/api/contractors/me/disclosure', data: input, authenticated: true })
+  unwrapEmptyApiResponse(response, '업체 공개 설정 저장에 실패했습니다.')
+}

@@ -11,3 +11,13 @@ export async function getQuotesByRequest(requestId: number) { const r = await ap
 export async function acceptQuote(id: number) { unwrapEmptyApiResponse(await apiRequest<ApiResponse<null>>({ method: 'POST', url: `/api/quotes/${id}/accept`, authenticated: true }), '견적 승인에 실패했습니다.') }
 export async function rejectQuote(id: number) { unwrapEmptyApiResponse(await apiRequest<ApiResponse<null>>({ method: 'POST', url: `/api/quotes/${id}/reject`, authenticated: true }), '견적 거절에 실패했습니다.') }
 export async function extendQuote(id: number, newValidUntil: string, memo?: string) { unwrapEmptyApiResponse(await apiRequest<ApiResponse<null>, { newValidUntil: string; memo?: string }>({ method: 'POST', url: `/api/quotes/${id}/extend`, data: { newValidUntil, ...(memo ? { memo } : {}) }, authenticated: true }), '견적 유효기간 연장에 실패했습니다.') }
+
+export interface QuoteRevisionRequestInput {
+  note: string
+  targetItemIds?: number[]
+  requestedAmount?: number
+}
+
+export async function requestQuoteRevision(id: number, input: QuoteRevisionRequestInput) {
+  unwrapEmptyApiResponse(await apiRequest<ApiResponse<null>, QuoteRevisionRequestInput>({ method: 'POST', url: `/api/quotes/${id}/request-revision`, data: input, authenticated: true }), '견적 수정 요청에 실패했습니다.')
+}

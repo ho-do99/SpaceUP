@@ -15,7 +15,7 @@ export interface VisitScheduleInput { visitDate: string; visitTime: string; mana
 export interface VisitChangeRequestInput { requestedDate: string; requestedTime: string; reason: string }
 export type ProjectStatus = 'VISIT_SCHEDULED' | 'START_SCHEDULED' | 'IN_PROGRESS' | 'COMPLETION_REQUESTED' | 'COMPLETED'
 export interface ProjectChecklistItem { id: number; label: string; completed: boolean }
-export interface Project { id: number; requestId: number; quoteId: number; requestCode?: string; customerName?: string; contractorName?: string; address?: string; status: ProjectStatus; contractDate?: string; contractAmount?: number; startDate?: string; completionDate?: string; constructionItems?: string; customerRequest?: string; checklist?: ProjectChecklistItem[] }
+export interface Project { id: number; requestId: number; quoteId: number; requestCode?: string; customerName?: string; contractorId: number; contractorName?: string; address?: string; status: ProjectStatus; contractDate?: string; contractAmount?: number; startDate?: string; completionDate?: string | null; constructionItems?: string; customerRequest?: string; checklist?: ProjectChecklistItem[] }
 export type ReviewFilter = 'all' | 'five' | 'four' | 'three_or_less'
 export interface Review { id: number; requestId: number; contractorId: number; reviewerName: string; rating: number; content: string; keywords: string[]; createdAt: string }
 export interface ReviewSummary { contractorId: number; contractorName: string; averageRating: number; totalCount: number; ratingCounts: Record<string, number> }

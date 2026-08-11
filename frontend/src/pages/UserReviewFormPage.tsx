@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState,
 } from 'react'
 import {
@@ -8,6 +9,9 @@ import {
 
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { getProject } from '@/api/projectApi'
+import { createReview } from '@/api/reviewApi'
+import type { Project } from '@/types/backendContractor'
 
 interface UserReviewFormPageProps {
   mode: 'create' | 'edit'
@@ -86,6 +90,21 @@ export default function UserReviewFormPage({
   const existingReview =
     getStoredReview(constructionId)
 
+  const numericProjectId = Number(constructionId)
+  const isLiveProject = Number.isInteger(numericProjectId) && numericProjectId > 0
+  const [project, setProject] = useState<Project | null>(null)
+  const [loadingProject, setLoadingProject] = useState(isLiveProject)
+  const [submitError, setSubmitError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!isLiveProject) return
+    getProject(numericProjectId)
+      .then(setProject)
+      .catch((error) => setSubmitError(error instanceof Error ? error.message : '시공 정보를 불러오지 못했습니다.'))
+      .finally(() => setLoadingProject(false))
+  }, [isLiveProject, numericProjectId])
+
   const [rating, setRating] =
     useState(
       existingReview?.rating ?? 5,
@@ -106,7 +125,7 @@ export default function UserReviewFormPage({
     )
 
   const validConstruction =
-    constructionId === 'space-design'
+    constructionId === 'space-design' || Boolean(project)
 
   const canSubmit =
     rating > 0 &&
@@ -124,11 +143,35 @@ export default function UserReviewFormPage({
     )
   }
 
-  const submitReview = () => {
+  const submitReview = async () => {
     if (
       !constructionId ||
       !canSubmit
     ) {
+      return
+    }
+
+    if (isLiveProject && project && mode === 'create') {
+      const keywordMap: Record<string, string> = {
+        '일정을 잘 지켰어요': 'SCHEDULE_KEPT',
+        '마감이 깔끔해요': 'CLEAN_FINISH',
+        '상담이 자세해요': 'DETAILED_CONSULT',
+        '소통이 빨라요': 'FAST_COMMUNICATION',
+      }
+      setSubmitting(true)
+      setSubmitError('')
+      try {
+        await createReview(project.requestId, {
+          rating,
+          content: content.trim(),
+          keywords: selectedKeywords.map((keyword) => keywordMap[keyword]).filter((keyword): keyword is string => Boolean(keyword)),
+        })
+        navigate(`/mypage/constructions/${project.id}`)
+      } catch (error) {
+        setSubmitError(error instanceof Error ? error.message : '리뷰 등록에 실패했습니다.')
+      } finally {
+        setSubmitting(false)
+      }
       return
     }
 
@@ -158,6 +201,10 @@ export default function UserReviewFormPage({
     )
   }
 
+  if (loadingProject) {
+    return <UserScreenShell className="h-dvh"><UserHeader variant="detail" title="리뷰 작성" onBack={() => navigate('/mypage/constructions')} /><main className="flex flex-1 items-center justify-center"><p role="status" className="text-[13px] text-[#64748b]">시공 정보를 불러오는 중입니다.</p></main></UserScreenShell>
+  }
+
   if (!validConstruction) {
     return (
       <UserScreenShell className="h-dvh">
@@ -175,7 +222,7 @@ export default function UserReviewFormPage({
 
         <main className="flex min-h-0 flex-1 items-center justify-center px-6 text-center">
           <p className="text-[13px] text-[#64748b]">
-            시공 정보를 찾을 수 없습니다.
+            {submitError || '시공 정보를 찾을 수 없습니다.'}
           </p>
         </main>
       </UserScreenShell>
@@ -218,7 +265,7 @@ export default function UserReviewFormPage({
           {/* 시공사 */}
           <section className="mt-4 rounded-[12px] border border-[#e2e8f0] bg-[#f8fafc] p-[15px]">
             <h2 className="text-[15px] font-bold leading-[22px] text-[#1e293b]">
-              공간디자인 인테리어
+              {project?.contractorName || '공간디자인 인테리어'}
             </h2>
 
             <p className="mt-1 text-[12px] leading-[18px] text-[#64748b]">
@@ -323,13 +370,14 @@ export default function UserReviewFormPage({
         </main>
 
         <footer className="shrink-0 border-t border-[#e2e8f0] bg-white px-4 pb-[calc(10px+env(safe-area-inset-bottom))] pt-[9px]">
+          {submitError ? <p role="alert" className="mb-2 text-[11px] font-semibold text-[#dc2626]">{submitError}</p> : null}
           <button
             type="button"
-            disabled={!canSubmit}
-            onClick={submitReview}
+            disabled={!canSubmit || submitting}
+            onClick={() => { void submitReview() }}
             className="h-12 w-full rounded-[8px] bg-[#2563eb] text-[14px] font-bold text-white disabled:bg-[#93b4f5]"
           >
-            {mode === 'edit'
+            {submitting ? '등록 중...' : mode === 'edit'
               ? '리뷰 수정 완료'
               : '리뷰 등록하기'}
           </button>

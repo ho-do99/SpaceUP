@@ -5,7 +5,7 @@ import ContractorBottomNavigation from '@/components/contractor/ContractorBottom
 import ContractorEmailChangeDialog from '@/components/contractor/ContractorEmailChangeDialog'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
-import { getMember } from '@/api/memberApi'
+import { confirmEmailVerificationCode, getMember, sendEmailVerificationCode, updateMember } from '@/api/memberApi'
 import { getMemberId } from '@/utils/authSession'
 
 interface AccountInformationRowProps {
@@ -55,6 +55,7 @@ export default function ContractorAccountSettingsPage() {
     'contractor@spaceup.co.kr',
   )
   const [phoneNumber, setPhoneNumber] = useState('010-1234-5678')
+  const [memberName, setMemberName] = useState('')
   const [accountError, setAccountError] = useState('')
   const [newDeviceLoginAlert, setNewDeviceLoginAlert] =
     useState(true)
@@ -78,18 +79,27 @@ export default function ContractorAccountSettingsPage() {
     getMember(memberId).then((member) => {
       setLoginEmail(member.email)
       setPhoneNumber(member.phoneNumber)
+      setMemberName(member.name)
     }).catch((error) => {
       setAccountError(error instanceof Error ? error.message : '계정 정보를 불러오지 못했습니다.')
     })
   }, [])
 
-  const handleEmailChangeComplete = useCallback(
+  const handleEmailCodeRequest = useCallback(
     async (email: string) => {
-      void email
-      throw new Error('이메일 인증 API 계약이 없어 변경을 진행할 수 없습니다.')
+      const memberId = getMemberId()
+      if (!memberId || !memberName) throw new Error('회원 정보를 확인할 수 없습니다.')
+      await updateMember(memberId, { email, name: memberName })
+      await sendEmailVerificationCode()
     },
-    [],
+    [memberName],
   )
+
+  const handleEmailChangeComplete = useCallback(async (email: string, code: string) => {
+    await confirmEmailVerificationCode(code)
+    setLoginEmail(email)
+    setShowEmailChangedMessage(true)
+  }, [])
 
   const handleToggleNewDeviceAlert = () => {
     setNewDeviceLoginAlert((current) => !current)
@@ -295,7 +305,9 @@ export default function ContractorAccountSettingsPage() {
         isOpen={isEmailDialogOpen}
         currentEmail={loginEmail}
         onClose={handleCloseEmailDialog}
-        onComplete={handleEmailChangeComplete}
+        onRequestCode={handleEmailCodeRequest}
+        onConfirm={handleEmailChangeComplete}
+        onResendCode={sendEmailVerificationCode}
       />
     </ContractorMobileShell>
   )

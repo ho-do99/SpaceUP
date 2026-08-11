@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { getMyContractorProfile, updateMyContractorManager } from '@/api/contractorApi'
 
 interface ManagerFormState {
   managerName: string
@@ -33,6 +34,12 @@ export default function ContractorManagerInfoPage() {
 
   const [errors, setErrors] = useState<ManagerFormErrors>({})
   const [showSavedToast, setShowSavedToast] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  useEffect(() => {
+    getMyContractorProfile().then((profile) => setForm((current) => ({ ...current, position: profile.managerPosition || current.position, consultationHours: profile.consultationHours || current.consultationHours }))).catch(() => undefined)
+  }, [])
 
   const updateField = (
     field: keyof ManagerFormState,
@@ -120,7 +127,7 @@ export default function ContractorManagerInfoPage() {
     return true
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     if (!validateForm()) {
@@ -128,7 +135,17 @@ export default function ContractorManagerInfoPage() {
       return
     }
 
-    setShowSavedToast(true)
+    setSaving(true)
+    setSaveError('')
+    try {
+      await updateMyContractorManager({ managerPosition: form.position, consultationHours: form.consultationHours })
+      setShowSavedToast(true)
+    } catch (error) {
+      setShowSavedToast(false)
+      setSaveError(error instanceof Error ? error.message : '담당자 정보 저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const inputClassName = (hasError: boolean) =>
@@ -339,10 +356,12 @@ export default function ContractorManagerInfoPage() {
 
           <button
             type="submit"
+            disabled={saving}
             className="mt-5 h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
           >
-            담당자 정보 저장
+            {saving ? '저장 중...' : '담당자 정보 저장'}
           </button>
+          {saveError ? <p role="alert" className="mt-2 text-[11px] font-semibold text-[#dc2626]">{saveError}</p> : null}
         </form>
       </main>
 

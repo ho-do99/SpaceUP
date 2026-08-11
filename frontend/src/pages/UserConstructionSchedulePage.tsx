@@ -1,10 +1,17 @@
 import {
+  useEffect,
+  useState,
+} from 'react'
+import {
   useNavigate,
   useParams,
+  useSearchParams,
 } from 'react-router-dom'
 
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { getProject } from '@/api/projectApi'
+import type { Project } from '@/types/backendContractor'
 
 interface ScheduleStep {
   date: string
@@ -200,6 +207,9 @@ function ApprovalIcon() {
 
 export default function UserConstructionSchedulePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const [liveProject, setLiveProject] = useState<Project | null>(null)
+  const [projectError, setProjectError] = useState('')
 
   const {
     requestId,
@@ -212,11 +222,19 @@ export default function UserConstructionSchedulePage() {
   const approvedEstimate =
     getApprovedEstimate(requestId)
 
+  useEffect(() => {
+    const projectId = Number(searchParams.get('projectId'))
+    if (!Number.isInteger(projectId) || projectId <= 0) return
+    getProject(projectId)
+      .then(setLiveProject)
+      .catch((error) => setProjectError(error instanceof Error ? error.message : '프로젝트 정보를 불러오지 못했습니다.'))
+  }, [searchParams])
+
   const isApprovedWaiting =
     Boolean(approvedEstimate)
 
   const contractorName =
-    approvedEstimate?.contractorName ??
+    liveProject?.contractorName ?? approvedEstimate?.contractorName ??
     '하우스업 인테리어'
 
   const contractorMeta =
@@ -227,7 +245,7 @@ export default function UserConstructionSchedulePage() {
     isApprovedWaiting ? 0 : 65
 
   const currentStage =
-    isApprovedWaiting
+    liveProject?.status === 'COMPLETION_REQUESTED' ? '완료 확인 대기' : isApprovedWaiting
       ? '시공 시작 대기'
       : '벽지 시공 중'
 
@@ -237,7 +255,9 @@ export default function UserConstructionSchedulePage() {
       : '마감 및 검수'
 
   const constructionPeriod =
-    isApprovedWaiting
+    liveProject
+      ? `${liveProject.startDate?.replace(/-/g, '.') || '미정'} ~ ${liveProject.completionDate?.replace(/-/g, '.') || '미정'}`
+      : isApprovedWaiting
       ? '2026.08.05 ~ 2026.08.07'
       : '2026.07.23 ~ 2026.07.26'
 
@@ -264,6 +284,7 @@ export default function UserConstructionSchedulePage() {
 
       <div className="flex min-h-0 flex-1 flex-col">
         <main className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-8 pt-5">
+          {projectError ? <p role="alert" className="mb-3 text-[11px] font-semibold text-[#dc2626]">{projectError}</p> : null}
           <section>
             <h1 className="text-[18px] font-bold leading-[26px] text-[#1e293b]">
               시공 진행 상황

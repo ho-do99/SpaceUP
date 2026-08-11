@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { getLandlordProjects } from '@/api/projectApi'
+import type { Project } from '@/types/backendContractor'
+import { getAccessToken } from '@/utils/authSession'
 
 type ConstructionFilter =
   | 'all'
@@ -18,6 +21,8 @@ interface ConstructionHistoryItem {
   status: 'active' | 'completed'
   amount?: string
   progressLabel?: string
+  requestId?: number
+  contractorId?: number
 }
 
 const constructionItems: ConstructionHistoryItem[] = [
@@ -49,22 +54,38 @@ export default function UserConstructionHistoryPage() {
   const [filter, setFilter] =
     useState<ConstructionFilter>('all')
 
+  const [items, setItems] = useState<ConstructionHistoryItem[]>(constructionItems)
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    if (!getAccessToken()) return
+    setLoading(true)
+    getLandlordProjects()
+      .then((projects) => setItems(projects.map(toHistoryItem)))
+      .catch((error) => {
+        setItems([])
+        setLoadError(error instanceof Error ? error.message : '시공 내역을 불러오지 못했습니다.')
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
   const visibleItems =
     filter === 'all'
-      ? constructionItems
-      : constructionItems.filter(
+      ? items
+      : items.filter(
           (item) =>
             item.status === filter,
         )
 
   const activeCount =
-    constructionItems.filter(
+    items.filter(
       (item) =>
         item.status === 'active',
     ).length
 
   const completedCount =
-    constructionItems.filter(
+    items.filter(
       (item) =>
         item.status === 'completed',
     ).length
@@ -74,7 +95,9 @@ export default function UserConstructionHistoryPage() {
   ) => {
     if (item.status === 'active') {
       navigate(
-        '/mypage/requests/2/schedule/2',
+        item.requestId && item.contractorId
+          ? `/mypage/requests/${item.requestId}/schedule/${item.contractorId}?projectId=${item.id}`
+          : '/mypage/requests/2/schedule/2',
       )
       return
     }
@@ -120,7 +143,7 @@ export default function UserConstructionHistoryPage() {
                 : 'border-[#e2e8f0] bg-white text-[#64748b]'
             }`}
           >
-            전체 {constructionItems.length}
+            전체 {items.length}
           </button>
 
           <button
@@ -153,6 +176,9 @@ export default function UserConstructionHistoryPage() {
         </section>
 
         <section className="space-y-4">
+          {loading ? <p role="status" className="py-10 text-center text-[12px] text-[#64748b]">시공 내역을 불러오는 중입니다.</p> : null}
+          {loadError ? <p role="alert" className="py-10 text-center text-[12px] text-[#dc2626]">{loadError}</p> : null}
+          {!loading && !loadError && visibleItems.length === 0 ? <p className="py-10 text-center text-[12px] text-[#64748b]">시공 내역이 없습니다.</p> : null}
           {visibleItems.map((item) => {
             const completed =
               item.status === 'completed'
@@ -250,4 +276,21 @@ export default function UserConstructionHistoryPage() {
       </main>
     </UserScreenShell>
   )
+}
+
+function toHistoryItem(project: Project): ConstructionHistoryItem {
+  const completed = project.status === 'COMPLETED'
+  const formatDate = (value?: string | null) => value ? value.replace(/-/g, '.') : '미정'
+  return {
+    id: String(project.id),
+    requestId: project.requestId,
+    contractorId: project.contractorId,
+    contractorName: project.contractorName || '시공사 정보 확인 중',
+    contractorMeta: project.address || project.requestCode || '',
+    workItems: project.constructionItems || '시공 항목 협의 중',
+    period: `${formatDate(project.startDate)} ~ ${formatDate(project.completionDate)}`,
+    status: completed ? 'completed' : 'active',
+    amount: completed && project.contractAmount != null ? `${project.contractAmount.toLocaleString('ko-KR')}원` : undefined,
+    progressLabel: project.status === 'COMPLETION_REQUESTED' ? '완료 확인 대기' : project.status === 'IN_PROGRESS' ? '시공 중' : '시공 시작 예정',
+  }
 }

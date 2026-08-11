@@ -1,10 +1,16 @@
 import {
+  useEffect,
+  useState,
+} from 'react'
+import {
   useNavigate,
   useParams,
 } from 'react-router-dom'
 
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { getProject } from '@/api/projectApi'
+import type { Project } from '@/types/backendContractor'
 
 interface StoredReview {
   rating: number
@@ -73,8 +79,26 @@ export default function UserConstructionCompletedDetailPage() {
   const review =
     getStoredReview(constructionId)
 
+  const numericProjectId = Number(constructionId)
+  const isLiveProject = Number.isInteger(numericProjectId) && numericProjectId > 0
+  const [project, setProject] = useState<Project | null>(null)
+  const [loading, setLoading] = useState(isLiveProject)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    if (!isLiveProject) return
+    getProject(numericProjectId)
+      .then(setProject)
+      .catch((error) => setLoadError(error instanceof Error ? error.message : '시공 내역을 불러오지 못했습니다.'))
+      .finally(() => setLoading(false))
+  }, [isLiveProject, numericProjectId])
+
   const validConstruction =
-    constructionId === 'space-design'
+    constructionId === 'space-design' || Boolean(project)
+
+  if (loading) {
+    return <UserScreenShell className="h-dvh"><UserHeader variant="detail" title="시공 완료 상세" onBack={() => navigate('/mypage/constructions')} /><main className="flex flex-1 items-center justify-center"><p role="status" className="text-[12px] text-[#64748b]">시공 내역을 불러오는 중입니다.</p></main></UserScreenShell>
+  }
 
   if (!validConstruction) {
     return (
@@ -90,7 +114,7 @@ export default function UserConstructionCompletedDetailPage() {
         <div className="flex min-h-0 flex-1 flex-col">
           <main className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
             <h1 className="text-[18px] font-bold text-[#1e293b]">
-              시공 내역을 찾을 수 없습니다
+              {loadError || '시공 내역을 찾을 수 없습니다'}
             </h1>
 
             <p className="mt-2 text-[12px] leading-5 text-[#64748b]">
@@ -139,11 +163,11 @@ export default function UserConstructionCompletedDetailPage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-[16px] font-bold leading-6 text-[#1e293b]">
-                  공간디자인 인테리어
+                  {project?.contractorName || '공간디자인 인테리어'}
                 </h2>
 
                 <p className="mt-[3px] text-[12px] leading-[18px] text-[#64748b]">
-                  광주 북구
+                  {project?.address || '광주 북구'}
                 </p>
               </div>
 
@@ -153,7 +177,7 @@ export default function UserConstructionCompletedDetailPage() {
             </div>
 
             <p className="mt-3 text-[13px] font-medium leading-5 text-[#334155]">
-              완료일&nbsp;&nbsp;2026.07.21
+              완료일&nbsp;&nbsp;{project?.completionDate?.replace(/-/g, '.') || '2026.07.21'}
             </p>
 
             <p className="mt-3 text-[12px] leading-[18px] text-[#64748b]">
@@ -170,7 +194,7 @@ export default function UserConstructionCompletedDetailPage() {
             <dl className="mt-3 space-y-[6px]">
               <InformationRow
                 label="시공 항목"
-                value="장판 교체, 벽지 시공"
+                value={project?.constructionItems || '장판 교체, 벽지 시공'}
               />
 
               <InformationRow
@@ -180,12 +204,12 @@ export default function UserConstructionCompletedDetailPage() {
 
               <InformationRow
                 label="시공 시작일"
-                value="2026.07.18"
+                value={project?.startDate?.replace(/-/g, '.') || '2026.07.18'}
               />
 
               <InformationRow
                 label="시공 완료일"
-                value="2026.07.21"
+                value={project?.completionDate?.replace(/-/g, '.') || '2026.07.21'}
               />
 
               <InformationRow
@@ -223,7 +247,7 @@ export default function UserConstructionCompletedDetailPage() {
             </h2>
 
             <p className="mt-1 text-[22px] font-bold leading-8 text-[#2563eb]">
-              2,450,000원
+              {project?.contractAmount != null ? `${project.contractAmount.toLocaleString('ko-KR')}원` : '2,450,000원'}
             </p>
 
             <div className="mt-1 space-y-0 text-[12px] leading-[22px] text-[#475569]">
