@@ -1,6 +1,7 @@
 package com.spaceup.domain.analysis.ai.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -59,7 +60,9 @@ class AiFloorplanAnalysisServiceTest {
 
 		when(quoteRequestRepository.findById(7L)).thenReturn(Optional.of(quoteRequest));
 		when(aiFloorplanAnalysisClient.analyze(any(byte[].class), anyString(), anyString()))
-				.thenReturn(new AiFloorplanAnalysisResponse(3000, List.of(new AiFloorplanRoom("거실", 4, 1000))));
+				.thenReturn(new AiFloorplanAnalysisResponse(3000,
+						List.of(new AiFloorplanRoom("거실", 4, 1000, true),
+								new AiFloorplanRoom("발코니", 8, 500, false))));
 
 		service.analyze(7L, 1L, floorplan);
 
@@ -69,5 +72,24 @@ class AiFloorplanAnalysisServiceTest {
 		AnalysisSpaceRequest livingRoom = spacesCaptor.getValue().getFirst();
 		assertThat(livingRoom.getSpaceAreaM2()).isEqualTo(28.0);
 		assertThat(livingRoom.getFloorAreaM2()).isEqualTo(28.0);
+		AnalysisSpaceRequest balcony = spacesCaptor.getValue().get(1);
+		assertThat(balcony.getSpaceAreaM2()).isNull();
+		assertThat(balcony.getFloorAreaM2()).isNull();
+	}
+
+	@Test
+	void rejectsNonPositiveExclusiveAreaBeforeCallingAi() {
+		Member owner = Member.builder().id(1L).username("owner").password("encoded").email("owner@test.com")
+				.name("임대인").role(MemberRole.LANDLORD).build();
+		Property property = Property.builder().id(2L).owner(owner).region("광주").housingType("아파트")
+				.exclusiveAreaM2(0.0).build();
+		QuoteRequest quoteRequest = QuoteRequest.builder().id(7L).owner(owner).property(property)
+				.status(RequestStatus.NEW).build();
+		MockMultipartFile floorplan = new MockMultipartFile("file", "plan.png", "image/png", new byte[] { 1 });
+		when(quoteRequestRepository.findById(7L)).thenReturn(Optional.of(quoteRequest));
+
+		assertThatThrownBy(() -> service.analyze(7L, 1L, floorplan))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("전용면적");
 	}
 }

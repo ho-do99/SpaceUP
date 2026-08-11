@@ -50,4 +50,5 @@ const areaPyeong = space.spaceAreaM2 / 3.305785
 
 - 프론트엔드는 AI의 `pixel_count`를 직접 계산하거나 전달하지 않습니다.
 - 면적 계산은 백엔드가 담당하므로 `spaceAreaM2`를 기준값으로 사용합니다.
+- 발코니와 실외기실처럼 전용면적에서 제외된 공간은 `spaceAreaM2`가 `null`입니다.
 - AI 분석이 끝난 뒤 공간 조회 API를 호출해야 계산된 값이 제공됩니다.

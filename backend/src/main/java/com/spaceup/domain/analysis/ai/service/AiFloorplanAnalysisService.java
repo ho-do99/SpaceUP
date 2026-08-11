@@ -23,9 +23,8 @@ import com.spaceup.global.error.RequestNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 // ⭐ [프론트 연동] "평면도 업로드 → AI 분석" 화면. 평면도 이미지를 AI 세그멘테이션/OCR 파이프라인에 보내고,
-// 결과(방 이름/개수/욕실개수/발코니유무)를 기존 AnalysisJobService의 콜백 API에 그대로 반영합니다.
-// ⚠️ AI 파이프라인이 픽셀 단위 데이터만 반환하고 m² 실면적을 계산하지 않아서, 공간별 면적(spaceAreaM2 등)은
-// 채우지 못합니다 - 사용자가 "공간 정보 확인" 화면에서 직접 입력/수정해야 합니다(기존 PATCH/PUT API 그대로 사용).
+// 결과(방 이름/개수/욕실개수/발코니유무)를 기존 AnalysisJobService의 콜백 API에 반영합니다.
+// 전용면적과 AI 마스크 픽셀 비율로 전용면적 포함 공간의 spaceAreaM2/floorAreaM2를 자동 계산합니다.
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -44,6 +43,10 @@ public class AiFloorplanAnalysisService {
 		}
 		if (floorplanImage == null || floorplanImage.isEmpty()) {
 			throw new IllegalArgumentException("분석할 평면도 이미지가 없습니다.");
+		}
+		Double exclusiveAreaM2 = request.getProperty().getExclusiveAreaM2();
+		if (exclusiveAreaM2 == null || !Double.isFinite(exclusiveAreaM2) || exclusiveAreaM2 <= 0) {
+			throw new IllegalArgumentException("전용면적은 유한한 양수여야 합니다.");
 		}
 
 		byte[] imageBytes = readBytes(floorplanImage);
@@ -64,10 +67,11 @@ public class AiFloorplanAnalysisService {
 		List<AnalysisSpaceRequest> spaceRequests = rooms.stream().map(room -> {
 			AnalysisSpaceRequest spaceRequest = new AnalysisSpaceRequest();
 			spaceRequest.setSpaceName(room.roomName());
-			double roomAreaM2 = request.getProperty().getExclusiveAreaM2() * room.pixelCount()
-					/ analysisResponse.totalAreaPixelCount();
-			spaceRequest.setSpaceAreaM2(roomAreaM2);
-			spaceRequest.setFloorAreaM2(roomAreaM2);
+			if (room.includedInTotalArea()) {
+				double roomAreaM2 = exclusiveAreaM2 * room.pixelCount() / analysisResponse.totalAreaPixelCount();
+				spaceRequest.setSpaceAreaM2(roomAreaM2);
+				spaceRequest.setFloorAreaM2(roomAreaM2);
+			}
 			return spaceRequest;
 		}).toList();
 		if (!spaceRequests.isEmpty()) {

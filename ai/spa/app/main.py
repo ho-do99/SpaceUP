@@ -16,7 +16,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from PIL import Image
 
-from .area_pixels import total_area_pixel_count
+from .area_pixels import is_included_in_total_area, total_area_pixel_count
 
 app = FastAPI(title="SpaceUP SPA API", version="1.0.0")
 
@@ -1246,6 +1246,9 @@ async def segment(
                 public_instance = {
                     key: value for key, value in instance.items() if key != "mask"
                 }
+                public_instance["included_in_total_area"] = is_included_in_total_area(
+                    int(instance.get("class_id", 0))
+                )
                 public_instance.update(viewer_geometry_from_mask(instance["mask"]))
                 public_instances.append(public_instance)
             payload = {

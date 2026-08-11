@@ -29,7 +29,8 @@ AI 세그멘테이션 결과의 방별 픽셀 수와 사용자가 입력한 전�
       "instance_id": 1,
       "room_name": "거실",
       "class_id": 4,
-      "pixel_count": 1000
+      "pixel_count": 1000,
+      "included_in_total_area": true
     }
   ]
 }
@@ -43,7 +44,7 @@ AI 세그멘테이션 결과의 방별 픽셀 수와 사용자가 입력한 전�
 spaceAreaM2 = exclusiveAreaM2 * roomPixelCount / totalAreaPixelCount
 ```
 
-평 단위는 저장하지 않는다. 필요하면 프론트엔드가 `spaceAreaM2 / 3.305785`로 표시한다. 계산 결과는 소수점 전체 정밀도로 저장하고, 표시 시점에 반올림한다.
+`included_in_total_area=false`인 발코니(class 8)와 실외기실(class 102)은 공간 목록에는 유지하지만 면적을 계산하지 않는다. 평 단위는 저장하지 않는다. 필요하면 프론트엔드가 `spaceAreaM2 / 3.305785`로 표시한다. 계산 결과는 소수점 전체 정밀도로 저장하고, 표시 시점에 반올림한다.
 
 예를 들어 전용면적이 84㎡이고 전체 실내 픽셀이 3000, 거실 픽셀이 1000이면 거실 면적은 28㎡다.
 
