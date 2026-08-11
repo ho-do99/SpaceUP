@@ -20,8 +20,6 @@ public class AnalysisJobResponse {
 	private final Integer matchingScore;
 	private final Long estimatedQuoteMin;
 	private final Long estimatedQuoteMax;
-	private final Long expectedRentIncreaseMin;
-	private final Long expectedRentIncreaseMax;
 	private final Integer paybackPeriodMonthsMin;
 	private final Integer paybackPeriodMonthsMax;
 	private final Double ceilingHeightM;
@@ -42,8 +40,6 @@ public class AnalysisJobResponse {
 		this.matchingScore = analysis.getMatchingScore();
 		this.estimatedQuoteMin = analysis.getEstimatedQuoteMin();
 		this.estimatedQuoteMax = analysis.getEstimatedQuoteMax();
-		this.expectedRentIncreaseMin = analysis.getExpectedRentIncreaseMin();
-		this.expectedRentIncreaseMax = analysis.getExpectedRentIncreaseMax();
 		this.paybackPeriodMonthsMin = analysis.getPaybackPeriodMonthsMin();
 		this.paybackPeriodMonthsMax = analysis.getPaybackPeriodMonthsMax();
 		this.ceilingHeightM = analysis.getCeilingHeightM();
