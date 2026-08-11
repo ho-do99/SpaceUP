@@ -1,5 +1,7 @@
 package com.spaceup.domain.analysis.dto;
 
+import jakarta.validation.constraints.Positive;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -17,6 +19,7 @@ public class AnalysisJobEditRequest {
 	private Integer bathroomCount;
 	private Boolean hasBalcony;
 	private String kitchenType;
+	@Positive(message = "전용면적은 0보다 커야 합니다.")
 	private Double exclusiveAreaM2; // 전용 면적(㎡) - Property에 반영됨
 	private Double ceilingHeightM; // 층고(m) - 매물 전체 기준 단일 값
 }
