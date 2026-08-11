@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -123,5 +125,36 @@ class AiFloorplanAnalysisClientTest {
 		assertThatThrownBy(() -> client.analyze(new byte[] { 1 }, "plan.png", "image/png"))
 				.isInstanceOf(AiFloorplanAnalysisException.class)
 				.hasMessageContaining("누락되었거나 형식이 잘못되었습니다");
+	}
+
+	@Test
+	void acceptsExcludedRoomPixelCountGreaterThanIncludedAreaTotal() {
+		server.expect(requestTo("https://ai.test/api/analyze"))
+				.andRespond(withSuccess("""
+						{
+						  "total_area_pixel_count": 100,
+						  "rooms": [
+						    {"room_name": "거실", "class_id": 4, "pixel_count": 100,
+						     "included_in_total_area": true},
+						    {"room_name": "발코니", "class_id": 8, "pixel_count": 150,
+						     "included_in_total_area": false}
+						  ]
+						}
+						""", MediaType.APPLICATION_JSON));
+
+		AiFloorplanAnalysisResponse response = client.analyze(new byte[] { 1 }, "plan.png", "image/png");
+
+		assertThat(response.rooms()).hasSize(2);
+		assertThat(response.rooms().get(1).includedInTotalArea()).isFalse();
+	}
+
+	@Test
+	void convertsEmptyAiResponseBodyToDomainException() {
+		server.expect(requestTo("https://ai.test/api/analyze"))
+				.andRespond(withStatus(HttpStatus.NO_CONTENT));
+
+		assertThatThrownBy(() -> client.analyze(new byte[] { 1 }, "plan.png", "image/png"))
+				.isInstanceOf(AiFloorplanAnalysisException.class)
+				.hasMessageContaining("비어 있습니다");
 	}
 }

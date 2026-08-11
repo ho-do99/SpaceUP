@@ -42,6 +42,9 @@ public class AiFloorplanAnalysisClient {
 		try {
 			String responseJson = restClient.post().uri("/api/analyze")
 					.contentType(MediaType.MULTIPART_FORM_DATA).body(body).retrieve().body(String.class);
+			if (responseJson == null || responseJson.isBlank()) {
+				throw new AiFloorplanAnalysisException("AI 평면도 분석 응답 본문이 비어 있습니다.");
+			}
 			return parseRooms(responseJson);
 		} catch (RestClientException e) {
 			throw new AiFloorplanAnalysisException("AI 평면도 분석 서비스 호출에 실패했습니다.", e);
@@ -88,13 +91,14 @@ public class AiFloorplanAnalysisClient {
 
 			String roomName = roomNameNode.asString();
 			long pixelCount = pixelCountNode.asLong();
+			boolean includedInTotalArea = includedNode.asBoolean();
 			if (pixelCount <= 0) {
 				continue;
 			}
-			if (pixelCount > totalAreaPixelCount) {
+			if (includedInTotalArea && pixelCount > totalAreaPixelCount) {
 				throw new AiFloorplanAnalysisException("AI 응답의 방 pixel_count가 전체 픽셀 수보다 큽니다: " + roomName);
 			}
-			rooms.add(new AiFloorplanRoom(roomName, classIdNode.asInt(), pixelCount, includedNode.asBoolean()));
+			rooms.add(new AiFloorplanRoom(roomName, classIdNode.asInt(), pixelCount, includedInTotalArea));
 		}
 		if (rooms.isEmpty()) {
 			throw new AiFloorplanAnalysisException("AI 응답에서 유효한 방을 찾을 수 없습니다.");
