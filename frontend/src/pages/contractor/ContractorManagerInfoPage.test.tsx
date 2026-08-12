@@ -11,7 +11,7 @@ vi.mock('@/api/memberApi', () => ({ getMember: vi.fn(), updateMember: vi.fn(), u
 vi.mock('@/utils/authSession', () => ({ getMemberId: vi.fn() }))
 vi.mock('@/components/contractor/ContractorAppBar', () => ({ default: () => <header>담당자 정보</header> }))
 
-const member = { id: 12, username: 'manager', email: 'manager@spaceup.co.kr', name: '김현수', phoneNumber: '010-1234-5678', phoneVerified: true, emailVerified: true, role: 'CONTRACTOR' as const, approvalStatus: 'APPROVED' as const, applicationNumber: null, approvalNumber: null, revisionMessage: null, revisionDeadline: null, createdAt: '2026-08-11' }
+const member = { id: 12, email: 'manager@spaceup.co.kr', name: '김현수', phoneNumber: '010-1234-5678', phoneVerified: true, emailVerified: true, role: 'CONTRACTOR' as const, approvalStatus: 'APPROVED' as const, applicationNumber: null, approvalNumber: null, revisionMessage: null, revisionDeadline: null, createdAt: '2026-08-11' }
 const updateMemberMock = vi.mocked(updateMember)
 const updateManagerMock = vi.mocked(updateMyContractorManager)
 

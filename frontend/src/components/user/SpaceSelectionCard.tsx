@@ -1,24 +1,28 @@
 import type { AnalyzedSpaceOption } from '@/mocks/analysisSpaces'
+import { formatSpaceArea } from '@/utils/spaceArea'
 
 interface SpaceSelectionCardProps {
   option: AnalyzedSpaceOption
+  areaM2?: number | null
   isSelected: boolean
   onToggle: (id: AnalyzedSpaceOption['id']) => void
 }
 
 export default function SpaceSelectionCard({
   option,
+  areaM2,
   isSelected,
   onToggle,
 }: SpaceSelectionCardProps) {
   const isDisabled = !option.isRecommendationSupported
+  const areaLabel = areaM2 === undefined ? null : formatSpaceArea(areaM2)
 
   return (
     <button
       type="button"
       aria-pressed={isSelected}
       disabled={isDisabled}
-      className={`relative flex h-[88px] min-w-0 items-start rounded-[10px] border px-[13px] pt-[17px] pr-11 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] disabled:cursor-not-allowed disabled:opacity-100 ${
+      className={`relative flex min-h-[96px] min-w-0 items-start rounded-[10px] border px-[13px] py-[17px] pr-11 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] disabled:cursor-not-allowed disabled:opacity-100 ${
         isSelected
           ? 'border-2 border-[#2563eb] bg-[#eff6ff] text-[#2563eb]'
           : isDisabled
@@ -35,6 +39,15 @@ export default function SpaceSelectionCard({
         >
           {option.name}
         </span>
+        {areaLabel ? (
+          <span
+            className={`mt-1 block whitespace-nowrap text-[11px] font-medium leading-4 ${
+              isDisabled ? 'text-[#94a3b8]' : 'text-[#64748b]'
+            }`}
+          >
+            {areaLabel}
+          </span>
+        ) : null}
         {isDisabled && (
           <span className="mt-0.5 block break-keep text-[11px] leading-[18px] text-[#94a3b8]">
             현재 추천 미지원
