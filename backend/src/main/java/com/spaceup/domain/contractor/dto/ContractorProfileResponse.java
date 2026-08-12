@@ -12,7 +12,12 @@ public class ContractorProfileResponse {
 	private final Long memberId;
 	private final String memberName;
 	private final String businessRegistrationNumber;
+	private final String representativeName;
+	private final String businessRegistrationCertificateUrl;
 	private final String companyName;
+	private final String companyAddress;
+	private final String businessAddress;
+	private final Integer constructionExperienceMonths;
 	private final String activityRegions;
 	private final Integer travelDistanceKm;
 	private final String specialties;
@@ -38,7 +43,12 @@ public class ContractorProfileResponse {
 		this.memberId = profile.getMember().getId();
 		this.memberName = profile.getMember().getName();
 		this.businessRegistrationNumber = profile.getBusinessRegistrationNumber();
+		this.representativeName = profile.getRepresentativeName();
+		this.businessRegistrationCertificateUrl = profile.getBusinessRegistrationCertificateUrl();
 		this.companyName = profile.getCompanyName();
+		this.companyAddress = profile.getCompanyAddress();
+		this.businessAddress = profile.getBusinessAddress();
+		this.constructionExperienceMonths = profile.getConstructionExperienceMonths();
 		this.activityRegions = profile.getActivityRegions();
 		this.travelDistanceKm = profile.getTravelDistanceKm();
 		this.specialties = profile.getSpecialties();

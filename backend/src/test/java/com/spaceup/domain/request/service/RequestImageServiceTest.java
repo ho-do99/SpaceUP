@@ -83,7 +83,7 @@ class RequestImageServiceTest {
 	}
 
 	private Member member(Long id, MemberRole role) {
-		return Member.builder().id(id).username("member" + id).password("encoded").email("member" + id + "@test.com")
+		return Member.builder().id(id).password("encoded").email("member" + id + "@test.com")
 				.name("테스트 회원").role(role).build();
 	}
 }

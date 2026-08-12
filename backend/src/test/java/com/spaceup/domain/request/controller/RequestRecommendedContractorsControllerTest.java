@@ -100,7 +100,7 @@ class RequestRecommendedContractorsControllerTest {
 	// Spring Security Test 기본 user()가 만드는 org.springframework.security.core.userdetails.User로는
 	// ClassCastException이 납니다. 실제 로그인 흐름과 동일한 MemberPrincipal을 직접 만들어 넣어줍니다.
 	private MemberPrincipal principal(Long memberId) {
-		Member member = Member.builder().id(memberId).username("member" + memberId).password("encoded")
+		Member member = Member.builder().id(memberId).password("encoded")
 				.email("member" + memberId + "@test.com").name("테스트회원").role(MemberRole.LANDLORD).build();
 		return new MemberPrincipal(member);
 	}

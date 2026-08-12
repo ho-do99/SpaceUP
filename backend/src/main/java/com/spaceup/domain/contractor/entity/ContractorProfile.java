@@ -45,8 +45,24 @@ public class ContractorProfile extends BaseTimeEntity {
 	@Column(name = "business_reg_no", length = 20)
 	private String businessRegistrationNumber; // 사업자등록번호
 
+	// ⭐ [Figma 반영] 시공사 회원가입 화면 필드
+	@Column(name = "representative_name", length = 30)
+	private String representativeName; // 대표자명
+
+	@Column(name = "business_registration_certificate_url", length = 300)
+	private String businessRegistrationCertificateUrl; // 사업자등록증 파일 URL (가입 전 업로드 API로 미리 받은 값)
+
 	@Column(name = "company_name", length = 50)
 	private String companyName;
+
+	@Column(name = "company_address", length = 200)
+	private String companyAddress; // 업체 주소
+
+	@Column(name = "business_address", length = 200)
+	private String businessAddress; // 사업장 주소
+
+	@Column(name = "construction_experience_months")
+	private Integer constructionExperienceMonths; // 시공 경력(개월)
 
 	@Column(name = "activity_regions", length = 200)
 	private String activityRegions; // 활동 지역 (콤마 구분, 예: "광주 북구,광주 서구")
@@ -119,10 +135,17 @@ public class ContractorProfile extends BaseTimeEntity {
 	@Column(name = "available_for_consult", nullable = false)
 	private boolean availableForConsult = true; // 신규 상담 가능 상태
 
-	public void updateProfile(String businessRegistrationNumber, String companyName, String activityRegions,
+	public void updateProfile(String businessRegistrationNumber, String representativeName,
+			String businessRegistrationCertificateUrl, String companyName, String companyAddress,
+			String businessAddress, Integer constructionExperienceMonths, String activityRegions,
 			Integer travelDistanceKm, String specialties, String portfolioUrl, String introduction) {
 		this.businessRegistrationNumber = businessRegistrationNumber;
+		this.representativeName = representativeName;
+		this.businessRegistrationCertificateUrl = businessRegistrationCertificateUrl;
 		this.companyName = companyName;
+		this.companyAddress = companyAddress;
+		this.businessAddress = businessAddress;
+		this.constructionExperienceMonths = constructionExperienceMonths;
 		this.activityRegions = activityRegions;
 		this.travelDistanceKm = travelDistanceKm;
 		this.specialties = specialties;

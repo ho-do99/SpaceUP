@@ -70,7 +70,7 @@ public class MemberService {
 			throw new InvalidRoleException("관리자 계정은 이 API로 가입할 수 없습니다.");
 		}
 
-		validateDuplicateMember(member.getUsername());
+		validateDuplicateMember(member.getEmail());
 
 		// ⭐ [프론트 연동] 회원가입 "휴대폰 인증" 단계에서 이 번호로 인증을 마쳤는지 확인합니다.
 		// PhoneVerificationService.confirmCode()가 앞서 호출돼 있어야 통과합니다(회원가입 API는 JWT 없이 호출 가능).
@@ -86,7 +86,7 @@ public class MemberService {
 		MemberApprovalStatus initialStatus = needsAdminApproval ? MemberApprovalStatus.PENDING
 				: MemberApprovalStatus.APPROVED;
 
-		Member encryptedMember = Member.builder().username(member.getUsername()).password(encodedPassword)
+		Member encryptedMember = Member.builder().password(encodedPassword)
 				.email(member.getEmail()).name(member.getName()).phoneNumber(member.getPhoneNumber())
 				.role(member.getRole()).approvalStatus(initialStatus).phoneVerified(true).build();
 
@@ -100,21 +100,21 @@ public class MemberService {
 	}
 
 	// ⭐ [프론트 연동] 로그인 성공 시 컨트롤러가 memberId/role로 토큰을 발급해야 해서 boolean 대신 Member를 반환합니다.
-	public Member login(String username, String rawPassword) {
-		Member member = memberRepository.findByUsername(username).orElse(null);
+	public Member login(String email, String rawPassword) {
+		Member member = memberRepository.findByEmail(email).orElse(null);
 		if (member == null) {
 			return null;
 		}
 		if (member.isWithdrawn()) {
 			// ⭐ 소프트 삭제된 회원: 비밀번호가 맞더라도 로그인 자체를 차단하고 명확한 사유를 안내
-			throw new WithdrawnMemberException("이미 탈퇴한 계정입니다: " + username);
+			throw new WithdrawnMemberException("이미 탈퇴한 계정입니다: " + email);
 		}
 		return passwordEncoder.matches(rawPassword, member.getPassword()) ? member : null;
 	}
 
-	private void validateDuplicateMember(String username) {
-		memberRepository.findByUsername(username).ifPresent(m -> {
-			throw new DuplicateMemberException("이미 존재하는 아이디입니다: " + username);
+	private void validateDuplicateMember(String email) {
+		memberRepository.findByEmail(email).ifPresent(m -> {
+			throw new DuplicateMemberException("이미 존재하는 이메일입니다: " + email);
 		});
 	}
 

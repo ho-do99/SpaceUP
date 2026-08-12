@@ -35,13 +35,17 @@ public class MemberController {
 	private final JwtTokenProvider jwtTokenProvider;
 	private final PhoneVerificationService phoneVerificationService;
 
+	// ⭐ [프론트 연동] 가입 직후 바로 온보딩(예: PUT /api/contractors/me)을 호출할 수 있도록 로그인과 동일하게
+	// accessToken을 함께 반환합니다.
 	@PostMapping("/join")
-	public ResponseEntity<ApiResponse<Void>> join(@Valid @RequestBody MemberJoinRequest request) {
-		Member member = Member.builder().username(request.getUsername()).password(request.getPassword())
-				.email(request.getEmail()).name(request.getName()).phoneNumber(request.getPhoneNumber())
-				.role(request.getRole()).build();
-		memberService.join(member);
-		return ResponseEntity.ok(ApiResponse.success("회원가입이 완벽하게 완료되었습니다.", null));
+	public ResponseEntity<ApiResponse<LoginResponse>> join(@Valid @RequestBody MemberJoinRequest request) {
+		Member member = Member.builder().password(request.getPassword()).email(request.getEmail())
+				.name(request.getName()).phoneNumber(request.getPhoneNumber()).role(request.getRole()).build();
+		Long memberId = memberService.join(member);
+		String role = request.getRole().name();
+		String token = jwtTokenProvider.createToken(request.getEmail(), memberId, role);
+		return ResponseEntity.ok(
+				ApiResponse.success("회원가입이 완벽하게 완료되었습니다.", new LoginResponse(token, memberId, role)));
 	}
 
 	// ⭐ [프론트 연동] 회원가입 "휴대폰 인증" 단계 - 계정이 아직 없으므로 JWT 없이 호출 가능해야 합니다
@@ -62,13 +66,13 @@ public class MemberController {
 
 	@PostMapping("/login")
 	public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest loginRequest) {
-		Member member = memberService.login(loginRequest.getUsername(), loginRequest.getPassword());
+		Member member = memberService.login(loginRequest.getEmail(), loginRequest.getPassword());
 		if (member != null) {
 			String role = member.getRole().name();
-			String token = jwtTokenProvider.createToken(member.getUsername(), member.getId(), role);
+			String token = jwtTokenProvider.createToken(member.getEmail(), member.getId(), role);
 			return ResponseEntity.ok(ApiResponse.success("로그인 성공!", new LoginResponse(token, member.getId(), role)));
 		}
-		return ResponseEntity.status(401).body(ApiResponse.fail("로그인 실패: 아이디 또는 비밀번호가 틀렸습니다."));
+		return ResponseEntity.status(401).body(ApiResponse.fail("로그인 실패: 이메일 또는 비밀번호가 틀렸습니다."));
 	}
 
 	// ⭐ [보안 수정] 이메일/전화번호/승인정보 등 개인정보가 담겨 있어 본인 또는 관리자만 조회 가능해야 합니다.

@@ -37,6 +37,10 @@ public class ImageStoreService {
 
     private static final String OBJECT_KEY_PREFIX = "images/";
 
+    // ⭐ [회원가입 전 사업자등록증 업로드] JWT 없이 호출되는 공개 API라 별도 폴더로 분리하고, 10MB로 더 낮게 제한합니다.
+    private static final String BUSINESS_DOCUMENT_KEY_PREFIX = "business-documents/";
+    private static final long BUSINESS_DOCUMENT_MAX_BYTES = 10L * 1024 * 1024;
+
     @Value("${file.upload-dir}")
     private String uploadDir;
 
@@ -62,10 +66,10 @@ public class ImageStoreService {
         try {
             if (usesObjectStorage()) {
                 try (InputStream input = multipartFile.getInputStream()) {
-                    putObject(storeFileName, input, multipartFile.getSize(), contentType);
+                    putObject(OBJECT_KEY_PREFIX, storeFileName, input, multipartFile.getSize(), contentType);
                 }
             } else {
-                multipartFile.transferTo(new File(ensureLocalDirectory(), storeFileName));
+                multipartFile.transferTo(new File(ensureLocalDirectory(""), storeFileName));
             }
             return storeFileName;
         } catch (IOException e) {
@@ -77,9 +81,10 @@ public class ImageStoreService {
         String storeFileName = UUID.randomUUID() + extension;
         try {
             if (usesObjectStorage()) {
-                putObject(storeFileName, new ByteArrayInputStream(data), data.length, resolveContentType(extension));
+                putObject(OBJECT_KEY_PREFIX, storeFileName, new ByteArrayInputStream(data), data.length,
+                        resolveContentType(extension));
             } else {
-                java.nio.file.Files.write(new File(ensureLocalDirectory(), storeFileName).toPath(), data);
+                java.nio.file.Files.write(new File(ensureLocalDirectory(""), storeFileName).toPath(), data);
             }
             return storeFileName;
         } catch (IOException e) {
@@ -88,36 +93,79 @@ public class ImageStoreService {
     }
 
     public Resource loadAsResource(String storeFileName) {
+        return loadAsResource(OBJECT_KEY_PREFIX, "", storeFileName, "Image");
+    }
+
+    // ⭐ [회원가입 전 사업자등록증 업로드] 계정이 아직 없는 상태(JWT 없이 호출)라 별도 공개 API로 뺐습니다.
+    // 이미지뿐 아니라 PDF도 받아야 하고, 20MB가 아니라 10MB로 더 낮게 제한합니다(요구사항).
+    public String storeBusinessDocument(MultipartFile multipartFile) {
+        if (multipartFile == null || multipartFile.isEmpty()) {
+            throw new IllegalArgumentException("사업자등록증 파일이 필요합니다.");
+        }
+        if (multipartFile.getSize() > BUSINESS_DOCUMENT_MAX_BYTES) {
+            throw new IllegalArgumentException("파일 크기가 10MB를 초과했습니다.");
+        }
+        String contentType = multipartFile.getContentType();
+        boolean allowed = contentType != null
+                && (contentType.equals("image/jpeg") || contentType.equals("image/png")
+                        || contentType.equals("application/pdf"));
+        if (!allowed) {
+            throw new IllegalArgumentException("JPG, PNG, PDF 파일만 업로드할 수 있습니다.");
+        }
+
+        String storeFileName = UUID.randomUUID() + extensionOf(multipartFile.getOriginalFilename());
+        try {
+            if (usesObjectStorage()) {
+                try (InputStream input = multipartFile.getInputStream()) {
+                    putObject(BUSINESS_DOCUMENT_KEY_PREFIX, storeFileName, input, multipartFile.getSize(),
+                            contentType);
+                }
+            } else {
+                multipartFile.transferTo(new File(ensureLocalDirectory(BUSINESS_DOCUMENT_KEY_PREFIX), storeFileName));
+            }
+            return storeFileName;
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not store business document.", e);
+        }
+    }
+
+    public Resource loadBusinessDocumentAsResource(String storeFileName) {
+        return loadAsResource(BUSINESS_DOCUMENT_KEY_PREFIX, BUSINESS_DOCUMENT_KEY_PREFIX, storeFileName,
+                "Business document");
+    }
+
+    private Resource loadAsResource(String objectKeyPrefix, String localSubfolder, String storeFileName,
+            String notFoundLabel) {
         if (usesObjectStorage()) {
             try {
                 byte[] bytes = objectStorageClient().getObjectAsBytes(GetObjectRequest.builder()
                         .bucket(objectStorageProperties.bucket())
-                        .key(objectKey(storeFileName))
+                        .key(objectKeyPrefix + storeFileName)
                         .build()).asByteArray();
                 return new ByteArrayResource(bytes);
             } catch (NoSuchKeyException e) {
-                throw new FileNotFoundException("Image file was not found: " + storeFileName);
+                throw new FileNotFoundException(notFoundLabel + " file was not found: " + storeFileName);
             } catch (S3Exception e) {
                 if (e.statusCode() == 404) {
-                    throw new FileNotFoundException("Image file was not found: " + storeFileName);
+                    throw new FileNotFoundException(notFoundLabel + " file was not found: " + storeFileName);
                 }
-                throw new IllegalStateException("Could not read image from Object Storage.", e);
+                throw new IllegalStateException("Could not read file from Object Storage.", e);
             }
         }
 
         try {
-            Path baseDir = Paths.get(uploadDir).toAbsolutePath().normalize();
+            Path baseDir = Paths.get(uploadDir, localSubfolder).toAbsolutePath().normalize();
             Path filePath = baseDir.resolve(storeFileName).normalize();
             if (!filePath.startsWith(baseDir)) {
-                throw new FileNotFoundException("Invalid image path: " + storeFileName);
+                throw new FileNotFoundException("Invalid file path: " + storeFileName);
             }
             Resource resource = new UrlResource(filePath.toUri());
             if (resource.exists() && resource.isReadable()) {
                 return resource;
             }
-            throw new FileNotFoundException("Image file was not found: " + storeFileName);
+            throw new FileNotFoundException(notFoundLabel + " file was not found: " + storeFileName);
         } catch (MalformedURLException e) {
-            throw new FileNotFoundException("Invalid image path: " + storeFileName);
+            throw new FileNotFoundException("Invalid file path: " + storeFileName);
         }
     }
 
@@ -133,24 +181,21 @@ public class ImageStoreService {
         return client;
     }
 
-    private void putObject(String storeFileName, InputStream data, long contentLength, String contentType) {
+    private void putObject(String objectKeyPrefix, String storeFileName, InputStream data, long contentLength,
+            String contentType) {
         objectStorageClient().putObject(PutObjectRequest.builder()
                 .bucket(objectStorageProperties.bucket())
-                .key(objectKey(storeFileName))
+                .key(objectKeyPrefix + storeFileName)
                 .contentType(contentType)
                 .build(), RequestBody.fromInputStream(data, contentLength));
     }
 
-    private File ensureLocalDirectory() {
-        File dir = new File(uploadDir).getAbsoluteFile();
+    private File ensureLocalDirectory(String subfolder) {
+        File dir = new File(uploadDir, subfolder).getAbsoluteFile();
         if (!dir.exists() && !dir.mkdirs()) {
-            throw new IllegalStateException("Could not create local image directory.");
+            throw new IllegalStateException("Could not create local upload directory.");
         }
         return dir;
-    }
-
-    private String objectKey(String storeFileName) {
-        return OBJECT_KEY_PREFIX + storeFileName;
     }
 
     private String extensionOf(String filename) {

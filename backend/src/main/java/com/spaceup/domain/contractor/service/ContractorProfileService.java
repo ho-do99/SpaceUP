@@ -46,7 +46,9 @@ public class ContractorProfileService {
 	@Transactional
 	public void updateProfile(Long memberId, ContractorProfileUpdateRequest dto) {
 		ContractorProfile profile = findOrCreateProfile(memberId);
-		profile.updateProfile(dto.getBusinessRegistrationNumber(), dto.getCompanyName(), dto.getActivityRegions(),
+		profile.updateProfile(dto.getBusinessRegistrationNumber(), dto.getRepresentativeName(),
+				dto.getBusinessRegistrationCertificateUrl(), dto.getCompanyName(), dto.getCompanyAddress(),
+				dto.getBusinessAddress(), dto.getConstructionExperienceMonths(), dto.getActivityRegions(),
 				dto.getTravelDistanceKm(), dto.getSpecialties(), dto.getPortfolioUrl(), dto.getIntroduction());
 	}
 
