@@ -22,7 +22,7 @@ export interface ContractorCompanySignupInput {
   companyAddress: string
   regions: string[]
   specialties: string[]
-  experience: string
+  constructionExperienceMonths: string
   introduction: string
 }
 
@@ -42,7 +42,7 @@ export interface ContractorProfileSignupPayload {
   companyName: string
   companyAddress: string
   businessAddress: string
-  constructionExperienceYears: number
+  constructionExperienceMonths: number
   activityRegions: string
   specialties: string
   introduction: string

@@ -45,7 +45,7 @@ export interface ContractorProfile {
   companyName?: string | null
   companyAddress?: string | null
   businessAddress?: string | null
-  constructionExperienceYears?: number | null
+  constructionExperienceMonths?: number | null
   activityRegions?: string | null
   specialties?: string | null
   portfolioUrl?: string | null

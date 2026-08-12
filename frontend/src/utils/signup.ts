@@ -27,9 +27,9 @@ export function buildContractorProfileSignupPayload(
   business: ContractorBusinessSignupInput,
   businessRegistrationCertificateUrl: string,
 ): ContractorProfileSignupPayload {
-  const constructionExperienceYears = parseConstructionExperienceYears(company.experience)
-  if (constructionExperienceYears === null) {
-    throw new Error('시공 경력은 0 이상의 정수 연수로 입력해 주세요.')
+  const constructionExperienceMonths = parseConstructionExperienceMonths(company.constructionExperienceMonths)
+  if (constructionExperienceMonths === null) {
+    throw new Error('시공 경력은 0 이상의 정수 개월 수로 입력해 주세요.')
   }
 
   return {
@@ -39,18 +39,18 @@ export function buildContractorProfileSignupPayload(
     companyName: business.businessName.trim(),
     companyAddress: company.companyAddress.trim(),
     businessAddress: business.businessAddress.trim(),
-    constructionExperienceYears,
+    constructionExperienceMonths,
     activityRegions: company.regions.join(','),
     specialties: company.specialties.join(','),
     introduction: company.introduction.trim(),
   }
 }
 
-export function parseConstructionExperienceYears(value: string): number | null {
+export function parseConstructionExperienceMonths(value: string): number | null {
   const trimmed = value.trim()
   if (!/^\d+$/.test(trimmed)) return null
-  const years = Number(trimmed)
-  return Number.isSafeInteger(years) ? years : null
+  const months = Number(trimmed)
+  return Number.isSafeInteger(months) ? months : null
 }
 
 export function validateBusinessRegistrationFile(file: File): string | null {

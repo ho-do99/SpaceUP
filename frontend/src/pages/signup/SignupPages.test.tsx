@@ -13,6 +13,7 @@ import {
   uploadBusinessRegistrationCertificate,
   verifyBusinessRegistration,
 } from '@/api/signupApi'
+import { openDaumPostcode } from '@/utils/daumPostcode'
 
 vi.mock('@/api/signupApi', () => ({
   sendJoinPhoneVerificationCode: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock('@/api/signupApi', () => ({
 }))
 vi.mock('@/api/authApi', () => ({ login: vi.fn() }))
 vi.mock('@/api/contractorApi', () => ({ updateMyContractorProfile: vi.fn() }))
+vi.mock('@/utils/daumPostcode', () => ({ openDaumPostcode: vi.fn() }))
 
 const sendCode = vi.mocked(sendJoinPhoneVerificationCode)
 const confirmCode = vi.mocked(confirmJoinPhoneVerificationCode)
@@ -31,6 +33,7 @@ const verifyBusiness = vi.mocked(verifyBusinessRegistration)
 const uploadCertificate = vi.mocked(uploadBusinessRegistrationCertificate)
 const updateProfile = vi.mocked(updateMyContractorProfile)
 const loginRequest = vi.mocked(login)
+const openPostcode = vi.mocked(openDaumPostcode)
 
 afterEach(cleanup)
 beforeEach(() => {
@@ -41,6 +44,7 @@ beforeEach(() => {
   uploadCertificate.mockReset().mockResolvedValue('/api/files/business-documents/license.pdf')
   updateProfile.mockReset().mockResolvedValue(undefined)
   loginRequest.mockReset()
+  openPostcode.mockReset()
   sessionStorage.clear()
 })
 
@@ -160,10 +164,12 @@ describe('signup routes and guarded flows', () => {
     expect(await screen.findByLabelText('업체명')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('업체명'), { target: { value: '스페이스업 인테리어' } })
     fireEvent.change(screen.getByLabelText('대표자명'), { target: { value: '초기 대표' } })
-    fireEvent.change(screen.getByLabelText('업체 주소'), { target: { value: '광주 북구' } })
+    openPostcode.mockResolvedValueOnce('광주광역시 북구 무등로 1')
+    fireEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+    await waitFor(() => expect(screen.getByLabelText('업체 주소')).toHaveValue('광주광역시 북구 무등로 1'))
     fireEvent.click(screen.getByRole('button', { name: '광주 전체' }))
     fireEvent.click(screen.getByRole('button', { name: '벽지' }))
-    fireEvent.change(screen.getByLabelText('시공 경력'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('시공 경력'), { target: { value: '36' } })
     expect(screen.getByRole('button', { name: '광주 전체' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: '벽지' })).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }))
@@ -172,7 +178,9 @@ describe('signup routes and guarded flows', () => {
     await waitFor(() => expect(verifyBusiness).toHaveBeenCalledWith('220-81-62517'))
     fireEvent.change(screen.getByLabelText('상호명'), { target: { value: '최종 상호' } })
     fireEvent.change(screen.getByLabelText('사업자 대표자명'), { target: { value: '최종 대표' } })
-    fireEvent.change(screen.getByLabelText('사업장 주소'), { target: { value: '광주 서구' } })
+    openPostcode.mockResolvedValueOnce('광주광역시 서구 상무중앙로 1')
+    fireEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+    await waitFor(() => expect(screen.getByLabelText('사업장 주소')).toHaveValue('광주광역시 서구 상무중앙로 1'))
     const file = new File(['certificate'], 'license.pdf', { type: 'application/pdf' })
     fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } })
     fireEvent.click(screen.getByRole('checkbox'))
@@ -189,14 +197,15 @@ describe('signup routes and guarded flows', () => {
       representativeName: '최종 대표',
       businessRegistrationCertificateUrl: '/api/files/business-documents/license.pdf',
       companyName: '최종 상호',
-      companyAddress: '광주 북구',
-      businessAddress: '광주 서구',
-      constructionExperienceYears: 10,
+      companyAddress: '광주광역시 북구 무등로 1',
+      businessAddress: '광주광역시 서구 상무중앙로 1',
+      constructionExperienceMonths: 36,
       activityRegions: '광주 전체',
       specialties: '벽지',
       introduction: '',
     }))
     expect(uploadCertificate).toHaveBeenCalledTimes(1)
+    expect(openPostcode).toHaveBeenCalledTimes(2)
     expect(await screen.findByText('pending status')).toBeInTheDocument()
   })
 })

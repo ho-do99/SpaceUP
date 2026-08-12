@@ -42,7 +42,7 @@ export interface ContractorProfileUpdateInput {
   companyName?: string
   companyAddress?: string
   businessAddress?: string
-  constructionExperienceYears?: number
+  constructionExperienceMonths?: number
   activityRegions?: string
   specialties?: string
   portfolioUrl?: string

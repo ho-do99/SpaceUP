@@ -29,11 +29,12 @@ import {
   buildContractorProfileSignupPayload,
   EMAIL_PATTERN,
   formatPhoneNumber,
-  parseConstructionExperienceYears,
+  parseConstructionExperienceMonths,
   PASSWORD_PATTERN,
   validateBusinessRegistrationFile,
 } from '@/utils/signup'
 import { saveAuthSession } from '@/utils/authSession'
+import { openDaumPostcode } from '@/utils/daumPostcode'
 
 const steps = [
   { label: '계정' },
@@ -65,7 +66,7 @@ const initialAccount: AccountState = {
   privacyAgreed: false,
 }
 const initialCompany: ContractorCompanySignupInput = {
-  companyName: '', representativeName: '', companyAddress: '', regions: [], specialties: [], experience: '', introduction: '',
+  companyName: '', representativeName: '', companyAddress: '', regions: [], specialties: [], constructionExperienceMonths: '', introduction: '',
 }
 const initialBusiness: ContractorBusinessSignupInput = {
   businessRegistrationNumber: '', businessName: '', representativeName: '', businessAddress: '', registrationDocument: null, submissionAgreed: false,
@@ -103,6 +104,8 @@ export default function ContractorSignupPage() {
   const [hasJoined, setHasJoined] = useState(false)
   const [isVerifyingBusiness, setIsVerifyingBusiness] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSearchingCompanyAddress, setIsSearchingCompanyAddress] = useState(false)
+  const [isSearchingBusinessAddress, setIsSearchingBusinessAddress] = useState(false)
   const [verifiedBusinessNumber, setVerifiedBusinessNumber] = useState('')
   const [uploadedCertificateUrl, setUploadedCertificateUrl] = useState('')
   const [pageError, setPageError] = useState('')
@@ -129,7 +132,7 @@ export default function ContractorSignupPage() {
     account.password === account.passwordConfirm && account.serviceAgreed && account.privacyAgreed
   const canContinueCompany = Boolean(
     company.companyName.trim() && company.representativeName.trim() && company.companyAddress.trim() &&
-    company.regions.length && company.specialties.length && parseConstructionExperienceYears(company.experience) !== null,
+    company.regions.length && company.specialties.length && parseConstructionExperienceMonths(company.constructionExperienceMonths) !== null,
   )
   const canSubmitBusiness = Boolean(
     business.businessRegistrationNumber.trim() && business.businessName.trim() &&
@@ -253,6 +256,34 @@ export default function ContractorSignupPage() {
     }
   }
 
+  const searchCompanyAddress = async () => {
+    if (isSearchingCompanyAddress) return
+    setIsSearchingCompanyAddress(true)
+    setPageError('')
+    try {
+      const address = await openDaumPostcode()
+      if (address) updateCompany('companyAddress', address)
+    } catch {
+      setPageError('주소 검색을 불러오지 못했습니다. 다시 시도해 주세요.')
+    } finally {
+      setIsSearchingCompanyAddress(false)
+    }
+  }
+
+  const searchBusinessAddress = async () => {
+    if (isSearchingBusinessAddress) return
+    setIsSearchingBusinessAddress(true)
+    setPageError('')
+    try {
+      const address = await openDaumPostcode()
+      if (address) updateBusiness('businessAddress', address)
+    } catch {
+      setPageError('주소 검색을 불러오지 못했습니다. 다시 시도해 주세요.')
+    } finally {
+      setIsSearchingBusinessAddress(false)
+    }
+  }
+
   const submitReview = async () => {
     if (!canSubmitBusiness || isSubmitting || !business.registrationDocument) return
     setIsSubmitting(true)
@@ -308,11 +339,11 @@ export default function ContractorSignupPage() {
             <SignupField label="업체명" required><input aria-label="업체명" value={company.companyName} placeholder="업체명을 입력해 주세요." className={signupInputClass} onChange={(event) => updateCompany('companyName', event.target.value)} /></SignupField>
             <SignupField label="대표자명" required><input aria-label="대표자명" value={company.representativeName} placeholder="대표자명을 입력해 주세요." className={signupInputClass} onChange={(event) => updateCompany('representativeName', event.target.value)} /></SignupField>
             <SignupField label="업체 주소" required>
-              <div className="flex gap-2"><input aria-label="업체 주소" value={company.companyAddress} placeholder="업체 주소를 검색해 주세요." className={signupInputClass} onChange={(event) => updateCompany('companyAddress', event.target.value)} /><button type="button" className="h-11 w-[108px] shrink-0 rounded-lg border border-[#2563eb] bg-white text-xs font-bold text-[#2563eb]" onClick={() => setPageError('연결 가능한 주소 검색 서비스가 없습니다.')}>주소 검색</button></div>
+              <div className="flex gap-2"><input aria-label="업체 주소" value={company.companyAddress} placeholder="업체 주소를 검색해 주세요." className={signupInputClass} onChange={(event) => updateCompany('companyAddress', event.target.value)} /><button type="button" disabled={isSearchingCompanyAddress} className="h-11 w-[108px] shrink-0 rounded-lg border border-[#2563eb] bg-white text-xs font-bold text-[#2563eb] disabled:opacity-50" onClick={searchCompanyAddress}>주소 검색</button></div>
             </SignupField>
             <fieldset><legend className="mb-2 text-[11px] font-bold leading-4">시공 가능 지역 *</legend><div className="flex flex-wrap gap-2">{regionOptions.map((region) => <ToggleChip key={region} label={region} selected={company.regions.includes(region)} onClick={() => updateCompany('regions', toggleValue(company.regions, region))} />)}</div></fieldset>
             <fieldset><legend className="mb-2 text-[11px] font-bold leading-4">전문 시공 분야 *</legend><div className="flex flex-wrap gap-2">{specialtyOptions.map((specialty) => <ToggleChip key={specialty} label={specialty} selected={company.specialties.includes(specialty)} onClick={() => updateCompany('specialties', toggleValue(company.specialties, specialty))} />)}</div></fieldset>
-            <SignupField label="시공 경력" required><input aria-label="시공 경력" inputMode="numeric" value={company.experience} placeholder="시공 경력을 선택해 주세요.⌄" className={signupInputClass} onChange={(event) => updateCompany('experience', event.target.value)} /></SignupField>
+            <SignupField label="시공 경력" required><input aria-label="시공 경력" inputMode="numeric" value={company.constructionExperienceMonths} placeholder="개월 수를 입력해 주세요." className={signupInputClass} onChange={(event) => updateCompany('constructionExperienceMonths', event.target.value)} /></SignupField>
             <SignupField label="업체 소개 (선택)"><textarea aria-label="업체 소개 (선택)" value={company.introduction} maxLength={300} placeholder="업체의 주요 시공 경험과 강점을 입력해 주세요." className={signupTextareaClass} onChange={(event) => updateCompany('introduction', event.target.value)} /><span className="self-end text-[10px] text-[#64748b]">{company.introduction.length} / 300</span></SignupField>
             {pageError && <p role="alert" className="text-xs font-bold text-[#ef4444]">! {pageError}</p>}
             <div className="fixed inset-x-0 bottom-0 z-10 mx-auto w-full max-w-[393px] border border-[#e2e8f0] bg-white p-4"><button type="button" disabled={!canContinueCompany} className={signupPrimaryButtonClass} onClick={() => { setPageError(''); setStep(4) }}>다음 단계</button></div>
@@ -324,7 +355,7 @@ export default function ContractorSignupPage() {
             <SignupField label="사업자등록번호" required><div className="flex gap-2"><input aria-label="사업자등록번호" value={business.businessRegistrationNumber} placeholder="000-00-00000" className={signupInputClass} onChange={(event) => handleBusinessNumberChange(event.target.value)} /><button type="button" disabled={!business.businessRegistrationNumber.trim() || isVerifyingBusiness} className="h-11 w-[108px] shrink-0 rounded-lg border border-[#2563eb] bg-white text-xs font-bold text-[#2563eb] disabled:opacity-50" onClick={verifyBusinessNumber}>{isVerifyingBusiness ? '확인 중...' : '사업자 확인'}</button></div>{verifiedBusinessNumber === business.businessRegistrationNumber.trim() && <p role="status" className="mt-1 text-xs font-bold text-[#16a36f]">✓ 사업자 정보가 확인되었습니다.</p>}</SignupField>
             <SignupField label="상호명" required><input aria-label="상호명" value={business.businessName} placeholder="사업자등록증의 상호명을 입력해 주세요." className={signupInputClass} onChange={(event) => updateBusiness('businessName', event.target.value)} /></SignupField>
             <SignupField label="대표자명" required><input aria-label="사업자 대표자명" value={business.representativeName} placeholder="사업자등록증의 대표자명을 입력해 주세요." className={signupInputClass} onChange={(event) => updateBusiness('representativeName', event.target.value)} /></SignupField>
-            <SignupField label="사업장 주소" required><div className="flex gap-2"><input aria-label="사업장 주소" value={business.businessAddress} placeholder="사업장 주소를 검색해 주세요." className={signupInputClass} onChange={(event) => updateBusiness('businessAddress', event.target.value)} /><button type="button" className="h-11 w-[108px] shrink-0 rounded-lg border border-[#2563eb] bg-white text-xs font-bold text-[#2563eb]" onClick={() => setPageError('연결 가능한 주소 검색 서비스가 없습니다.')}>주소 검색</button></div></SignupField>
+            <SignupField label="사업장 주소" required><div className="flex gap-2"><input aria-label="사업장 주소" value={business.businessAddress} placeholder="사업장 주소를 검색해 주세요." className={signupInputClass} onChange={(event) => updateBusiness('businessAddress', event.target.value)} /><button type="button" disabled={isSearchingBusinessAddress} className="h-11 w-[108px] shrink-0 rounded-lg border border-[#2563eb] bg-white text-xs font-bold text-[#2563eb] disabled:opacity-50" onClick={searchBusinessAddress}>주소 검색</button></div></SignupField>
             <SignupField label="사업자등록증" required>
               <div className="flex min-h-[146px] flex-col items-center justify-center rounded-lg border border-[#2563eb] bg-[#eff6ff] p-3 text-center"><span aria-hidden="true" className="text-3xl text-[#2563eb]">⇧</span><p className="mt-2 text-xs font-bold">{business.registrationDocument?.name || '사업자등록증을 첨부해 주세요.'}</p><p className="mt-1 text-[10px] text-[#64748b]">JPG, PNG, PDF / 최대 10MB</p><input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" className="sr-only" onChange={handleFile} /><button type="button" className="mt-3 h-9 min-w-[122px] rounded-lg border border-[#2563eb] bg-white px-4 text-xs font-bold text-[#2563eb]" onClick={() => fileInputRef.current?.click()}>파일 선택</button></div>
               {fileError && <p role="alert" className="text-xs text-[#ef4444]">{fileError}</p>}
