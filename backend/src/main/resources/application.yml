@@ -60,6 +60,15 @@ jwt:
   expiration-ms: ${JWT_EXPIRATION_MS:3600000}
 
 external-api:
+  # ⭐ [국토부 전월세 실거래가 API 연동] MOLIT_RENT_API_SERVICE_KEY 환경변수가 없으면 서비스키가 빈 문자열이 되고,
+  # 실제 동기화(POST /api/rental-transactions/sync) 호출 시 RentalApiConfigurationException(503)이 발생합니다.
+  molit-rental:
+    base-url: https://apis.data.go.kr/1613000/RTMSDataSvcAptRent
+    service-key: ${MOLIT_RENT_API_SERVICE_KEY:}
+    num-of-rows: 1000
+    connect-timeout: 5s
+    read-timeout: 20s
+    user-agent: Mozilla/5.0 (compatible; Spaceup/1.0)
   # ⭐ [AI 인테리어 이미지 생성] GEMINI_API_KEY 환경변수가 비어 있으면 관련 API가 503을 반환합니다.
   # 절대 이 파일에 실제 키 값을 하드코딩하지 마세요 - .env.local(gitignore 미적용, 팀 공유 저장소) 대신
   # 로컬 셸 환경변수나 개인 전용 설정으로만 채워 넣으세요.
