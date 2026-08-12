@@ -93,6 +93,10 @@ public class SecurityConfig {
 						// ⭐ [프론트 연동] "아파트/평면도 검색"은 로그인 없이 조회 가능, 등록은 관리자만
 						.requestMatchers(HttpMethod.GET, "/api/floorplans/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/floorplans/**").hasRole("ADMIN")
+						// ⭐ [프론트 연동] 아파트 검색 화면에서 로그인 없이도 쓸 수 있어야 합니다(/api/floorplans/apartments와 동일 정책).
+						.requestMatchers(HttpMethod.GET, "/api/rental-transactions/apartments").permitAll()
+						// ⭐ [국토부 실거래가 연동] 실거래가 동기화는 외부 API 호출 비용이 커서 관리자만 트리거 가능합니다.
+						.requestMatchers(HttpMethod.POST, "/api/rental-transactions/sync").hasRole("ADMIN")
 						// ⭐ [보안 수정] ML 파이프라인 콜백/관리자 수동 보정 용도라 특정 임대인·시공사 소유권 개념이
 						// 없습니다. 실제 ML 서비스 간 인증이 생기기 전까지는 관리자만 호출 가능하도록 제한합니다.
 						.requestMatchers(HttpMethod.POST, "/api/analysis/request/*/result",
