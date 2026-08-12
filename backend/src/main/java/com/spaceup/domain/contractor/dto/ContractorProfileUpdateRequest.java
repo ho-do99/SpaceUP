@@ -16,7 +16,7 @@ public class ContractorProfileUpdateRequest {
 	private String companyName;
 	private String companyAddress; // 업체 주소
 	private String businessAddress; // 사업장 주소
-	private Integer constructionExperienceYears; // 시공 경력(년)
+	private Integer constructionExperienceMonths; // 시공 경력(개월)
 	private String activityRegions; // "광주 북구,광주 서구" 형태로 콤마 구분해 전달
 	private Integer travelDistanceKm; // 출장 가능 거리(km), 예: 10/30/50
 	private String specialties; // "도배,바닥재,조명"

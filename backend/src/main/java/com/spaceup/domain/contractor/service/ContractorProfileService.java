@@ -48,7 +48,7 @@ public class ContractorProfileService {
 		ContractorProfile profile = findOrCreateProfile(memberId);
 		profile.updateProfile(dto.getBusinessRegistrationNumber(), dto.getRepresentativeName(),
 				dto.getBusinessRegistrationCertificateUrl(), dto.getCompanyName(), dto.getCompanyAddress(),
-				dto.getBusinessAddress(), dto.getConstructionExperienceYears(), dto.getActivityRegions(),
+				dto.getBusinessAddress(), dto.getConstructionExperienceMonths(), dto.getActivityRegions(),
 				dto.getTravelDistanceKm(), dto.getSpecialties(), dto.getPortfolioUrl(), dto.getIntroduction());
 	}
 

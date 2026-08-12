@@ -61,8 +61,8 @@ public class ContractorProfile extends BaseTimeEntity {
 	@Column(name = "business_address", length = 200)
 	private String businessAddress; // 사업장 주소
 
-	@Column(name = "construction_experience_years")
-	private Integer constructionExperienceYears; // 시공 경력(년)
+	@Column(name = "construction_experience_months")
+	private Integer constructionExperienceMonths; // 시공 경력(개월)
 
 	@Column(name = "activity_regions", length = 200)
 	private String activityRegions; // 활동 지역 (콤마 구분, 예: "광주 북구,광주 서구")
@@ -137,7 +137,7 @@ public class ContractorProfile extends BaseTimeEntity {
 
 	public void updateProfile(String businessRegistrationNumber, String representativeName,
 			String businessRegistrationCertificateUrl, String companyName, String companyAddress,
-			String businessAddress, Integer constructionExperienceYears, String activityRegions,
+			String businessAddress, Integer constructionExperienceMonths, String activityRegions,
 			Integer travelDistanceKm, String specialties, String portfolioUrl, String introduction) {
 		this.businessRegistrationNumber = businessRegistrationNumber;
 		this.representativeName = representativeName;
@@ -145,7 +145,7 @@ public class ContractorProfile extends BaseTimeEntity {
 		this.companyName = companyName;
 		this.companyAddress = companyAddress;
 		this.businessAddress = businessAddress;
-		this.constructionExperienceYears = constructionExperienceYears;
+		this.constructionExperienceMonths = constructionExperienceMonths;
 		this.activityRegions = activityRegions;
 		this.travelDistanceKm = travelDistanceKm;
 		this.specialties = specialties;
