@@ -12,6 +12,7 @@ import type {
 } from '@/types/analysis'
 
 const INTERIOR_IMAGE_TIMEOUT_MS = 75_000
+const FLOOR_PLAN_SCAN_TIMEOUT_MS = 45_000
 
 export async function getAnalysis(requestId: number) {
   const response = await apiRequest<ApiResponse<AnalysisJobResponse>>({
@@ -31,7 +32,11 @@ export async function scanFloorPlan(requestId: number, file: File) {
   const data = new FormData()
   data.append('file', file)
   const response = await apiRequest<ApiResponse<AnalysisJobResponse>, FormData>({
-    method: 'POST', url: `/api/analysis/request/${requestId}/floorplan-scan`, data, authenticated: true,
+    method: 'POST',
+    url: `/api/analysis/request/${requestId}/floorplan-scan`,
+    data,
+    authenticated: true,
+    timeout: FLOOR_PLAN_SCAN_TIMEOUT_MS,
   })
   return unwrapApiResponse<AnalysisJobResponse>(response, '평면도 분석에 실패했습니다.')
 }

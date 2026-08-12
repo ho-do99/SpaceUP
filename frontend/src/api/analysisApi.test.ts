@@ -5,6 +5,7 @@ import {
   getAnalysis,
   getInteriorImageGenerationErrorMessage,
   replaceAnalysisSpaces,
+  scanFloorPlan,
 } from './analysisApi'
 
 vi.mock('./axiosInstance', async (importOriginal) => {
@@ -32,6 +33,27 @@ describe('analysisApi', () => {
     expect(mockedApiRequest).toHaveBeenCalledWith(expect.objectContaining({
       method: 'PUT', url: '/api/analysis/request/7/spaces', data: spaces, authenticated: true,
     }))
+  })
+
+  it('scans a floor plan with the request id, multipart file, and analysis timeout', async () => {
+    mockedApiRequest.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      data: { requestId: 7, status: 'COMPLETED' },
+    })
+    const file = new File(['floor-plan'], 'floor-plan.png', { type: 'image/png' })
+
+    await scanFloorPlan(7, file)
+
+    expect(mockedApiRequest).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'POST',
+      url: '/api/analysis/request/7/floorplan-scan',
+      authenticated: true,
+      timeout: 45_000,
+      data: expect.any(FormData),
+    }))
+    const request = mockedApiRequest.mock.calls[0][0]
+    expect((request.data as FormData).get('file')).toBe(file)
   })
 
   it('requests an interior image with a generation-specific timeout', async () => {

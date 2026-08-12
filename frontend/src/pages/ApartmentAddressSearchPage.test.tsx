@@ -4,6 +4,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { createRequest } from '@/api/requestApi'
 import { searchRentalApartments } from '@/api/rentalApartmentApi'
 import { saveRequestDraft } from '@/utils/requestFlow'
+import { assetUrlToFile } from '@/utils/floorPlanAnalysisFlow'
+import { uploadAndAttachRequestImage } from '@/utils/requestImageFlow'
 import ApartmentAddressSearchPage from './ApartmentAddressSearchPage'
 
 vi.mock('@/api/rentalApartmentApi', () => ({ searchRentalApartments: vi.fn() }))
@@ -11,9 +13,17 @@ vi.mock('@/api/requestApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/requestApi')>()
   return { ...actual, createRequest: vi.fn() }
 })
+vi.mock('@/utils/requestImageFlow', () => ({ uploadAndAttachRequestImage: vi.fn() }))
+vi.mock('@/utils/floorPlanAnalysisFlow', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/floorPlanAnalysisFlow')>()
+  return { ...actual, assetUrlToFile: vi.fn() }
+})
 
 const searchApartments = vi.mocked(searchRentalApartments)
 const create = vi.mocked(createRequest)
+const convertAsset = vi.mocked(assetUrlToFile)
+const uploadAndAttach = vi.mocked(uploadAndAttachRequestImage)
+const registeredFloorPlanFile = new File(['floor-plan'], 'registered-floor-plan.png', { type: 'image/png' })
 
 const makePage = (content: Array<{
   id: number
@@ -35,7 +45,8 @@ function renderPage() {
     <MemoryRouter initialEntries={['/analysis/new/address']}>
       <Routes>
         <Route path="/analysis/new/address" element={<ApartmentAddressSearchPage />} />
-        <Route path="/analysis/spaces" element={<p>space flow</p>} />
+        <Route path="/analysis/loading" element={<p>analysis loading</p>} />
+        <Route path="/upload" element={<p>direct upload</p>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -51,6 +62,8 @@ describe('ApartmentAddressSearchPage', () => {
   beforeEach(() => {
     searchApartments.mockReset()
     create.mockReset().mockResolvedValue(77)
+    convertAsset.mockReset().mockResolvedValue(registeredFloorPlanFile)
+    uploadAndAttach.mockReset().mockResolvedValue({ id: 91, imageUrl: '/api/files/images/registered-floor-plan.png' })
     sessionStorage.clear()
   })
   afterEach(cleanup)
@@ -90,7 +103,7 @@ describe('ApartmentAddressSearchPage', () => {
     expect(await screen.findByText('검색 결과가 없습니다')).toBeInTheDocument()
   })
 
-  it('matches an exact mock floor plan and keeps the existing request flow', async () => {
+  it('matches an exact mock floor plan, uploads it, and enters the shared analysis flow', async () => {
     searchApartments.mockResolvedValue(makePage([
       { id: 501, apartmentName: '상무센트럴아파트', roadAddress: '광주광역시 서구 상무중앙로 100', lotAddress: '치평동 1234', exclusiveAreaM2: 59, sggCode: '29155' },
     ]))
@@ -107,10 +120,15 @@ describe('ApartmentAddressSearchPage', () => {
       propertyType: 'APARTMENT',
       areaM2: 59,
     })))
-    expect(await screen.findByText('space flow')).toBeInTheDocument()
+    expect(convertAsset).toHaveBeenCalledWith(
+      expect.stringContaining('apartment-floor-plan'),
+      'apartment-floor-plan-exclusive-59.png',
+    )
+    expect(uploadAndAttach).toHaveBeenCalledWith(77, registeredFloorPlanFile, 'FLOOR_PLAN')
+    expect(await screen.findByText('analysis loading')).toBeInTheDocument()
   })
 
-  it('does not substitute another floor plan when the exact mock is unavailable', async () => {
+  it('offers direct upload with the searched area when the exact mock is unavailable', async () => {
     searchApartments.mockResolvedValue(makePage([
       { id: 502, apartmentName: '상무센트럴자이', roadAddress: '상무중앙로 100', lotAddress: '치평동 1234', exclusiveAreaM2: 84.97, sggCode: '29155' },
     ]))
@@ -120,6 +138,45 @@ describe('ApartmentAddressSearchPage', () => {
 
     expect(screen.getByText('전용 84.97m² · 등록된 평면도가 없습니다')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: '평면도 직접 업로드' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      region: '상무중앙로 100',
+      propertyType: 'APARTMENT',
+      areaM2: 84.97,
+    })))
+    expect(await screen.findByText('direct upload')).toBeInTheDocument()
+  })
+
+  it('requires a positive manual area before an empty search can continue to upload', async () => {
+    searchApartments.mockResolvedValue(makePage([]))
+    renderPage()
+    await submitSearch('광주 서구')
+    expect(await screen.findByText('검색 결과가 없습니다')).toBeInTheDocument()
+
+    const areaInput = screen.getByLabelText('전용면적(㎡)')
+    fireEvent.change(areaInput, { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: '평면도 직접 업로드' }))
+    expect(screen.getByText('전용면적은 0보다 큰 숫자로 입력해 주세요.')).toBeInTheDocument()
     expect(create).not.toHaveBeenCalled()
+
+    fireEvent.change(areaInput, { target: { value: '59.5' } })
+    fireEvent.click(screen.getByRole('button', { name: '평면도 직접 업로드' }))
+    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      region: '광주 서구',
+      propertyType: 'APARTMENT',
+      areaM2: 59.5,
+    })))
+    expect(await screen.findByText('direct upload')).toBeInTheDocument()
+  })
+
+  it('ignores non-numeric manual area characters', async () => {
+    searchApartments.mockResolvedValue(makePage([]))
+    renderPage()
+    await submitSearch('광주')
+    const areaInput = await screen.findByLabelText('전용면적(㎡)')
+
+    fireEvent.change(areaInput, { target: { value: '59㎡' } })
+    expect(areaInput).toHaveValue('')
   })
 })

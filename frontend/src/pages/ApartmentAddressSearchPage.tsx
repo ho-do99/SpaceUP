@@ -8,17 +8,29 @@ import UserScreenShell from '@/components/user/UserScreenShell'
 
 import { createRequest } from '@/api/requestApi'
 import { searchRentalApartments } from '@/api/rentalApartmentApi'
+import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
+import {
+  assetUrlToFile,
+  createFloorPlanAnalysisNavigationState,
+} from '@/utils/floorPlanAnalysisFlow'
 import {
   getRequestDraft,
   saveRequestDraft,
   setActiveRequestId,
 } from '@/utils/requestFlow'
+import { uploadAndAttachRequestImage } from '@/utils/requestImageFlow'
 
 import {
   findMockFloorPlan,
   type ApartmentFloorPlanOption,
 } from '@/mocks/apartments'
 import type { RentalApartmentSearchItem } from '@/types/rentalApartment'
+
+function parsePositiveArea(value: string) {
+  if (!/^\d+(?:\.\d+)?$/.test(value.trim())) return null
+  const area = Number(value)
+  return Number.isFinite(area) && area > 0 ? area : null
+}
 
 function FloorPlanLabel({
   option,
@@ -58,6 +70,9 @@ export default function ApartmentAddressSearchPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [manualArea, setManualArea] = useState('')
+  const [manualAreaError, setManualAreaError] = useState('')
+  const [preparedRequestId, setPreparedRequestId] = useState<number | null>(null)
 
   const selectedApartment = searchResults.find(
     (result) => result.id === selectedApartmentId,
@@ -133,6 +148,9 @@ export default function ApartmentAddressSearchPage() {
     setSelectedApartmentId(null)
     setSelectedFloorPlanId(null)
     setIsAreaListOpen(false)
+    setManualArea('')
+    setManualAreaError('')
+    setPreparedRequestId(null)
   }
 
   const handleBack = () => {
@@ -146,6 +164,24 @@ export default function ApartmentAddressSearchPage() {
     navigate('/analysis/new/property')
   }
 
+  const createApartmentRequest = async (areaM2: number, region: string) => {
+    if (preparedRequestId) return preparedRequestId
+
+    const previous = getRequestDraft()
+    const draft = {
+      ...previous,
+      region,
+      propertyType: 'APARTMENT',
+      areaM2,
+    }
+
+    saveRequestDraft(draft)
+    const requestId = await createRequest(draft)
+    setActiveRequestId(requestId)
+    setPreparedRequestId(requestId)
+    return requestId
+  }
+
   const continueWithApartment = async () => {
     if (
       !selectedApartment ||
@@ -155,26 +191,36 @@ export default function ApartmentAddressSearchPage() {
       return
     }
 
-    const previous = getRequestDraft()
-
-    const draft = {
-      ...previous,
-      region: selectedApartment.roadAddress,
-      propertyType: 'APARTMENT',
-      areaM2: selectedFloorPlan.exclusiveArea,
-    }
-
-    saveRequestDraft(draft)
-
     setIsSubmitting(true)
     setSubmitError('')
 
     try {
-      const requestId = await createRequest(draft)
+      const requestId = await createApartmentRequest(
+        selectedFloorPlan.exclusiveArea,
+        selectedApartment.roadAddress,
+      )
+      const floorPlanFile = await assetUrlToFile(
+        selectedFloorPlan.floorPlanSrc,
+        `apartment-floor-plan-${selectedFloorPlan.id}.png`,
+      )
+      const linkedImage = await uploadAndAttachRequestImage(
+        requestId,
+        floorPlanFile,
+        'FLOOR_PLAN',
+      )
+      const uploadedImageUrl = resolveApiAssetUrl(linkedImage.imageUrl)
 
-      setActiveRequestId(requestId)
+      if (!uploadedImageUrl) {
+        throw new Error('서버 응답을 확인할 수 없습니다.')
+      }
 
-      navigate('/analysis/spaces')
+      navigate('/analysis/loading', {
+        state: createFloorPlanAnalysisNavigationState(
+          floorPlanFile,
+          linkedImage,
+          uploadedImageUrl,
+        ),
+      })
     } catch (error) {
       setSubmitError(
         error instanceof Error
@@ -184,6 +230,41 @@ export default function ApartmentAddressSearchPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const continueWithDirectUpload = async (
+    areaM2: number,
+    region: string,
+  ) => {
+    if (isSubmitting) return
+
+    setIsSubmitting(true)
+    setSubmitError('')
+
+    try {
+      await createApartmentRequest(areaM2, region)
+      navigate('/upload')
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : '의뢰 생성에 실패했습니다.',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const continueEmptyResultWithUpload = () => {
+    const areaM2 = parsePositiveArea(manualArea)
+
+    if (areaM2 === null) {
+      setManualAreaError('전용면적은 0보다 큰 숫자로 입력해 주세요.')
+      return
+    }
+
+    setManualAreaError('')
+    void continueWithDirectUpload(areaM2, query.trim())
   }
 
   return (
@@ -360,6 +441,29 @@ export default function ApartmentAddressSearchPage() {
               ) : null}
             </section>
 
+            {!matchedFloorPlan ? (
+              <section className="mt-3 rounded-[10px] border border-[#dbeafe] bg-[#f8fafc] p-3.5">
+                <p className="text-[11px] leading-[18px] text-[#64748b]">
+                  등록된 평면도가 없어 보유한 평면도를 직접 업로드해야 합니다.
+                </p>
+                <Button
+                  type="button"
+                  disabled={isSubmitting}
+                  isLoading={isSubmitting}
+                  onClick={() => void continueWithDirectUpload(
+                    selectedApartment.exclusiveAreaM2,
+                    selectedApartment.roadAddress,
+                  )}
+                  className="mt-3 h-11 w-full !rounded-[8px] !border !border-[#2563eb] !bg-[#2563eb] !px-4 !py-0 !text-[12px] !font-bold !shadow-none"
+                >
+                  평면도 직접 업로드
+                </Button>
+                <p role="alert" className="mt-2 min-h-4 text-center text-[10px] text-[#ef4444]">
+                  {submitError}
+                </p>
+              </section>
+            ) : null}
+
             {/* 면적 선택 완료 안내 */}
             {selectedFloorPlan ? (
               <aside className="mt-3 rounded-[10px] border border-[#bfdbfe] bg-[#eff6ff] px-3.5 py-3">
@@ -518,6 +622,44 @@ export default function ApartmentAddressSearchPage() {
                   <p className="mt-2 text-[11px] leading-[18px] text-[#64748b]">
                     아파트명 또는 주소를 다시 확인해주세요.
                   </p>
+
+                  <div className="mx-auto mt-5 max-w-[280px] text-left">
+                    <label htmlFor="manual-exclusive-area" className="block text-[11px] font-bold text-[#1e293b]">
+                      전용면적(㎡)
+                    </label>
+                    <input
+                      id="manual-exclusive-area"
+                      type="text"
+                      inputMode="decimal"
+                      value={manualArea}
+                      aria-invalid={Boolean(manualAreaError)}
+                      aria-describedby={manualAreaError ? 'manual-exclusive-area-error' : undefined}
+                      placeholder="예: 59.5"
+                      className="mt-1.5 h-11 w-full rounded-[8px] border border-[#d5dfed] bg-white px-3 text-[13px] text-[#1e293b] outline-none focus:border-[#2563eb]"
+                      onChange={(event) => {
+                        const nextValue = event.target.value
+                        if (/^\d*(?:\.\d*)?$/.test(nextValue)) {
+                          setManualArea(nextValue)
+                          setManualAreaError('')
+                        }
+                      }}
+                    />
+                    <p id="manual-exclusive-area-error" role="alert" className="mt-1 min-h-4 text-[10px] text-[#ef4444]">
+                      {manualAreaError}
+                    </p>
+                    <Button
+                      type="button"
+                      disabled={isSubmitting}
+                      isLoading={isSubmitting}
+                      onClick={continueEmptyResultWithUpload}
+                      className="mt-2 h-11 w-full !rounded-[8px] !border !border-[#2563eb] !bg-[#2563eb] !px-4 !py-0 !text-[12px] !font-bold !shadow-none"
+                    >
+                      평면도 직접 업로드
+                    </Button>
+                    <p role="alert" className="mt-2 min-h-4 text-center text-[10px] text-[#ef4444]">
+                      {submitError}
+                    </p>
+                  </div>
                 </div>
               )}
             </section>

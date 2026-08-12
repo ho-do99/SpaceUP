@@ -8,6 +8,7 @@ import FloorPlanUploadZone from '@/components/user/FloorPlanUploadZone'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
+import { createFloorPlanAnalysisNavigationState } from '@/utils/floorPlanAnalysisFlow'
 import { getActiveRequestId } from '@/utils/requestFlow'
 import {
   replaceRequestImage,
@@ -103,11 +104,11 @@ export default function FloorPlanUploadPage() {
     }
 
     navigate('/analysis/loading', {
-      state: {
-        uploadedImagePath: linkedImage.imageUrl,
+      state: createFloorPlanAnalysisNavigationState(
+        file,
+        linkedImage,
         uploadedImageUrl,
-        originalFileName: file.name,
-      },
+      ),
     })
   }
 
