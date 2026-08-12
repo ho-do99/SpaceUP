@@ -1,0 +1,30 @@
+name: ${COMPOSE_PROJECT_NAME:?COMPOSE_PROJECT_NAME is required}
+
+services:
+  ai:
+    image: ${AI_IMAGE:?AI_IMAGE is required}
+    restart: unless-stopped
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "${AI_BIND_HOST:?AI_BIND_HOST is required}:${AI_PORT:-8000}:8000"
+    volumes:
+      - ../storage/floorplans:/app/storage/floorplans
+
+  backend:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
+    restart: unless-stopped
+    env_file:
+      - ${SPACEUP_SECRET_ENV:?SPACEUP_SECRET_ENV is required}
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      AI_BASE_URL: http://ai:8000
+      AI_FLOORPLAN_BASE_URL: ${AI_FLOORPLAN_BASE_URL:-http://viewerwall:8000}
+    ports:
+      - "${BACKEND_BIND_HOST:?BACKEND_BIND_HOST is required}:${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - ../storage:/app/storage
+    depends_on:
+      ai:
+        condition: service_started

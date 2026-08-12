@@ -1,52 +1,218 @@
-name: Deploy SpaceUP project
+name: Deploy production
 
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch containing the approved revision
+        required: true
+        default: infra
+        type: choice
+        options:
+          - infra
+          - main
+      revision:
+        description: Optional full 40-character commit SHA; blank deploys the latest branch commit
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: spaceup-production
+  cancel-in-progress: false
 
 jobs:
-  deploy-backend:
-    runs-on: ubuntu-latest
+  resolve:
+    name: Resolve and validate revision
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      revision: ${{ steps.revision.outputs.revision }}
+      branch: ${{ steps.revision.outputs.branch }}
     steps:
-      - name: SSH into Private server via Public server (bastion) and redeploy backend/ai
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Check out selected branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          host: ${{ secrets.PRIVATE_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          proxy_host: ${{ secrets.PUBLIC_HOST }}
-          proxy_username: ${{ secrets.SSH_USER }}
-          proxy_key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd ~/SpaceUP
-            git pull
-            # Ensure non-target services are NOT running on the private server
-            docker compose -f docker-compose.dev.yml rm -s -f frontend nginx 2>/dev/null || true
-            # Recreate target services
-            docker compose -f docker-compose.dev.yml rm -s -f backend ai 2>/dev/null || true
-            docker compose -f docker-compose.dev.yml up -d --build backend ai
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
 
-  deploy-frontend:
-    runs-on: ubuntu-latest
+      - name: Validate requested revision
+        id: revision
+        env:
+          DEPLOY_BRANCH: ${{ inputs.branch }}
+          REQUESTED_REVISION: ${{ inputs.revision }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$DEPLOY_BRANCH" == "infra" || "$DEPLOY_BRANCH" == "main" ]]
+          git fetch --no-tags --prune origin "$DEPLOY_BRANCH"
+          revision="$REQUESTED_REVISION"
+          if [[ -z "$revision" ]]; then
+            revision="$(git rev-parse "origin/${DEPLOY_BRANCH}")"
+          fi
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "${revision}^{commit}"
+          git merge-base --is-ancestor "$revision" "origin/${DEPLOY_BRANCH}"
+          printf 'revision=%s\n' "$revision" >> "$GITHUB_OUTPUT"
+          printf 'branch=%s\n' "$DEPLOY_BRANCH" >> "$GITHUB_OUTPUT"
+
+  verify-images:
+    name: Verify immutable images
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - name: SSH into Public server and redeploy frontend/nginx
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
-          host: ${{ secrets.PUBLIC_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd ~/SpaceUP
-            git pull
-            export LETSENCRYPT_DIR="/etc/letsencrypt"
-            export DOMAIN="${{ secrets.DOMAIN }}"
-            export BACKEND_HOST="${{ secrets.BACKEND_HOST }}"
-            export AI_HOST="${{ secrets.AI_HOST }}"
-            export SSL_CERT_PATH="/etc/nginx/certs/live/${{ secrets.DOMAIN }}/fullchain.pem"
-            export SSL_KEY_PATH="/etc/nginx/certs/live/${{ secrets.DOMAIN }}/privkey.pem"
-            # Ensure non-target services are NOT running on the public server
-            docker compose -f docker-compose.dev.yml rm -s -f backend ai db 2>/dev/null || true
-            # Recreate target services
-            docker compose -f docker-compose.dev.yml rm -s -f frontend nginx 2>/dev/null || true
-            docker compose -f docker-compose.dev.yml up -d --build frontend nginx
-            docker ps
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify all three revision tags
+        env:
+          REVISION: ${{ needs.resolve.outputs.revision }}
+        run: |
+          set -Eeuo pipefail
+          for image in spaceup-backend spaceup-frontend spaceup-ai; do
+            docker manifest inspect "ghcr.io/ho-do99/${image}:${REVISION}" >/dev/null
+          done
+
+  deploy-private:
+    name: Deploy private server
+    needs: [resolve, verify-images]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production-private
+    env:
+      PUBLIC_HOST: ${{ secrets.PUBLIC_HOST }}
+      PRIVATE_HOST: ${{ secrets.PRIVATE_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      REVISION: ${{ needs.resolve.outputs.revision }}
+      DEPLOY_BRANCH: ${{ needs.resolve.outputs.branch }}
+    steps:
+      - name: Configure pinned SSH connection
+        run: |
+          set -Eeuo pipefail
+          : "${PUBLIC_HOST:?missing PUBLIC_HOST}"
+          : "${PRIVATE_HOST:?missing PRIVATE_HOST}"
+          : "${SSH_USER:?missing SSH_USER}"
+          : "${SSH_PRIVATE_KEY:?missing SSH_PRIVATE_KEY}"
+          : "${SSH_KNOWN_HOSTS:?missing SSH_KNOWN_HOSTS}"
+          [[ "$PUBLIC_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRIVATE_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/spaceup_deploy"
+          chmod 600 "$HOME/.ssh/spaceup_deploy"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh-keygen -F "$PUBLIC_HOST" -f "$HOME/.ssh/known_hosts" >/dev/null
+          ssh-keygen -F "$PRIVATE_HOST" -f "$HOME/.ssh/known_hosts" >/dev/null
+
+      - name: Deploy through the public bastion
+        run: |
+          set -Eeuo pipefail
+          ssh \
+            -i "$HOME/.ssh/spaceup_deploy" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            -J "${SSH_USER}@${PUBLIC_HOST}" \
+            "${SSH_USER}@${PRIVATE_HOST}" \
+            "bash -s -- '${REVISION}' '${DEPLOY_BRANCH}'" <<'REMOTE'
+          set -Eeuo pipefail
+          revision="$1"
+          branch="$2"
+          repository_dir=/root/SpaceUP
+          cd "$repository_dir"
+          [[ -z "$(git status --porcelain --untracked-files=no)" ]]
+          git fetch --no-tags --prune origin "$branch"
+          git cat-file -e "${revision}^{commit}"
+          git merge-base --is-ancestor "$revision" "origin/${branch}"
+          git switch "$branch"
+          git merge --ff-only "$revision"
+          exec env SPACEUP_REPOSITORY_DIR="$repository_dir" bash deploy/scripts/deploy-private.sh "$revision" "$branch"
+          REMOTE
+
+  deploy-public:
+    name: Deploy public server
+    needs: [resolve, verify-images, deploy-private]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: production-public
+      url: https://spaceup.duckdns.org
+    env:
+      PUBLIC_HOST: ${{ secrets.PUBLIC_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      REVISION: ${{ needs.resolve.outputs.revision }}
+      DEPLOY_BRANCH: ${{ needs.resolve.outputs.branch }}
+    steps:
+      - name: Configure pinned SSH connection
+        run: |
+          set -Eeuo pipefail
+          : "${PUBLIC_HOST:?missing PUBLIC_HOST}"
+          : "${SSH_USER:?missing SSH_USER}"
+          : "${SSH_PRIVATE_KEY:?missing SSH_PRIVATE_KEY}"
+          : "${SSH_KNOWN_HOSTS:?missing SSH_KNOWN_HOSTS}"
+          [[ "$PUBLIC_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/spaceup_deploy"
+          chmod 600 "$HOME/.ssh/spaceup_deploy"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh-keygen -F "$PUBLIC_HOST" -f "$HOME/.ssh/known_hosts" >/dev/null
+
+      - name: Deploy public services
+        run: |
+          set -Eeuo pipefail
+          ssh \
+            -i "$HOME/.ssh/spaceup_deploy" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            "${SSH_USER}@${PUBLIC_HOST}" \
+            "bash -s -- '${REVISION}' '${DEPLOY_BRANCH}'" <<'REMOTE'
+          set -Eeuo pipefail
+          revision="$1"
+          branch="$2"
+          repository_dir=/root/SpaceUP
+          cd "$repository_dir"
+          [[ -z "$(git status --porcelain --untracked-files=no)" ]]
+          git fetch --no-tags --prune origin "$branch"
+          git cat-file -e "${revision}^{commit}"
+          git merge-base --is-ancestor "$revision" "origin/${branch}"
+          git switch "$branch"
+          git merge --ff-only "$revision"
+          exec env SPACEUP_REPOSITORY_DIR="$repository_dir" bash deploy/scripts/deploy-public.sh "$revision" "$branch"
+          REMOTE
+
+  verify-production:
+    name: Verify public production endpoints
+    needs: deploy-public
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check official HTTPS and API
+        run: |
+          set -Eeuo pipefail
+          curl --fail --silent --show-error --max-time 15 https://spaceup.duckdns.org/ >/dev/null
+          curl --fail --silent --show-error --max-time 15 'https://spaceup.duckdns.org/api/rental-transactions/apartments?size=1' >/dev/null
+
+      - name: Check legacy TLS and redirect
+        run: |
+          set -Eeuo pipefail
+          location="$(curl --fail --silent --show-error --head --max-time 15 https://101.79.26.89.sslip.io/ | tr -d '\r' | awk 'tolower($1) == "location:" { print $2; exit }')"
+          [[ "$location" == "https://spaceup.duckdns.org/" ]]

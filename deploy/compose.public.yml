@@ -1,0 +1,29 @@
+name: ${COMPOSE_PROJECT_NAME:?COMPOSE_PROJECT_NAME is required}
+
+services:
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE is required}
+    restart: unless-stopped
+
+  nginx:
+    image: ${NGINX_IMAGE:-nginx:1.27.5-alpine}
+    restart: unless-stopped
+    ports:
+      - "${NGINX_BIND_HOST:-0.0.0.0}:${NGINX_PORT:-80}:80"
+      - "${NGINX_BIND_HOST:-0.0.0.0}:${NGINX_SSL_PORT:-443}:443"
+    environment:
+      BACKEND_HOST: ${BACKEND_HOST:?BACKEND_HOST is required}
+      AI_HOST: ${AI_HOST:?AI_HOST is required}
+      DOMAIN: ${DOMAIN:?DOMAIN is required}
+      LEGACY_DOMAIN: ${LEGACY_DOMAIN:?LEGACY_DOMAIN is required}
+      SSL_CERT_PATH: ${SSL_CERT_PATH:?SSL_CERT_PATH is required}
+      SSL_KEY_PATH: ${SSL_KEY_PATH:?SSL_KEY_PATH is required}
+      LEGACY_SSL_CERT_PATH: ${LEGACY_SSL_CERT_PATH:?LEGACY_SSL_CERT_PATH is required}
+      LEGACY_SSL_KEY_PATH: ${LEGACY_SSL_KEY_PATH:?LEGACY_SSL_KEY_PATH is required}
+    volumes:
+      - ./nginx.production.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${LETSENCRYPT_DIR:?LETSENCRYPT_DIR is required}:/etc/nginx/certs:ro
+      - ${CERTBOT_WEBROOT_DIR:?CERTBOT_WEBROOT_DIR is required}:/var/www/certbot:ro
+    depends_on:
+      frontend:
+        condition: service_started
