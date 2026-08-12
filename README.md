@@ -120,24 +120,27 @@ flowchart TB
 - Spring Security와 JWT로 역할 기반 인증을 처리합니다.
 - JPA와 Flyway로 애플리케이션 모델과 MySQL 스키마 변경 이력을 관리합니다.
 
-### AI & Data
+### AI
 
 ![Python](https://img.shields.io/badge/Python_3.11-3776AB?style=flat-square&logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)
 ![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=flat-square&logo=opencv&logoColor=white)
 ![PaddlePaddle](https://img.shields.io/badge/PaddleOCR-0062B0?style=flat-square&logo=paddlepaddle&logoColor=white)
-![Naver Cloud](https://img.shields.io/badge/Naver_Cloud-03C75A?style=flat-square&logo=naver&logoColor=white)
 
 - FastAPI 서비스가 평면도 분석 요청과 AI 서비스 간 통신을 담당합니다.
 - SPA 기반 공간 분할과 OCR 결과를 결합해 방 이름과 면적 정보를 생성합니다.
-- 원본·생성 이미지는 Naver Cloud Object Storage 연동을 지원합니다.
 
-### Infrastructure
+### Database & Infrastructure
 
+![MySQL](https://img.shields.io/badge/MySQL_8.4-4479A1?style=flat-square&logo=mysql&logoColor=white)
+![Naver Cloud](https://img.shields.io/badge/Naver_Cloud-03C75A?style=flat-square&logo=naver&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Nginx](https://img.shields.io/badge/Nginx-009639?style=flat-square&logo=nginx&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)
 ![Let's Encrypt](https://img.shields.io/badge/Lets_Encrypt-003A70?style=flat-square&logo=letsencrypt&logoColor=white)
 
+- MySQL 데이터베이스와 Flyway 스키마 반영 환경을 관리합니다.
+- 서비스를 Naver Cloud 서버에 배포하고 도면 이미지를 Object Storage에 보관합니다.
 - Docker Compose로 웹, API, 데이터베이스와 AI 서비스를 구성합니다.
 - Nginx가 TLS 종료와 프론트엔드·백엔드·AI 리버스 프록시를 담당합니다.
 - GitHub Actions가 `main` 브랜치 배포를 자동화합니다.
@@ -250,6 +253,18 @@ python -m pytest tests -q
 기본 AI 테스트는 `ai/app`의 API 계약을 검증합니다. 실제 `viewerwall → SPA/OCR`
 추론과 Object Storage를 포함한 통합 동작은 별도의 E2E 검증이 필요합니다.
 
+## Team
+
+SpaceUP은 기획부터 서비스 구현과 클라우드 운영까지 다섯 역할이 협업합니다.
+
+| Role | Responsibility |
+| --- | --- |
+| PM | 서비스 기획, 요구사항·정책 결정, 일정과 통합 우선순위 관리 |
+| Frontend | 사용자·시공사 UX 구현, React 상태 관리와 API 연동 |
+| Backend | 도메인 API, 인증·인가, 비즈니스 로직과 데이터 영속화 |
+| AI | 평면도 공간 분할·OCR, 분석 파이프라인과 모델 서빙 |
+| DB & Infra | MySQL, Naver Cloud, Object Storage, Docker·Nginx, 배포 자동화 |
+
 ## Collaboration
 
 ```text
@@ -258,12 +273,13 @@ develop    기능 통합 및 E2E 검증
 frontend   React 작업
 backend    Spring Boot 작업
 ai         AI 모델·분석 파이프라인 작업
-infra      Naver Cloud·배포·Docker/Nginx 작업
+infra      DB·Naver Cloud·배포·Docker/Nginx 작업
 ```
 
-각 담당 브랜치는 최신 `develop`을 반영한 뒤 Pull Request로 통합합니다. `main`
-병합 전에는 프론트엔드 테스트·lint·build, 백엔드 테스트, AI API 테스트와 핵심
-사용자 흐름 E2E를 함께 확인합니다.
+PM은 별도 기능 브랜치 대신 Issue와 Pull Request에서 요구사항·정책·우선순위를
+관리합니다. 각 개발 담당 브랜치는 최신 `develop`을 반영한 뒤 Pull Request로
+통합합니다. `main` 병합 전에는 프론트엔드 테스트·lint·build, 백엔드 테스트,
+AI API 테스트와 핵심 사용자 흐름 E2E를 함께 확인합니다.
 
 ---
 
