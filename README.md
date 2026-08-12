@@ -257,7 +257,8 @@ main       배포 기준
 develop    기능 통합 및 E2E 검증
 frontend   React 작업
 backend    Spring Boot 작업
-ai         AI·인프라 작업
+ai         AI 모델·분석 파이프라인 작업
+infra      Naver Cloud·배포·Docker/Nginx 작업
 ```
 
 각 담당 브랜치는 최신 `develop`을 반영한 뒤 Pull Request로 통합합니다. `main`
