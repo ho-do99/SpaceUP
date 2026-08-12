@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.spaceup.domain.analysis.dto.AnalysisJobEditRequest;
@@ -103,7 +104,11 @@ public class AnalysisJobService {
 				.map(AnalysisSpaceResponse::new).collect(Collectors.toList());
 	}
 
-	@Transactional
+	// ⭐ [AnalysisJob 상태 동기화] AI 분석 도중 실패해 호출자(AiFloorplanAnalysisService.analyze())의
+	// 트랜잭션이 롤백되더라도, "실패로 표시" 자체는 별도 트랜잭션으로 반드시 커밋되어야 하므로
+	// REQUIRES_NEW로 독립시킵니다. REQUIRED로 두면 실패 표시 UPDATE까지 같이 롤백되어 상태가
+	// PENDING에 그대로 남는 문제가 있었습니다.
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void markFailed(Long requestId) {
 		findByRequestOrThrow(requestId).fail();
 	}

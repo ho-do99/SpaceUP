@@ -17,19 +17,26 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mock.web.MockMultipartFile;
 
 import com.spaceup.domain.analysis.ai.client.AiFloorplanAnalysisClient;
 import com.spaceup.domain.analysis.ai.client.AiFloorplanAnalysisResponse;
 import com.spaceup.domain.analysis.ai.client.AiFloorplanRoom;
+import com.spaceup.domain.analysis.ai.exception.AiFloorplanAnalysisException;
 import com.spaceup.domain.analysis.dto.AnalysisSpaceRequest;
 import com.spaceup.domain.analysis.service.AnalysisJobService;
+import com.spaceup.domain.floorplan.entity.FloorPlanVariant;
+import com.spaceup.domain.floorplan.repository.FloorPlanVariantRepository;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.entity.MemberRole;
 import com.spaceup.domain.request.entity.Property;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.entity.RequestStatus;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
+import com.spaceup.global.config.ObjectStorageProperties;
+
+import software.amazon.awssdk.services.s3.S3Client;
 
 @ExtendWith(MockitoExtension.class)
 class AiFloorplanAnalysisServiceTest {
@@ -40,12 +47,20 @@ class AiFloorplanAnalysisServiceTest {
 	private AnalysisJobService analysisJobService;
 	@Mock
 	private QuoteRequestRepository quoteRequestRepository;
+	@Mock
+	private FloorPlanVariantRepository floorPlanVariantRepository;
+	@Mock
+	private ObjectProvider<S3Client> objectStorageClientProvider;
 
 	private AiFloorplanAnalysisService service;
 
 	@BeforeEach
 	void setUp() {
-		service = new AiFloorplanAnalysisService(aiFloorplanAnalysisClient, analysisJobService, quoteRequestRepository);
+		ObjectStorageProperties objectStorageProperties = new ObjectStorageProperties(false, null, null, null, null,
+				null);
+		service = new AiFloorplanAnalysisService(aiFloorplanAnalysisClient, analysisJobService,
+				quoteRequestRepository, floorPlanVariantRepository, objectStorageProperties,
+				objectStorageClientProvider);
 	}
 
 	@Test
@@ -91,5 +106,43 @@ class AiFloorplanAnalysisServiceTest {
 		assertThatThrownBy(() -> service.analyze(7L, 1L, floorplan))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("전용면적");
+	}
+
+	@Test
+	void marksAnalysisJobFailedWhenAiCallThrows() {
+		Member owner = Member.builder().id(1L).password("encoded").email("owner@test.com")
+				.name("임대인").role(MemberRole.LANDLORD).build();
+		Property property = Property.builder().id(2L).owner(owner).region("광주").housingType("아파트")
+				.exclusiveAreaM2(84.0).build();
+		QuoteRequest quoteRequest = QuoteRequest.builder().id(7L).owner(owner).property(property)
+				.status(RequestStatus.NEW).build();
+		MockMultipartFile floorplan = new MockMultipartFile("file", "plan.png", "image/png", new byte[] { 1 });
+
+		when(quoteRequestRepository.findById(7L)).thenReturn(Optional.of(quoteRequest));
+		when(aiFloorplanAnalysisClient.analyze(any(byte[].class), anyString(), anyString()))
+				.thenThrow(new AiFloorplanAnalysisException("AI 서버 호출 실패"));
+
+		assertThatThrownBy(() -> service.analyze(7L, 1L, floorplan)).isInstanceOf(AiFloorplanAnalysisException.class);
+
+		verify(analysisJobService).markFailed(7L);
+	}
+
+	@Test
+	void analyzeFromStorageLooksUpVariantKeyAndReusesSameFlow() {
+		Member owner = Member.builder().id(1L).password("encoded").email("owner@test.com")
+				.name("임대인").role(MemberRole.LANDLORD).build();
+		Property property = Property.builder().id(2L).owner(owner).region("광주").housingType("아파트")
+				.exclusiveAreaM2(84.0).build();
+		QuoteRequest quoteRequest = QuoteRequest.builder().id(7L).owner(owner).property(property)
+				.status(RequestStatus.NEW).build();
+		FloorPlanVariant variant = FloorPlanVariant.builder().id(99L).exclusiveAreaM2(84.0)
+				.floorPlanImageUrl("floorplans/99.jpg").build();
+
+		when(floorPlanVariantRepository.findById(99L)).thenReturn(Optional.of(variant));
+
+		// Object Storage가 꺼져 있으면 fetchFromObjectStorage()가 바로 IllegalStateException을 던져야
+		// 합니다(존재하지 않는 설정으로 실제 S3 호출을 시도하면 안 됨).
+		assertThatThrownBy(() -> service.analyzeFromStorage(7L, 1L, 99L)).isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("Object Storage");
 	}
 }
