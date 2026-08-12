@@ -25,7 +25,7 @@ function isApiResponse(value: unknown): value is ApiResponse<unknown> {
   )
 }
 
-function isLoginResponse(value: unknown): value is LoginResponse {
+export function isLoginResponse(value: unknown): value is LoginResponse {
   return (
     isRecord(value) &&
     typeof value.accessToken === 'string' &&
@@ -45,7 +45,7 @@ export async function login(
     method: 'POST',
     url: '/api/member/login',
     data: {
-      username: request.username.trim(),
+      email: request.email.trim(),
       password: request.password,
     },
     headers: {

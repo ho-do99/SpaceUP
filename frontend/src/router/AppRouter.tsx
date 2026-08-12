@@ -4,11 +4,18 @@ import {
   Routes,
   Route,
 } from 'react-router-dom'
+import { useCallback, useState, type ReactNode } from 'react'
 
 import EstimateFlowProvider from '@/contexts/EstimateFlowProvider'
 
 import HomePage from '@/pages/HomePage'
 import LoginPage from '@/pages/LoginPage'
+import LandingPage from '@/pages/LandingPage'
+import { getAccessToken } from '@/utils/authSession'
+import { shouldShowInitialLanding } from '@/utils/initialLanding'
+import LandlordSignupPage from '@/pages/signup/LandlordSignupPage'
+import ContractorSignupPage from '@/pages/signup/ContractorSignupPage'
+import ContractorSignupStatusPage from '@/pages/signup/ContractorSignupStatusPage'
 import FloorPlanUploadPage from '@/pages/FloorPlanUploadPage'
 import FloorPlanAnalysisLoadingPage from '@/pages/FloorPlanAnalysisLoadingPage'
 import SpaceInformationPage from '@/pages/SpaceInformationPage'
@@ -86,10 +93,24 @@ import ContractorVisitPage from '@/pages/contractor/ContractorVisitPage'
 
 import ContractorPortalFlowProvider from '@/components/contractor/ContractorPortalFlowProvider'
 
+function InitialLandingGate({ children }: { children: ReactNode }) {
+  const [showLanding, setShowLanding] = useState(() =>
+    shouldShowInitialLanding(window.location.pathname, getAccessToken()),
+  )
+  const completeLanding = useCallback(() => setShowLanding(false), [])
+
+  if (showLanding) {
+    return <LandingPage onComplete={completeLanding} />
+  }
+
+  return children
+}
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
-      <Routes>
+      <InitialLandingGate>
+        <Routes>
         <Route
           path="/"
           element={<HomePage />}
@@ -98,6 +119,21 @@ export default function AppRouter() {
         <Route
           path="/login"
           element={<LoginPage />}
+        />
+
+        <Route
+          path="/signup/landlord"
+          element={<LandlordSignupPage />}
+        />
+
+        <Route
+          path="/signup/contractor"
+          element={<ContractorSignupPage />}
+        />
+
+        <Route
+          path="/signup/contractor/status"
+          element={<ContractorSignupStatusPage />}
         />
 
         <Route
@@ -490,7 +526,8 @@ export default function AppRouter() {
           path="/analysis/new/property"
           element={<PropertyInformationPage />}
         />
-      </Routes>
+        </Routes>
+      </InitialLandingGate>
     </BrowserRouter>
   )
 }

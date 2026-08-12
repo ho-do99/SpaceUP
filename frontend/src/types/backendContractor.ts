@@ -40,7 +40,12 @@ export interface ContractorProfile {
   memberId: number
   memberName: string
   businessRegistrationNumber?: string | null
+  representativeName?: string | null
+  businessRegistrationCertificateUrl?: string | null
   companyName?: string | null
+  companyAddress?: string | null
+  businessAddress?: string | null
+  constructionExperienceMonths?: number | null
   activityRegions?: string | null
   specialties?: string | null
   portfolioUrl?: string | null

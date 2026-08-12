@@ -79,3 +79,16 @@ export const apartmentSearchResults: readonly ApartmentSearchResult[] = [
     floorPlans: apartmentFloorPlans,
   },
 ]
+
+export function findMockFloorPlan(
+  apartmentName: string,
+  exclusiveAreaM2: number,
+): ApartmentFloorPlanOption | null {
+  const apartment = apartmentSearchResults.find(
+    (item) => item.apartmentName === apartmentName,
+  )
+
+  return apartment?.floorPlans.find(
+    (floorPlan) => floorPlan.exclusiveArea === exclusiveAreaM2,
+  ) ?? null
+}

@@ -37,7 +37,12 @@ export async function getContractorDashboard() {
 
 export interface ContractorProfileUpdateInput {
   businessRegistrationNumber?: string
+  representativeName?: string
+  businessRegistrationCertificateUrl?: string
   companyName?: string
+  companyAddress?: string
+  businessAddress?: string
+  constructionExperienceMonths?: number
   activityRegions?: string
   specialties?: string
   portfolioUrl?: string

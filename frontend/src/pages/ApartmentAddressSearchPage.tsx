@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import Button from '@/components/Button'
@@ -7,6 +7,7 @@ import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 
 import { createRequest } from '@/api/requestApi'
+import { searchRentalApartments } from '@/api/rentalApartmentApi'
 import {
   getRequestDraft,
   saveRequestDraft,
@@ -14,32 +15,10 @@ import {
 } from '@/utils/requestFlow'
 
 import {
-  apartmentSearchResults,
-  type ApartmentSearchResult,
+  findMockFloorPlan,
   type ApartmentFloorPlanOption,
 } from '@/mocks/apartments'
-
-function normalizeSearchValue(value: string) {
-  return value
-    .trim()
-    .replace(/\s+/g, '')
-    .toLocaleLowerCase('ko-KR')
-}
-
-function matchesSearch(
-  result: ApartmentSearchResult,
-  query: string,
-) {
-  const normalizedQuery = normalizeSearchValue(query)
-
-  return [
-    result.apartmentName,
-    result.roadAddress,
-    result.lotAddress,
-  ].some((value) =>
-    normalizeSearchValue(value).includes(normalizedQuery),
-  )
-}
+import type { RentalApartmentSearchItem } from '@/types/rentalApartment'
 
 function FloorPlanLabel({
   option,
@@ -64,9 +43,13 @@ export default function ApartmentAddressSearchPage() {
 
   const [query, setQuery] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [searchResults, setSearchResults] = useState<RentalApartmentSearchItem[]>([])
+  const [totalElements, setTotalElements] = useState(0)
 
   const [selectedApartmentId, setSelectedApartmentId] =
-    useState<string | null>(null)
+    useState<number | null>(null)
 
   const [selectedFloorPlanId, setSelectedFloorPlanId] =
     useState<string | null>(null)
@@ -76,42 +59,66 @@ export default function ApartmentAddressSearchPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  const searchResults = useMemo(() => {
-    if (!hasSearched || !normalizeSearchValue(query)) {
-      return []
-    }
-
-    return apartmentSearchResults.filter((result) =>
-      matchesSearch(result, query),
-    )
-  }, [hasSearched, query])
-
-  const selectedApartment = apartmentSearchResults.find(
+  const selectedApartment = searchResults.find(
     (result) => result.id === selectedApartmentId,
   )
 
-  const selectedFloorPlan = selectedApartment?.floorPlans.find(
-    (option) => option.id === selectedFloorPlanId,
-  )
+  const matchedFloorPlan = selectedApartment
+    ? findMockFloorPlan(
+        selectedApartment.apartmentName,
+        selectedApartment.exclusiveAreaM2,
+      )
+    : null
+
+  const selectedFloorPlan = matchedFloorPlan?.id === selectedFloorPlanId
+    ? matchedFloorPlan
+    : null
 
   const canContinue = Boolean(
     selectedApartment && selectedFloorPlan,
   )
 
-  const handleSearch = (
+  const handleSearch = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault()
+    if (isSearching) return
 
-    setQuery((current) => current.trim())
-    setHasSearched(Boolean(query.trim()))
+    const keyword = query.trim()
+    if (!keyword) return
+
+    setQuery(keyword)
+    setIsSearching(true)
+    setSearchError('')
 
     setSelectedApartmentId(null)
     setSelectedFloorPlanId(null)
     setIsAreaListOpen(false)
+
+    try {
+      const result = await searchRentalApartments({
+        keyword,
+        page: 0,
+        size: 20,
+      })
+      setSearchResults(result.content)
+      setTotalElements(result.totalElements)
+      setHasSearched(true)
+    } catch (error) {
+      setSearchResults([])
+      setTotalElements(0)
+      setHasSearched(true)
+      setSearchError(
+        error instanceof Error
+          ? error.message
+          : '아파트 검색에 실패했습니다.',
+      )
+    } finally {
+      setIsSearching(false)
+    }
   }
 
-  const selectApartment = (apartmentId: string) => {
+  const selectApartment = (apartmentId: number) => {
     setSelectedApartmentId(apartmentId)
     setSelectedFloorPlanId(null)
     setIsAreaListOpen(false)
@@ -120,6 +127,9 @@ export default function ApartmentAddressSearchPage() {
   const resetSearch = () => {
     setQuery('')
     setHasSearched(false)
+    setSearchResults([])
+    setTotalElements(0)
+    setSearchError('')
     setSelectedApartmentId(null)
     setSelectedFloorPlanId(null)
     setIsAreaListOpen(false)
@@ -272,7 +282,8 @@ export default function ApartmentAddressSearchPage() {
                 type="button"
                 aria-expanded={isAreaListOpen}
                 aria-controls="apartment-area-options"
-                className="mt-2 flex h-[64px] w-full items-center justify-between rounded-[10px] border border-[#d5dfed] bg-white px-3.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
+                disabled={!matchedFloorPlan}
+                className="mt-2 flex h-[64px] w-full items-center justify-between rounded-[10px] border border-[#d5dfed] bg-white px-3.5 text-left disabled:bg-[#f8fafc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
                 onClick={() =>
                   setIsAreaListOpen((current) => !current)
                 }
@@ -289,7 +300,9 @@ export default function ApartmentAddressSearchPage() {
                       option={selectedFloorPlan}
                     />
                   ) : (
-                    '면적을 선택해주세요'
+                    matchedFloorPlan
+                      ? '면적을 선택해주세요'
+                      : `전용 ${selectedApartment.exclusiveAreaM2}m² · 등록된 평면도가 없습니다`
                   )}
                 </span>
 
@@ -302,28 +315,27 @@ export default function ApartmentAddressSearchPage() {
               </button>
 
               {/* 면적 선택 목록 */}
-              {isAreaListOpen ? (
+              {isAreaListOpen && matchedFloorPlan ? (
                 <div
                   id="apartment-area-options"
                   className="overflow-hidden rounded-b-[10px] border-x border-b border-[#d5dfed] bg-white"
                 >
-                  {selectedApartment.floorPlans.map(
-                    (option) => (
+                  {matchedFloorPlan ? (
                       <label
-                        key={option.id}
+                        key={matchedFloorPlan.id}
                         className="flex min-h-[66px] cursor-pointer items-center gap-3 border-t border-[#e2e8f0] px-3.5 text-[12px] leading-5 text-[#1e293b] first:border-t-0 focus-within:bg-[#eff6ff]"
                       >
                         <input
                           type="radio"
                           name="apartment-area"
-                          value={option.id}
+                          value={matchedFloorPlan.id}
                           checked={
-                            selectedFloorPlanId === option.id
+                            selectedFloorPlanId === matchedFloorPlan.id
                           }
                           className="size-4 shrink-0 accent-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
                           onChange={() => {
                             setSelectedFloorPlanId(
-                              option.id,
+                              matchedFloorPlan.id,
                             )
                             setIsAreaListOpen(false)
                           }}
@@ -331,20 +343,19 @@ export default function ApartmentAddressSearchPage() {
 
                         <span>
                           <span className="block font-bold">
-                            전용 {option.exclusiveArea}m²
+                            전용 {matchedFloorPlan.exclusiveArea}m²
                           </span>
 
                           <span className="block text-[11px] text-[#64748b]">
-                            {option.exclusivePyeong}평(전용)
+                            {matchedFloorPlan.exclusivePyeong}평(전용)
                             {' / '}
-                            {option.supplyPyeong}평(공급)
+                            {matchedFloorPlan.supplyPyeong}평(공급)
                             {' · '}
-                            공급 {option.supplyArea}m²
+                            공급 {matchedFloorPlan.supplyArea}m²
                           </span>
                         </span>
                       </label>
-                    ),
-                  )}
+                  ) : null}
                 </div>
               ) : null}
             </section>
@@ -425,13 +436,16 @@ export default function ApartmentAddressSearchPage() {
               onChange={(event) => {
                 setQuery(event.target.value)
                 setHasSearched(false)
+                setSearchError('')
               }}
             />
 
             <button
               type="submit"
               aria-label="아파트 검색"
-              className="flex h-10 w-12 shrink-0 items-center justify-center rounded-[8px] bg-[#2563eb] text-[22px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1e293b]"
+              disabled={isSearching || !query.trim()}
+              aria-busy={isSearching}
+              className="flex h-10 w-12 shrink-0 items-center justify-center rounded-[8px] bg-[#2563eb] text-[22px] font-bold text-white disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1e293b]"
             >
               <span aria-hidden="true">
                 ⌕
@@ -440,16 +454,33 @@ export default function ApartmentAddressSearchPage() {
           </form>
 
           {/* 검색 결과 */}
-          {hasSearched ? (
+          {isSearching ? (
+            <section className="mt-4" aria-live="polite" aria-busy="true">
+              <div className="rounded-[12px] bg-[#f8fafc] px-4 py-14 text-center">
+                <p className="text-[15px] font-bold text-[#1e293b]">
+                  아파트 정보를 검색하고 있습니다
+                </p>
+              </div>
+            </section>
+          ) : hasSearched ? (
             <section
               className="mt-4"
               aria-live="polite"
             >
               <h2 className="text-[15px] font-bold leading-6 text-[#1e293b]">
-                검색 결과 {searchResults.length}건
+                검색 결과 {totalElements}건
               </h2>
 
-              {searchResults.length > 0 ? (
+              {searchError ? (
+                <div className="mt-2.5 rounded-[12px] bg-[#f8fafc] px-4 py-14 text-center">
+                  <p role="alert" className="text-[15px] font-bold text-[#ef4444]">
+                    {searchError}
+                  </p>
+                  <p className="mt-2 text-[11px] leading-[18px] text-[#64748b]">
+                    검색어를 확인한 뒤 다시 시도해주세요.
+                  </p>
+                </div>
+              ) : searchResults.length > 0 ? (
                 <div className="mt-2.5 space-y-2.5">
                   {searchResults.map((result) => (
                     <button
@@ -470,6 +501,10 @@ export default function ApartmentAddressSearchPage() {
 
                       <span className="block text-[11px] leading-[19px] text-[#64748b]">
                         지번: {result.lotAddress}
+                      </span>
+
+                      <span className="mt-1 block text-[11px] font-bold leading-[19px] text-[#2563eb]">
+                        전용 {result.exclusiveAreaM2}m²
                       </span>
                     </button>
                   ))}

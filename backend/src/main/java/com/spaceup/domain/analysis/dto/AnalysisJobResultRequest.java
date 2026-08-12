@@ -22,9 +22,7 @@ public class AnalysisJobResultRequest {
 	private Long estimatedQuoteMin;
 	private Long estimatedQuoteMax;
 
-	// ⭐ [Figma 반영] "ROI 요약" - 예상 월세 상승 범위 + 예상 회수 기간(개월)
-	private Long expectedRentIncreaseMin;
-	private Long expectedRentIncreaseMax;
+	// ⭐ [Figma 반영] "ROI 요약" - 예상 회수 기간(개월)
 	private Integer paybackPeriodMonthsMin;
 	private Integer paybackPeriodMonthsMax;
 }

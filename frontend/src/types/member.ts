@@ -11,11 +11,6 @@ export type MemberApprovalStatus =
 /**
  * POST /api/member/login 요청
  */
-export interface LoginRequest {
-  username: string
-  password: string
-}
-
 /**
  * POST /api/member/login 응답의 data
  */
@@ -30,7 +25,6 @@ export interface AuthResponse {
  */
 export interface Member {
   id: number
-  username: string
   email: string
   name: string
   phoneNumber: string
