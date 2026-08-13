@@ -1,13 +1,9 @@
 package com.spaceup.domain.floorplan.controller;
 
-import java.net.URI;
-
 import jakarta.validation.Valid;
-import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,19 +39,6 @@ public class ApartmentController {
 	@GetMapping("/{apartmentId}")
 	public ResponseEntity<ApiResponse<ApartmentResponse>> getApartment(@PathVariable Long apartmentId) {
 		return ResponseEntity.ok(ApiResponse.success("아파트 조회 완료", apartmentService.getApartment(apartmentId)));
-	}
-
-	// ⭐ [Object Storage 등록 평면도] Object Storage가 꺼져 있으면(현재 시드 데이터) floorPlanImageUrl을
-	// 이미 완성된 외부 URL로 보고 그대로 302 리다이렉트합니다. 켜져 있으면(private bucket) 백엔드가 직접
-	// 바이트를 읽어와 스트리밍합니다 - 프론트는 이 경로 하나만 <img src>로 쓰면 두 경우 모두 동작합니다.
-	@GetMapping("/variants/{variantId}/image")
-	public ResponseEntity<?> getVariantImage(@PathVariable Long variantId) {
-		if (!apartmentService.usesObjectStorageForImages()) {
-			return ResponseEntity.status(302).location(URI.create(apartmentService.getVariantImageUrl(variantId)))
-					.build();
-		}
-		Resource resource = apartmentService.loadVariantImage(variantId);
-		return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(resource);
 	}
 
 	// ⭐ 키워드/지역/면적범위/방개수 전부 선택 파라미터
