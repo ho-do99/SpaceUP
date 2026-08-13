@@ -78,6 +78,12 @@ export default function LoginPage() {
     }
   }
 
+  const handleRoleChange = (role: LoginRole) => {
+    setLoginRole(role)
+    setErrorMessage('')
+    setRoleNotice('')
+  }
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
@@ -112,6 +118,11 @@ export default function LoginPage() {
         { email: trimmedEmail, password },
         abortController.signal,
       )
+
+      if (loginResponse.role !== loginRole) {
+        setErrorMessage('선택한 로그인 유형과 계정 유형이 일치하지 않습니다.')
+        return
+      }
 
       saveAuthSession(loginResponse)
 
@@ -185,7 +196,7 @@ export default function LoginPage() {
                         value={option.value}
                         checked={isSelected}
                         className="peer sr-only"
-                        onChange={() => setLoginRole(option.value)}
+                        onChange={() => handleRoleChange(option.value)}
                       />
                       <span
                         className={`flex h-full w-full items-center justify-center rounded-[9px] text-[14px] transition-colors peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-1 peer-focus-visible:outline-[#2563eb] ${
@@ -297,9 +308,6 @@ export default function LoginPage() {
           </p>
         </section>
 
-        <p className="mt-auto pb-[22px] text-center text-[13px] font-semibold leading-5 tracking-[-0.13px] text-[#475569]">
-          관리자 로그인
-        </p>
       </div>
     </main>
   )
