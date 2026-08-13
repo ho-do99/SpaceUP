@@ -7,24 +7,23 @@ import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 
 import { createRequest } from '@/api/requestApi'
-import { searchRentalApartments } from '@/api/rentalApartmentApi'
-import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
-import {
-  assetUrlToFile,
-  createFloorPlanAnalysisNavigationState,
-} from '@/utils/floorPlanAnalysisFlow'
+import { getFloorPlanVariantPreviewUrl, searchApartmentFloorPlans } from '@/api/apartmentFloorPlanApi'
+import { requestAnalysis } from '@/api/analysisApi'
+import { createStoredFloorPlanAnalysisState } from '@/utils/floorPlanAnalysisFlow'
 import {
   getRequestDraft,
   saveRequestDraft,
   setActiveRequestId,
 } from '@/utils/requestFlow'
-import { uploadAndAttachRequestImage } from '@/utils/requestImageFlow'
+import type { FloorPlanVariant } from '@/types/apartmentFloorPlan'
 
-import {
-  findMockFloorPlan,
-  type ApartmentFloorPlanOption,
-} from '@/mocks/apartments'
-import type { RentalApartmentSearchItem } from '@/types/rentalApartment'
+interface ApartmentVariantResult extends FloorPlanVariant {
+  apartmentId: number
+  apartmentName: string
+  roadAddress: string
+  lotAddress: string
+  region: string
+}
 
 function parsePositiveArea(value: string) {
   if (!/^\d+(?:\.\d+)?$/.test(value.trim())) return null
@@ -35,16 +34,16 @@ function parsePositiveArea(value: string) {
 function FloorPlanLabel({
   option,
 }: {
-  option: ApartmentFloorPlanOption
+  option: ApartmentVariantResult
 }) {
   return (
     <>
       <span className="block">
-        전용 {option.exclusiveArea}m² · 공급 {option.supplyArea}m²
+        전용 {option.exclusiveAreaM2}m² · 공급 {option.supplyAreaM2 ?? '-'}m²
       </span>
 
       <span className="block">
-        {option.exclusivePyeong}평(전용) / {option.supplyPyeong}평(공급)
+        {option.exclusivePyeong ?? '-'}평(전용) / {option.supplyPyeong ?? '-'}평(공급)
       </span>
     </>
   )
@@ -57,14 +56,13 @@ export default function ApartmentAddressSearchPage() {
   const [hasSearched, setHasSearched] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
-  const [searchResults, setSearchResults] = useState<RentalApartmentSearchItem[]>([])
+  const [searchResults, setSearchResults] = useState<ApartmentVariantResult[]>([])
   const [totalElements, setTotalElements] = useState(0)
 
   const [selectedApartmentId, setSelectedApartmentId] =
     useState<number | null>(null)
 
-  const [selectedFloorPlanId, setSelectedFloorPlanId] =
-    useState<string | null>(null)
+  const [selectedFloorPlanId, setSelectedFloorPlanId] = useState<number | null>(null)
 
   const [isAreaListOpen, setIsAreaListOpen] = useState(false)
 
@@ -78,12 +76,7 @@ export default function ApartmentAddressSearchPage() {
     (result) => result.id === selectedApartmentId,
   )
 
-  const matchedFloorPlan = selectedApartment
-    ? findMockFloorPlan(
-        selectedApartment.apartmentName,
-        selectedApartment.exclusiveAreaM2,
-      )
-    : null
+  const matchedFloorPlan = selectedApartment?.floorPlanImageUrl ? selectedApartment : null
 
   const selectedFloorPlan = matchedFloorPlan?.id === selectedFloorPlanId
     ? matchedFloorPlan
@@ -111,13 +104,21 @@ export default function ApartmentAddressSearchPage() {
     setIsAreaListOpen(false)
 
     try {
-      const result = await searchRentalApartments({
+      const result = await searchApartmentFloorPlans({
         keyword,
         page: 0,
         size: 20,
       })
-      setSearchResults(result.content)
-      setTotalElements(result.totalElements)
+      const variants = result.content.flatMap((apartment) => apartment.variants.map((variant) => ({
+        ...variant,
+        apartmentId: apartment.id,
+        apartmentName: apartment.name,
+        roadAddress: apartment.roadAddress,
+        lotAddress: apartment.lotAddress,
+        region: apartment.region,
+      })))
+      setSearchResults(variants)
+      setTotalElements(variants.length)
       setHasSearched(true)
     } catch (error) {
       setSearchResults([])
@@ -196,30 +197,13 @@ export default function ApartmentAddressSearchPage() {
 
     try {
       const requestId = await createApartmentRequest(
-        selectedFloorPlan.exclusiveArea,
+        selectedFloorPlan.exclusiveAreaM2,
         selectedApartment.roadAddress,
       )
-      const floorPlanFile = await assetUrlToFile(
-        selectedFloorPlan.floorPlanSrc,
-        `apartment-floor-plan-${selectedFloorPlan.id}.png`,
-      )
-      const linkedImage = await uploadAndAttachRequestImage(
-        requestId,
-        floorPlanFile,
-        'FLOOR_PLAN',
-      )
-      const uploadedImageUrl = resolveApiAssetUrl(linkedImage.imageUrl)
-
-      if (!uploadedImageUrl) {
-        throw new Error('서버 응답을 확인할 수 없습니다.')
-      }
+      const analysisJobId = await requestAnalysis(requestId)
 
       navigate('/analysis/loading', {
-        state: createFloorPlanAnalysisNavigationState(
-          floorPlanFile,
-          linkedImage,
-          uploadedImageUrl,
-        ),
+        state: createStoredFloorPlanAnalysisState(selectedFloorPlan.id, analysisJobId),
       })
     } catch (error) {
       setSubmitError(
@@ -424,7 +408,7 @@ export default function ApartmentAddressSearchPage() {
 
                         <span>
                           <span className="block font-bold">
-                            전용 {matchedFloorPlan.exclusiveArea}m²
+                            전용 {matchedFloorPlan.exclusiveAreaM2}m²
                           </span>
 
                           <span className="block text-[11px] text-[#64748b]">
@@ -432,7 +416,7 @@ export default function ApartmentAddressSearchPage() {
                             {' / '}
                             {matchedFloorPlan.supplyPyeong}평(공급)
                             {' · '}
-                            공급 {matchedFloorPlan.supplyArea}m²
+                            공급 {matchedFloorPlan.supplyAreaM2 ?? '-'}m²
                           </span>
                         </span>
                       </label>
@@ -467,6 +451,7 @@ export default function ApartmentAddressSearchPage() {
             {/* 면적 선택 완료 안내 */}
             {selectedFloorPlan ? (
               <aside className="mt-3 rounded-[10px] border border-[#bfdbfe] bg-[#eff6ff] px-3.5 py-3">
+                <img src={getFloorPlanVariantPreviewUrl(selectedFloorPlan.id)} alt="선택한 등록 평면도" className="mb-3 h-32 w-full rounded-lg object-contain" />
                 <p className="text-[13px] font-bold leading-[22px] text-[#2563eb]">
                   면적 선택 완료
                 </p>

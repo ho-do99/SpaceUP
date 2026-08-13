@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getImageUploadErrorMessage, validateImageFile } from '@/api/fileApi'
 import { deleteRequestImage } from '@/api/requestApi'
+import { requestAnalysis } from '@/api/analysisApi'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import FloorPlanUploadZone from '@/components/user/FloorPlanUploadZone'
@@ -58,7 +59,10 @@ export default function FloorPlanUploadPage() {
       return
     }
 
-    const fileError = validateImageFile(nextFile)
+    const supportedFloorPlanTypes = new Set(['image/png', 'image/jpeg'])
+    const fileError = supportedFloorPlanTypes.has(nextFile.type)
+      ? validateImageFile(nextFile)
+      : '평면도는 PNG, JPEG, JPG 파일만 업로드할 수 있습니다.'
 
     if (fileError) {
       setErrorMessage(fileError)
@@ -103,13 +107,22 @@ export default function FloorPlanUploadPage() {
       return
     }
 
-    navigate('/analysis/loading', {
-      state: createFloorPlanAnalysisNavigationState(
-        file,
-        linkedImage,
-        uploadedImageUrl,
-      ),
-    })
+    const requestId = getActiveRequestId()
+    if (!requestId) {
+      setErrorMessage('진행 중인 의뢰 정보를 찾을 수 없습니다. 처음부터 다시 진행해 주세요.')
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      await requestAnalysis(requestId)
+      navigate('/analysis/loading', {
+        state: createFloorPlanAnalysisNavigationState(file, linkedImage, uploadedImageUrl),
+      })
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '분석 요청 생성에 실패했습니다.')
+      setIsUploading(false)
+    }
   }
 
   return (

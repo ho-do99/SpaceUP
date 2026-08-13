@@ -1,27 +1,22 @@
 import type { LinkedRequestImage } from '@/utils/requestImageFlow'
 
 export interface FloorPlanAnalysisNavigationState {
+  mode: 'multipart'
   floorPlanFile: File
   uploadedImagePath: string
   uploadedImageUrl: string
   originalFileName: string
 }
 
-export async function assetUrlToFile(
-  assetUrl: string,
-  fileName: string,
-): Promise<File> {
-  const response = await fetch(assetUrl)
-
-  if (!response.ok) {
-    throw new Error('등록된 평면도를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
-  }
-
-  const blob = await response.blob()
-  const contentType = blob.type || response.headers.get('content-type') || 'image/png'
-
-  return new File([blob], fileName, { type: contentType })
+export interface StoredFloorPlanAnalysisNavigationState {
+  mode: 'storage'
+  floorPlanVariantId: number
+  analysisJobId: number
 }
+
+export type FloorPlanAnalysisState = FloorPlanAnalysisNavigationState | StoredFloorPlanAnalysisNavigationState
+
+const STORAGE_ANALYSIS_KEY = 'spaceup.floorPlanStorageAnalysis'
 
 export function createFloorPlanAnalysisNavigationState(
   file: File,
@@ -29,6 +24,7 @@ export function createFloorPlanAnalysisNavigationState(
   uploadedImageUrl: string,
 ): FloorPlanAnalysisNavigationState {
   return {
+    mode: 'multipart',
     floorPlanFile: file,
     uploadedImagePath: linkedImage.imageUrl,
     uploadedImageUrl,
@@ -36,15 +32,33 @@ export function createFloorPlanAnalysisNavigationState(
   }
 }
 
+export function createStoredFloorPlanAnalysisState(floorPlanVariantId: number, analysisJobId: number): StoredFloorPlanAnalysisNavigationState {
+  const state = { mode: 'storage' as const, floorPlanVariantId, analysisJobId }
+  sessionStorage.setItem(STORAGE_ANALYSIS_KEY, JSON.stringify(state))
+  return state
+}
+
+export function clearStoredFloorPlanAnalysisState() {
+  sessionStorage.removeItem(STORAGE_ANALYSIS_KEY)
+}
+
 export function getFloorPlanAnalysisNavigationState(
   value: unknown,
-): FloorPlanAnalysisNavigationState | null {
+): FloorPlanAnalysisState | null {
   if (typeof value !== 'object' || value === null) return null
 
-  const candidate = value as Partial<FloorPlanAnalysisNavigationState>
+  const mode = (value as { mode?: unknown }).mode
 
+  if (mode === 'storage') {
+    const stored = value as Partial<StoredFloorPlanAnalysisNavigationState>
+    return Number.isSafeInteger(stored.floorPlanVariantId) && Number(stored.floorPlanVariantId) > 0 &&
+      Number.isSafeInteger(stored.analysisJobId) && Number(stored.analysisJobId) > 0
+      ? stored as StoredFloorPlanAnalysisNavigationState : null
+  }
+
+  const candidate = value as Partial<FloorPlanAnalysisNavigationState>
   if (
-    !(candidate.floorPlanFile instanceof File) ||
+    mode !== 'multipart' || !(candidate.floorPlanFile instanceof File) ||
     typeof candidate.uploadedImagePath !== 'string' ||
     typeof candidate.uploadedImageUrl !== 'string' ||
     typeof candidate.originalFileName !== 'string'
@@ -53,4 +67,10 @@ export function getFloorPlanAnalysisNavigationState(
   }
 
   return candidate as FloorPlanAnalysisNavigationState
+}
+
+export function getStoredFloorPlanAnalysisState(): StoredFloorPlanAnalysisNavigationState | null {
+  const value = sessionStorage.getItem(STORAGE_ANALYSIS_KEY)
+  if (!value) return null
+  try { return getFloorPlanAnalysisNavigationState(JSON.parse(value)) as StoredFloorPlanAnalysisNavigationState | null } catch { return null }
 }

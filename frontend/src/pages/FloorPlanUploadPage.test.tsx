@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { uploadAndAttachRequestImage } from '@/utils/requestImageFlow'
 import { setActiveRequestId } from '@/utils/requestFlow'
 import FloorPlanUploadPage from './FloorPlanUploadPage'
+import { requestAnalysis } from '@/api/analysisApi'
 
 vi.mock('@/utils/requestImageFlow', () => ({
   uploadAndAttachRequestImage: vi.fn(),
@@ -13,8 +14,10 @@ vi.mock('@/api/requestApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/requestApi')>()
   return { ...actual, deleteRequestImage: vi.fn() }
 })
+vi.mock('@/api/analysisApi', () => ({ requestAnalysis: vi.fn() }))
 
 const uploadAndAttach = vi.mocked(uploadAndAttachRequestImage)
+const createJob = vi.mocked(requestAnalysis)
 
 function AnalysisStateProbe() {
   const { state } = useLocation()
@@ -29,6 +32,7 @@ describe('FloorPlanUploadPage', () => {
       id: 91,
       imageUrl: '/api/files/images/villa-floor-plan.png',
     })
+    createJob.mockReset().mockResolvedValue(12)
   })
   afterEach(cleanup)
 
@@ -56,6 +60,16 @@ describe('FloorPlanUploadPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '다음' }))
     expect(await screen.findByText('analysis:villa-floor-plan.png')).toBeInTheDocument()
+    expect(createJob).toHaveBeenCalledWith(77)
     expect(uploadAndAttach).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects WebP before upload', async () => {
+    setActiveRequestId(77)
+    const file = new File(['webp'], 'floor.webp', { type: 'image/webp' })
+    const { container } = render(<MemoryRouter><FloorPlanUploadPage /></MemoryRouter>)
+    fireEvent.change(container.querySelector<HTMLInputElement>('#villa-floor-plan')!, { target: { files: [file] } })
+    expect(await screen.findByRole('alert')).toHaveTextContent('PNG, JPEG, JPG')
+    expect(uploadAndAttach).not.toHaveBeenCalled()
   })
 })

@@ -2,15 +2,18 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { scanFloorPlan } from '@/api/analysisApi'
+import { getAnalysis, scanFloorPlan, scanStoredFloorPlan } from '@/api/analysisApi'
 import { setActiveRequestId } from '@/utils/requestFlow'
 import FloorPlanAnalysisLoadingPage from './FloorPlanAnalysisLoadingPage'
 
-vi.mock('@/api/analysisApi', () => ({ scanFloorPlan: vi.fn() }))
+vi.mock('@/api/analysisApi', () => ({ scanFloorPlan: vi.fn(), scanStoredFloorPlan: vi.fn(), getAnalysis: vi.fn() }))
 
 const scan = vi.mocked(scanFloorPlan)
+const scanStorage = vi.mocked(scanStoredFloorPlan)
+const getJob = vi.mocked(getAnalysis)
 const floorPlanFile = new File(['floor-plan'], 'floor-plan.png', { type: 'image/png' })
 const navigationState = {
+  mode: 'multipart',
   floorPlanFile,
   uploadedImagePath: '/api/files/images/floor-plan.png',
   uploadedImageUrl: 'https://spaceup.test/api/files/images/floor-plan.png',
@@ -35,6 +38,8 @@ function renderLoading(state: unknown = navigationState, strictMode = false) {
 describe('FloorPlanAnalysisLoadingPage', () => {
   beforeEach(() => {
     scan.mockReset()
+    scanStorage.mockReset()
+    getJob.mockReset()
     sessionStorage.clear()
   })
   afterEach(cleanup)
@@ -115,5 +120,16 @@ describe('FloorPlanAnalysisLoadingPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('network unavailable')
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }))
     await waitFor(() => expect(scan).toHaveBeenLastCalledWith(77, floorPlanFile))
+  })
+
+  it('uses only the variant id for storage analysis and exposes a persisted FAILED state after 502', async () => {
+    setActiveRequestId(77)
+    scanStorage.mockRejectedValue(new Error('502'))
+    getJob.mockResolvedValue({ requestId: 77, status: 'FAILED' })
+    renderLoading({ mode: 'storage', floorPlanVariantId: 1, analysisJobId: 88 })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('평면도 분석에 실패했습니다.')
+    expect(scanStorage).toHaveBeenCalledWith(77, 1)
+    expect(scan).not.toHaveBeenCalled()
   })
 })

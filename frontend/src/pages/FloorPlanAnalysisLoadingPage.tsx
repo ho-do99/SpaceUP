@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import analysisSpinner from '@/assets/user/icons/analysis-spinner.svg'
-import { scanFloorPlan } from '@/api/analysisApi'
+import { getAnalysis, scanFloorPlan, scanStoredFloorPlan } from '@/api/analysisApi'
 import { ApiClientError } from '@/api/axiosInstance'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
-import { getFloorPlanAnalysisNavigationState } from '@/utils/floorPlanAnalysisFlow'
+import { clearStoredFloorPlanAnalysisState, getFloorPlanAnalysisNavigationState, getStoredFloorPlanAnalysisState } from '@/utils/floorPlanAnalysisFlow'
 import { getActiveRequestId } from '@/utils/requestFlow'
 
 function getScanErrorMessage(error: unknown) {
@@ -30,9 +30,11 @@ function getScanErrorMessage(error: unknown) {
 export default function FloorPlanAnalysisLoadingPage() {
   const navigate = useNavigate()
   const { state } = useLocation()
-  const analysisState = getFloorPlanAnalysisNavigationState(state)
+  const routeAnalysisState = useMemo(() => getFloorPlanAnalysisNavigationState(state), [state])
+  const analysisState = useMemo(() => routeAnalysisState ?? getStoredFloorPlanAnalysisState(), [routeAnalysisState])
+  const recoveredStorageState = !routeAnalysisState && analysisState?.mode === 'storage'
   const requestId = getActiveRequestId()
-  const floorPlanFile = analysisState?.floorPlanFile ?? null
+  const floorPlanFile = analysisState?.mode === 'multipart' ? analysisState.floorPlanFile : null
   const [attempt, setAttempt] = useState(0)
   const [isAnalyzing, setIsAnalyzing] = useState(Boolean(requestId && floorPlanFile))
   const [errorMessage, setErrorMessage] = useState('')
@@ -44,7 +46,7 @@ export default function FloorPlanAnalysisLoadingPage() {
       return undefined
     }
 
-    if (!floorPlanFile) {
+    if (!analysisState) {
       setIsAnalyzing(false)
       setErrorMessage('분석할 평면도 파일을 찾을 수 없습니다. 평면도를 다시 업로드해 주세요.')
       return undefined
@@ -59,11 +61,18 @@ export default function FloorPlanAnalysisLoadingPage() {
       setIsAnalyzing(true)
       setErrorMessage('')
 
-      void scanFloorPlan(requestId, floorPlanFile)
+      const analyze = analysisState.mode === 'storage'
+        ? recoveredStorageState && attempt === 0
+          ? getAnalysis(requestId)
+          : scanStoredFloorPlan(requestId, analysisState.floorPlanVariantId)
+        : scanFloorPlan(requestId, analysisState.floorPlanFile)
+
+      void analyze
         .then((analysis) => {
           if (!active) return
 
           if (analysis.status === 'COMPLETED') {
+            clearStoredFloorPlanAnalysisState()
             navigate('/analysis/spaces', { replace: true })
             return
           }
@@ -75,8 +84,24 @@ export default function FloorPlanAnalysisLoadingPage() {
               : '평면도 분석 요청이 아직 처리 대기 상태입니다. 잠시 후 다시 시도해 주세요.',
           )
         })
-        .catch((error: unknown) => {
+        .catch(async (error: unknown) => {
           if (!active) return
+          if (analysisState.mode === 'storage') {
+            try {
+              const current = await getAnalysis(requestId)
+              if (!active) return
+              if (current.status === 'COMPLETED') {
+                clearStoredFloorPlanAnalysisState()
+                navigate('/analysis/spaces', { replace: true })
+                return
+              }
+              if (current.status === 'FAILED') {
+                setIsAnalyzing(false)
+                setErrorMessage('평면도 분석에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+                return
+              }
+            } catch { /* 원래 Storage 분석 오류를 표시합니다. */ }
+          }
           setIsAnalyzing(false)
           setErrorMessage(getScanErrorMessage(error))
         })
@@ -86,7 +111,7 @@ export default function FloorPlanAnalysisLoadingPage() {
       active = false
       window.clearTimeout(startTimer)
     }
-  }, [attempt, floorPlanFile, navigate, requestId])
+  }, [analysisState, attempt, navigate, recoveredStorageState, requestId])
 
   const handleFooterAction = () => {
     if (!requestId) {
@@ -94,7 +119,7 @@ export default function FloorPlanAnalysisLoadingPage() {
       return
     }
 
-    if (!floorPlanFile) {
+    if (!analysisState) {
       navigate('/upload', { replace: true })
       return
     }
@@ -171,7 +196,7 @@ export default function FloorPlanAnalysisLoadingPage() {
             ? '분석 중'
             : !requestId
               ? '처음부터 다시 시작'
-              : !floorPlanFile
+            : !analysisState
                 ? '평면도 다시 업로드'
                 : '다시 시도'}
         </Button>

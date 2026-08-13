@@ -21,6 +21,13 @@ export async function getAnalysis(requestId: number) {
   return unwrapApiResponse<AnalysisJobResponse>(response, '분석 조회에 실패했습니다.')
 }
 
+export async function requestAnalysis(requestId: number) {
+  const response = await apiRequest<ApiResponse<number>>({
+    method: 'POST', url: `/api/analysis/request/${requestId}`, authenticated: true,
+  })
+  return unwrapApiResponse<number>(response, '분석 요청 생성에 실패했습니다.')
+}
+
 export async function updateAnalysis(requestId: number, input: AnalysisJobEditInput) {
   const response = await apiRequest<ApiResponse<null>, AnalysisJobEditInput>({
     method: 'PATCH', url: `/api/analysis/request/${requestId}`, data: input, authenticated: true,
@@ -39,6 +46,17 @@ export async function scanFloorPlan(requestId: number, file: File) {
     timeout: FLOOR_PLAN_SCAN_TIMEOUT_MS,
   })
   return unwrapApiResponse<AnalysisJobResponse>(response, '평면도 분석에 실패했습니다.')
+}
+
+export async function scanStoredFloorPlan(requestId: number, floorPlanVariantId: number) {
+  const response = await apiRequest<ApiResponse<AnalysisJobResponse>, { floorPlanVariantId: number }>({
+    method: 'POST',
+    url: `/api/analysis/request/${requestId}/floorplan-scan-storage`,
+    data: { floorPlanVariantId },
+    authenticated: true,
+    timeout: FLOOR_PLAN_SCAN_TIMEOUT_MS,
+  })
+  return unwrapApiResponse<AnalysisJobResponse>(response, '등록 평면도 분석에 실패했습니다.')
 }
 
 export async function replaceAnalysisSpaces(requestId: number, spaces: AnalysisSpaceInput[]) {

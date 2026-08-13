@@ -5,7 +5,9 @@ import {
   getAnalysis,
   getInteriorImageGenerationErrorMessage,
   replaceAnalysisSpaces,
+  requestAnalysis,
   scanFloorPlan,
+  scanStoredFloorPlan,
 } from './analysisApi'
 
 vi.mock('./axiosInstance', async (importOriginal) => {
@@ -54,6 +56,21 @@ describe('analysisApi', () => {
     }))
     const request = mockedApiRequest.mock.calls[0][0]
     expect((request.data as FormData).get('file')).toBe(file)
+  })
+
+  it('creates the pending job before storage scan and sends only the variant id', async () => {
+    mockedApiRequest
+      .mockResolvedValueOnce({ success: true, message: 'created', data: 19 })
+      .mockResolvedValueOnce({ success: true, message: 'done', data: { requestId: 7, status: 'COMPLETED' } })
+
+    await requestAnalysis(7)
+    await scanStoredFloorPlan(7, 1)
+
+    expect(mockedApiRequest.mock.calls[0][0]).toEqual(expect.objectContaining({ method: 'POST', url: '/api/analysis/request/7', authenticated: true }))
+    expect(mockedApiRequest.mock.calls[1][0]).toEqual(expect.objectContaining({
+      method: 'POST', url: '/api/analysis/request/7/floorplan-scan-storage', data: { floorPlanVariantId: 1 }, authenticated: true,
+    }))
+    expect(mockedApiRequest.mock.calls[1][0].data).not.toHaveProperty('floorPlanImageUrl')
   })
 
   it('requests an interior image with a generation-specific timeout', async () => {
