@@ -16,6 +16,7 @@ import com.spaceup.domain.analysis.dto.AnalysisJobResponse;
 import com.spaceup.domain.analysis.dto.AnalysisJobResultRequest;
 import com.spaceup.domain.analysis.dto.AnalysisSpaceRequest;
 import com.spaceup.domain.analysis.dto.AnalysisSpaceResponse;
+import com.spaceup.domain.analysis.dto.FloorplanScanStorageRequest;
 import com.spaceup.domain.analysis.service.AnalysisJobService;
 import com.spaceup.domain.member.security.MemberPrincipal;
 import com.spaceup.domain.material.dto.RecommendedMaterialResponse;
@@ -75,6 +76,28 @@ public class AnalysisJobController {
 		MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
 		return ResponseEntity.ok(
 				ApiResponse.success("AI 평면도 분석이 완료되었습니다.", aiFloorplanAnalysisService.analyze(requestId, principal.getId(), file)));
+	}
+
+	// ⭐ [Object Storage 등록 평면도 분석] 프론트가 등록 아파트의 평면도(floorPlanVariantId)를 선택하면
+	// 백엔드가 Object Storage에서 직접 이미지를 받아와 분석합니다 - multipart 업로드도, 브라우저의 private
+	// bucket 직접 접근도 필요 없습니다. 나머지 처리(AI 분석 → AnalysisJob/AnalysisSpace 저장)는
+	// floorplan-scan과 동일한 공통 로직을 재사용합니다.
+	@PostMapping("/request/{requestId}/floorplan-scan-storage")
+	public ResponseEntity<ApiResponse<AnalysisJobResponse>> scanFloorplanFromStorage(@PathVariable Long requestId,
+			@Valid @RequestBody FloorplanScanStorageRequest request, Authentication authentication) {
+		MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+		return ResponseEntity.ok(ApiResponse.success("AI 평면도 분석이 완료되었습니다.",
+				aiFloorplanAnalysisService.analyzeFromStorage(requestId, principal.getId(), request.floorPlanVariantId())));
+	}
+
+	// ⭐ [평면도 재분석] 이미 request_image(FLOOR_PLAN)로 연결된 평면도를 원본 파일 재전송 없이 requestId
+	// 만으로 다시 분석합니다. body가 필요 없습니다 - 이미 연결된 이미지를 그대로 씁니다.
+	@PostMapping("/request/{requestId}/floorplan-scan-linked")
+	public ResponseEntity<ApiResponse<AnalysisJobResponse>> scanLinkedFloorplan(@PathVariable Long requestId,
+			Authentication authentication) {
+		MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+		return ResponseEntity.ok(ApiResponse.success("AI 평면도 재분석이 완료되었습니다.",
+				aiFloorplanAnalysisService.analyzeFromLinkedImage(requestId, principal.getId())));
 	}
 
 	// ⭐ PDF "공간 정보 확인" 화면 조회

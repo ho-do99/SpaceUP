@@ -80,10 +80,13 @@ public class MemberService {
 
 		String encodedPassword = passwordEncoder.encode(member.getPassword());
 
-		// ⭐ 시공사는 관리자 승인 전까지 PENDING으로 가입시킵니다(Figma "심사 대기" 화면 시작점).
-		// 임대인은 가입 즉시 이용 가능해야 하므로 APPROVED.
-		boolean needsAdminApproval = member.getRole() == MemberRole.CONTRACTOR;
-		MemberApprovalStatus initialStatus = needsAdminApproval ? MemberApprovalStatus.PENDING
+		// ⭐ [관리자 심사 제거] 최종 기획에서 관리자 기능 자체를 빼기로 하면서, 시공사 입점 심사(PENDING →
+		// 관리자 승인 → APPROVED) 단계도 함께 제거했습니다. 이제 모든 역할이 가입 즉시 APPROVED로
+		// 시작합니다. 시공사는 Member.approve()를 그대로 재사용해 승인번호까지 발급하는데, approve()에
+		// "이미 승인된 회원은 재승인 불가" 가드가 있어 잠시 PENDING으로 만든 뒤(아직 DB에 저장 전, 메모리
+		// 상태) 바로 approve()로 전이시켜 기존 상태 전이 로직을 그대로 씁니다.
+		boolean isContractor = member.getRole() == MemberRole.CONTRACTOR;
+		MemberApprovalStatus initialStatus = isContractor ? MemberApprovalStatus.PENDING
 				: MemberApprovalStatus.APPROVED;
 
 		Member encryptedMember = Member.builder().password(encodedPassword)
@@ -92,9 +95,12 @@ public class MemberService {
 
 		memberRepository.save(encryptedMember);
 
-		// ⭐ [Figma 반영] "심사 대기" 화면의 신청번호(예: ON-260715-018)는 심사가 필요한 역할에만 발급합니다.
-		if (needsAdminApproval) {
+		// ⭐ [관리자 심사 제거] 예전에는 신청번호(가입 접수)와 승인번호(관리자 승인)가 서로 다른 시점에
+		// 발급됐지만, 이제 심사 단계가 없어 회원가입 완료 시점에 시공사 대상으로 둘 다 바로 발급합니다.
+		// 승인번호가 다른 기능에서 필요할 경우를 대비해 남겨두되, 값 자체는 "자동 입점 완료"를 뜻합니다.
+		if (isContractor) {
 			encryptedMember.assignApplicationNumber(generateApplicationNumber(encryptedMember.getId()));
+			encryptedMember.approve(generateApprovalNumber(encryptedMember.getId()));
 		}
 		return encryptedMember.getId();
 	}
@@ -173,6 +179,13 @@ public class MemberService {
 		// 견적·채팅·프로젝트 같은 업무 이력이 Member를 참조하므로 하드 삭제를 피하며,
 		// 변경 감지(dirty checking)로 트랜잭션 커밋 시점에 자동 반영되므로 별도 save() 호출이 불필요합니다.
 		member.withdraw();
+	}
+
+	// ⭐ [관리자 심사 제거] 예전에 AdminService.approveMember()에서 관리자가 승인 버튼을 누를 때 발급하던
+	// 것과 동일한 "AP-260718-000004" 형식을 회원가입 시점에 재사용합니다.
+	private String generateApprovalNumber(Long id) {
+		String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
+		return String.format("AP-%s-%06d", datePart, id);
 	}
 
 	// ⭐ "ON-260715-000018" 형식: ON-yyMMdd-{DB가 발급한 실제 id 6자리}
