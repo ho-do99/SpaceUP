@@ -10,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import com.spaceup.domain.analysis.service.AnalysisJobService;
 import com.spaceup.domain.matching.dto.RecommendedContractorResponse;
 import com.spaceup.domain.matching.service.ContractorRecommendationService;
 import com.spaceup.domain.member.security.MemberPrincipal;
@@ -33,17 +32,16 @@ import lombok.RequiredArgsConstructor;
 public class RequestController {
 
 	private final RequestService requestService;
-	private final AnalysisJobService analysisJobService;
 	private final ContractorRecommendationService contractorRecommendationService;
 	private final RequestImageService requestImageService;
 
-	// ⭐ PDF "02 임대 정보 입력" 완료 버튼 → 의뢰 생성 (로그인한 임대인 본인 명의로 생성) + AI 분석 PENDING 등록
+	// ⭐ PDF "02 임대 정보 입력" 완료 버튼 → 의뢰 생성 (로그인한 임대인 본인 명의로 생성)
+	// 평면도 선택 또는 업로드가 끝나기 전에는 분석 작업을 만들지 않습니다.
 	@PostMapping
 	public ResponseEntity<ApiResponse<Long>> create(@Valid @RequestBody RequestCreateRequest request,
 			Authentication authentication) {
 		Long landlordId = getMemberId(authentication);
 		Long requestId = requestService.createRequest(landlordId, request);
-		analysisJobService.requestAnalysis(requestId, landlordId); // ⭐ ML 파이프라인에 분석을 맡기는 시작점
 		return ResponseEntity.ok(ApiResponse.success("의뢰가 등록되었습니다.", requestId));
 	}
 

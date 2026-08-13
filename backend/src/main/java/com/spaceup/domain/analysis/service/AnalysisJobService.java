@@ -36,14 +36,19 @@ public class AnalysisJobService {
 	private final QuoteRequestRepository quoteRequestRepository;
 	private final RequestContractorRepository requestContractorRepository;
 
-	// ⭐ PDF "02 임대 정보 입력" 완료 직후 호출 지점. PENDING 상태로 분석 레코드를 먼저 만들어두고, ML 파이프라인에
-	// 비동기로 분석을 맡긴 뒤 submitResult()로 콜백을 받는 구조입니다.
+	// 평면도 선택 또는 업로드가 끝난 뒤 호출합니다. 같은 의뢰의 중복 호출은 기존 작업 ID를 반환합니다.
+	// 의뢰 행을 잠가 동시 호출도 request_id UNIQUE 충돌 없이 직렬화합니다.
 	@Transactional
 	public Long requestAnalysis(Long requestId, Long landlordId) {
-		QuoteRequest request = quoteRequestRepository.findById(requestId)
+		QuoteRequest request = quoteRequestRepository.findByIdForUpdate(requestId)
 				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + requestId));
 		validateOwner(request, landlordId);
+		return analysisJobRepository.findByRequestId(requestId)
+				.map(AnalysisJob::getId)
+				.orElseGet(() -> createPendingAnalysis(request));
+	}
 
+	private Long createPendingAnalysis(QuoteRequest request) {
 		AnalysisJob analysis = AnalysisJob.builder().request(request).status(AnalysisStatus.PENDING).build();
 		analysisJobRepository.save(analysis);
 		return analysis.getId();
