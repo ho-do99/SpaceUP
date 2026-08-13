@@ -8,6 +8,7 @@ import type {
   AnalysisSpaceResponse,
   InteriorImageGenerateInput,
   InteriorImageGenerateResponse,
+  InteriorImageGenerationStatusResponse,
   RecommendedProduct,
 } from '@/types/analysis'
 
@@ -104,6 +105,16 @@ export async function generateInteriorImages(
     signal,
   })
   return unwrapApiResponse<InteriorImageGenerateResponse>(response, 'AI 이미지 생성에 실패했습니다.')
+}
+
+export async function getInteriorImages(requestId: number, signal?: AbortSignal) {
+  const response = await apiRequest<ApiResponse<InteriorImageGenerationStatusResponse>>({
+    method: 'GET',
+    url: `/api/analysis/request/${requestId}/interior-images`,
+    authenticated: true,
+    signal,
+  })
+  return unwrapApiResponse<InteriorImageGenerationStatusResponse>(response, 'AI 이미지 생성 상태 조회에 실패했습니다.')
 }
 
 export function getInteriorImageGenerationErrorMessage(error: unknown) {

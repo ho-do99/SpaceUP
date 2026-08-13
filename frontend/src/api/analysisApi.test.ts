@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiClientError, apiRequest } from './axiosInstance'
 import {
   generateInteriorImages,
+  getInteriorImages,
   getAnalysis,
   getInteriorImageGenerationErrorMessage,
   replaceAnalysisSpaces,
@@ -103,6 +104,19 @@ describe('analysisApi', () => {
       authenticated: true,
       timeout: 75_000,
     }))
+  })
+
+  it.each([
+    ['NOT_STARTED', []],
+    ['IN_PROGRESS', []],
+    ['COMPLETED', ['/api/files/images/generated.png']],
+  ] as const)('loads the %s interior image generation status', async (status, imageUrls) => {
+    mockedApiRequest.mockResolvedValue({ success: true, message: 'ok', data: { status, imageUrls } })
+
+    await expect(getInteriorImages(7)).resolves.toEqual({ status, imageUrls })
+    expect(mockedApiRequest).toHaveBeenCalledWith({
+      method: 'GET', url: '/api/analysis/request/7/interior-images', authenticated: true, signal: undefined,
+    })
   })
 
   it.each([

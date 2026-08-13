@@ -74,3 +74,10 @@ export interface InteriorImageGenerateInput {
 export interface InteriorImageGenerateResponse {
   imageUrls: string[]
 }
+
+export type InteriorImageGenerationStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'
+
+export interface InteriorImageGenerationStatusResponse {
+  status: InteriorImageGenerationStatus
+  imageUrls: string[]
+}

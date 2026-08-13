@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import simulationSpinner from '@/assets/user/icons/simulation-spinner.svg'
 import simulationUploadPreview from '@/assets/user/images/simulation-upload-preview.png'
-import { generateInteriorImages, getInteriorImageGenerationErrorMessage } from '@/api/analysisApi'
+import { generateInteriorImages, getInteriorImages, getInteriorImageGenerationErrorMessage } from '@/api/analysisApi'
+import { ApiClientError } from '@/api/axiosInstance'
 
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
@@ -12,7 +13,10 @@ import UserScreenShell from '@/components/user/UserScreenShell'
 import { interiorStyleOptions } from '@/mocks/interiorStyles'
 import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
 import { getActiveRequestId } from '@/utils/requestFlow'
-import { saveSimulationResult } from '@/utils/simulationResult'
+import { getSimulationGenerationContext, saveSimulationResult } from '@/utils/simulationResult'
+
+const POLLING_INTERVAL_MS = 2_500
+const MAX_POLLING_ATTEMPTS = 24
 
 function getRouteString(state: unknown, key: string) {
   if (typeof state !== 'object' || state === null) return null
@@ -27,11 +31,15 @@ export default function SimulationGeneratingPage() {
   const [isGenerating, setIsGenerating] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const routeStyleId = getRouteString(state, 'styleId')
-  const uploadedImagePath = getRouteString(state, 'uploadedImagePath')
-  const uploadedImageUrl = uploadedImagePath ? resolveApiAssetUrl(uploadedImagePath) : null
   const requestId = getActiveRequestId()
+  const storedContext = getSimulationGenerationContext()
+  const matchingContext = storedContext?.requestId === requestId ? storedContext : null
+  const uploadedImagePath = getRouteString(state, 'uploadedImagePath') ?? matchingContext?.uploadedImagePath ?? null
+  const uploadedImageUrl = getRouteString(state, 'uploadedImageUrl') ?? matchingContext?.uploadedImageUrl ??
+    (uploadedImagePath ? resolveApiAssetUrl(uploadedImagePath) : null)
+  const styleId = routeStyleId ?? matchingContext?.styleId ?? null
   const selectedStyle =
-    interiorStyleOptions.find((option) => option.id === routeStyleId) ?? interiorStyleOptions[0]
+    interiorStyleOptions.find((option) => option.id === styleId) ?? interiorStyleOptions[0]
   const photoPreviewUrl = uploadedImageUrl ?? simulationUploadPreview
   const canGenerate = Boolean(requestId && uploadedImagePath && uploadedImageUrl)
 
@@ -48,42 +56,63 @@ export default function SimulationGeneratingPage() {
     // React StrictMode의 개발용 effect 재실행에서 Gemini 요청이 중복되지 않도록
     // 실제 요청은 다음 task에서 시작하고 첫 cleanup에서 취소합니다.
     let active = true
+    let pollingTimer: number | undefined
     const abortController = new AbortController()
+
+    const finish = (imageUrls: string[]) => {
+      if (!active) return
+      const afterImagePath = imageUrls.find((url) => typeof url === 'string' && url.trim())?.trim()
+      const afterImageUrl = afterImagePath ? resolveApiAssetUrl(afterImagePath) : null
+      if (!afterImagePath || !afterImageUrl) throw new Error('AI 생성 이미지 결과를 확인할 수 없습니다.')
+      const result = { requestId, styleId: selectedStyle.id, beforeImageUrl: uploadedImageUrl, afterImagePath, afterImageUrl }
+      saveSimulationResult(result)
+      navigate('/analysis/simulation/result', { replace: true, state: result })
+    }
+
+    const waitForNextPoll = () => new Promise<void>((resolve, reject) => {
+      pollingTimer = window.setTimeout(resolve, POLLING_INTERVAL_MS)
+      abortController.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+    })
+
+    const checkStatus = async (allowPost: boolean, pollAttempt = 0): Promise<void> => {
+      const current = await getInteriorImages(requestId, abortController.signal)
+      if (!active) return
+      if (current.status === 'COMPLETED') { finish(current.imageUrls); return }
+      if (current.status === 'IN_PROGRESS') {
+        if (pollAttempt >= MAX_POLLING_ATTEMPTS) throw new Error('AI 이미지 생성 시간이 오래 걸리고 있습니다. 잠시 후 다시 확인해 주세요.')
+        await waitForNextPoll()
+        return checkStatus(false, pollAttempt + 1)
+      }
+      if (!allowPost) throw new Error('AI 이미지 생성 상태가 초기화되었습니다. 다시 시도해 주세요.')
+      try {
+        const generated = await generateInteriorImages(requestId, {
+          style: selectedStyle.name,
+          referenceImageUrl: uploadedImagePath,
+        }, abortController.signal)
+        finish(generated.imageUrls)
+      } catch (error) {
+        if (error instanceof ApiClientError && error.status === 409) { await checkStatus(false); return }
+        throw error
+      }
+    }
+
     const startTimer = window.setTimeout(() => {
       if (!active) return
-      void generateInteriorImages(requestId, {
-        style: selectedStyle.name,
-        referenceImageUrl: uploadedImagePath,
-      }, abortController.signal)
-        .then(({ imageUrls }) => {
-          if (!active) return
-          const afterImagePath = imageUrls.find((url) => typeof url === 'string' && url.trim())?.trim()
-          const afterImageUrl = afterImagePath ? resolveApiAssetUrl(afterImagePath) : null
-          if (!afterImagePath || !afterImageUrl) throw new Error('AI 생성 이미지 결과를 확인할 수 없습니다.')
-          const result = {
-            requestId,
-            styleId: selectedStyle.id,
-            beforeImageUrl: uploadedImageUrl,
-            afterImagePath,
-            afterImageUrl,
-          }
-          saveSimulationResult(result)
-          navigate('/analysis/simulation/result', { replace: true, state: result })
-        })
-        .catch((error: unknown) => {
-          if (!active || abortController.signal.aborted) return
-          setIsGenerating(false)
-          setErrorMessage(
-            error instanceof Error && !Reflect.has(error, 'kind')
-              ? error.message
-              : getInteriorImageGenerationErrorMessage(error),
-          )
-        })
+      void checkStatus(true).catch((error: unknown) => {
+        if (!active || abortController.signal.aborted) return
+        setIsGenerating(false)
+        setErrorMessage(
+          error instanceof Error && !Reflect.has(error, 'kind')
+            ? error.message
+            : getInteriorImageGenerationErrorMessage(error),
+        )
+      })
     }, 0)
 
     return () => {
       active = false
       window.clearTimeout(startTimer)
+      if (pollingTimer !== undefined) window.clearTimeout(pollingTimer)
       abortController.abort()
     }
   }, [
