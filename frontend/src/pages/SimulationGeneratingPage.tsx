@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import simulationSpinner from '@/assets/user/icons/simulation-spinner.svg'
-import simulationAfter from '@/assets/user/images/simulation-after.png'
 import simulationUploadPreview from '@/assets/user/images/simulation-upload-preview.png'
+import { generateInteriorImages, getInteriorImageGenerationErrorMessage } from '@/api/analysisApi'
 
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
@@ -47,20 +47,44 @@ export default function SimulationGeneratingPage() {
 
     // React StrictMode의 개발용 effect 재실행에서 Gemini 요청이 중복되지 않도록
     // 실제 요청은 다음 task에서 시작하고 첫 cleanup에서 취소합니다.
+    let active = true
+    const abortController = new AbortController()
     const startTimer = window.setTimeout(() => {
-      const result = {
-        requestId,
-        styleId: selectedStyle.id,
-        beforeImageUrl: uploadedImageUrl,
-        afterImagePath: simulationAfter,
-        afterImageUrl: simulationAfter,
-      }
-      saveSimulationResult(result)
-      navigate('/analysis/simulation/result', { replace: true, state: result })
-    }, 700)
+      if (!active) return
+      void generateInteriorImages(requestId, {
+        style: selectedStyle.name,
+        referenceImageUrl: uploadedImagePath,
+      }, abortController.signal)
+        .then(({ imageUrls }) => {
+          if (!active) return
+          const afterImagePath = imageUrls.find((url) => typeof url === 'string' && url.trim())?.trim()
+          const afterImageUrl = afterImagePath ? resolveApiAssetUrl(afterImagePath) : null
+          if (!afterImagePath || !afterImageUrl) throw new Error('AI 생성 이미지 결과를 확인할 수 없습니다.')
+          const result = {
+            requestId,
+            styleId: selectedStyle.id,
+            beforeImageUrl: uploadedImageUrl,
+            afterImagePath,
+            afterImageUrl,
+          }
+          saveSimulationResult(result)
+          navigate('/analysis/simulation/result', { replace: true, state: result })
+        })
+        .catch((error: unknown) => {
+          if (!active || abortController.signal.aborted) return
+          setIsGenerating(false)
+          setErrorMessage(
+            error instanceof Error && !Reflect.has(error, 'kind')
+              ? error.message
+              : getInteriorImageGenerationErrorMessage(error),
+          )
+        })
+    }, 0)
 
     return () => {
+      active = false
       window.clearTimeout(startTimer)
+      abortController.abort()
     }
   }, [
     generationAttempt,
