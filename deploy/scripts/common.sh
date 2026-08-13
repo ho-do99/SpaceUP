@@ -37,10 +37,7 @@ validate_revision() {
   local revision="$1"
   local branch="$2"
   [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || die "revision must be a full 40-character commit SHA"
-  case "$branch" in
-    main | infra) ;;
-    *) die "deployment branch must be main or infra" ;;
-  esac
+  [[ "$branch" == "main" ]] || die "production deployment branch must be main"
 }
 
 validate_registry() {

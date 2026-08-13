@@ -6,9 +6,9 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
 REVISION="${1:-}"
-DEPLOY_BRANCH="${2:-infra}"
+DEPLOY_BRANCH="${2:-main}"
 REPOSITORY_DIR="${SPACEUP_REPOSITORY_DIR:-/root/SpaceUP}"
-ENV_FILE="${SPACEUP_PUBLIC_ENV:-/home/ubuntu/spaceup-public.env}"
+ENV_FILE="${SPACEUP_PUBLIC_ENV:-/root/spaceup-public.env}"
 LOCK_FILE="${SPACEUP_PUBLIC_LOCK:-/tmp/spaceup-public-deploy.lock}"
 
 for command_name in docker git curl flock; do require_command "$command_name"; done
