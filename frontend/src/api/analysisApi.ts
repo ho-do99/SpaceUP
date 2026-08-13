@@ -1,5 +1,5 @@
 import { ApiClientError, apiRequest } from './axiosInstance'
-import { unwrapApiResponse } from './apiResponse'
+import { unwrapApiResponse, unwrapEmptyApiResponse } from './apiResponse'
 import type { ApiResponse } from '@/types/api'
 import type {
   AnalysisJobResponse,
@@ -60,10 +60,10 @@ export async function scanStoredFloorPlan(requestId: number, floorPlanVariantId:
 }
 
 export async function replaceAnalysisSpaces(requestId: number, spaces: AnalysisSpaceInput[]) {
-  const response = await apiRequest<ApiResponse<AnalysisSpaceResponse[]>, AnalysisSpaceInput[]>({
+  const response = await apiRequest<ApiResponse<null>, AnalysisSpaceInput[]>({
     method: 'PUT', url: `/api/analysis/request/${requestId}/spaces`, data: spaces, authenticated: true,
   })
-  return unwrapApiResponse<AnalysisSpaceResponse[]>(response, '공간 저장에 실패했습니다.')
+  unwrapEmptyApiResponse(response, '공간 저장에 실패했습니다.')
 }
 
 export async function getAnalysisSpaces(requestId: number) {

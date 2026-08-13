@@ -1,23 +1,15 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import SpaceSelectionCard from './SpaceSelectionCard'
-import type { AnalyzedSpaceOption } from '@/mocks/analysisSpaces'
-
-const option: AnalyzedSpaceOption = {
-  id: 'living-room',
-  name: '거실',
-  icon: 'living',
-  isRecommendationSupported: true,
-}
 
 describe('SpaceSelectionCard', () => {
   afterEach(cleanup)
 
-  it('shows the backend area without changing the existing toggle id', () => {
+  it('shows a backend space name and area and toggles it', () => {
     const onToggle = vi.fn()
     render(
       <SpaceSelectionCard
-        option={option}
+        spaceName="드레스룸"
         areaM2={28}
         isSelected
         onToggle={onToggle}
@@ -25,14 +17,14 @@ describe('SpaceSelectionCard', () => {
     )
 
     expect(screen.getByText('28㎡ (8.47평)')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /거실/ }))
-    expect(onToggle).toHaveBeenCalledWith('living-room')
+    fireEvent.click(screen.getByRole('button', { name: /드레스룸/ }))
+    expect(onToggle).toHaveBeenCalledOnce()
   })
 
   it('shows excluded areas without rendering a zero value', () => {
     render(
       <SpaceSelectionCard
-        option={option}
+        spaceName="복도"
         areaM2={null}
         isSelected={false}
         onToggle={vi.fn()}

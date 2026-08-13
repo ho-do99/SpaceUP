@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import analysisSpinner from '@/assets/user/icons/analysis-spinner.svg'
 import { getAnalysis, scanFloorPlan, scanStoredFloorPlan } from '@/api/analysisApi'
+import { getFloorPlanVariantPreviewUrl } from '@/api/apartmentFloorPlanApi'
 import { ApiClientError } from '@/api/axiosInstance'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
@@ -39,6 +40,17 @@ export default function FloorPlanAnalysisLoadingPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(Boolean(requestId && floorPlanFile))
   const [errorMessage, setErrorMessage] = useState('')
 
+  const moveToSpaceResults = useCallback(() => {
+    const floorPlanPreviewUrl = analysisState?.mode === 'storage'
+      ? getFloorPlanVariantPreviewUrl(analysisState.floorPlanVariantId)
+      : analysisState?.uploadedImageUrl
+    clearStoredFloorPlanAnalysisState()
+    navigate('/analysis/spaces', {
+      replace: true,
+      state: floorPlanPreviewUrl ? { floorPlanPreviewUrl } : undefined,
+    })
+  }, [analysisState, navigate])
+
   useEffect(() => {
     if (!requestId) {
       setIsAnalyzing(false)
@@ -72,8 +84,7 @@ export default function FloorPlanAnalysisLoadingPage() {
           if (!active) return
 
           if (analysis.status === 'COMPLETED') {
-            clearStoredFloorPlanAnalysisState()
-            navigate('/analysis/spaces', { replace: true })
+            moveToSpaceResults()
             return
           }
 
@@ -91,8 +102,7 @@ export default function FloorPlanAnalysisLoadingPage() {
               const current = await getAnalysis(requestId)
               if (!active) return
               if (current.status === 'COMPLETED') {
-                clearStoredFloorPlanAnalysisState()
-                navigate('/analysis/spaces', { replace: true })
+                moveToSpaceResults()
                 return
               }
               if (current.status === 'FAILED') {
@@ -111,7 +121,7 @@ export default function FloorPlanAnalysisLoadingPage() {
       active = false
       window.clearTimeout(startTimer)
     }
-  }, [analysisState, attempt, navigate, recoveredStorageState, requestId])
+  }, [analysisState, attempt, moveToSpaceResults, recoveredStorageState, requestId])
 
   const handleFooterAction = () => {
     if (!requestId) {

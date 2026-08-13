@@ -30,8 +30,8 @@ describe('analysisApi', () => {
 
   it('replaces the complete analysis space list', async () => {
     const spaces = [{ spaceName: '거실', spaceAreaM2: 20, floorAreaM2: 20, wallpaperAreaM2: 45, selectedForConstruction: true }]
-    mockedApiRequest.mockResolvedValue({ success: true, message: 'ok', data: spaces })
-    await replaceAnalysisSpaces(7, spaces)
+    mockedApiRequest.mockResolvedValue({ success: true, message: '공간 정보 수정 완료', data: null })
+    await expect(replaceAnalysisSpaces(7, spaces)).resolves.toBeUndefined()
     expect(mockedApiRequest).toHaveBeenCalledWith(expect.objectContaining({
       method: 'PUT', url: '/api/analysis/request/7/spaces', data: spaces, authenticated: true,
     }))
