@@ -12,6 +12,8 @@ type PostcodeOptions = {
   onclose?: () => void
 }
 
+type PostcodeOpenOptions = { q?: string }
+
 describe('Daum postcode integration', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -57,6 +59,37 @@ describe('Daum postcode integration', () => {
     }
     const { openDaumPostcode } = await import('./daumPostcode')
     await expect(openDaumPostcode()).resolves.toBe('광주광역시 서구 상무중앙로 1 (치평동)')
+  })
+
+  it('opens with the entered query and returns structured address data for catalog matching', async () => {
+    let options: PostcodeOptions | undefined
+    let openOptions: PostcodeOpenOptions | undefined
+    window.daum = {
+      Postcode: class {
+        constructor(receivedOptions: PostcodeOptions) {
+          options = receivedOptions
+        }
+        open(receivedOpenOptions?: PostcodeOpenOptions) {
+          openOptions = receivedOpenOptions
+          options?.oncomplete({
+            userSelectedType: 'R',
+            roadAddress: '광주광역시 서구 상무중앙로 100',
+            jibunAddress: '광주광역시 서구 치평동 1234',
+            buildingName: '상무센트럴아파트',
+            apartment: 'Y',
+          })
+        }
+      },
+    }
+
+    const { searchDaumAddress } = await import('./daumPostcode')
+    await expect(searchDaumAddress('상무센트럴')).resolves.toEqual({
+      roadAddress: '광주광역시 서구 상무중앙로 100',
+      lotAddress: '광주광역시 서구 치평동 1234',
+      buildingName: '상무센트럴아파트',
+      displayAddress: '광주광역시 서구 상무중앙로 100 (상무센트럴아파트)',
+    })
+    expect(openOptions).toEqual({ q: '상무센트럴' })
   })
 
   it('rejects a script load failure without crashing the page runtime', async () => {

@@ -16,7 +16,14 @@ interface DaumPostcodeOptions {
 }
 
 interface DaumPostcodeInstance {
-  open: () => void
+  open: (options?: { q?: string }) => void
+}
+
+export interface SelectedAddress {
+  roadAddress: string
+  lotAddress: string
+  buildingName: string
+  displayAddress: string
 }
 
 type DaumPostcodeConstructor = new (options: DaumPostcodeOptions) => DaumPostcodeInstance
@@ -83,6 +90,40 @@ export function formatDaumPostcodeAddress(data: DaumPostcodeData): string {
       : data.roadAddress
   }
   return data.jibunAddress || data.roadAddress
+}
+
+function toSelectedAddress(data: DaumPostcodeData): SelectedAddress {
+  const roadAddress = data.roadAddress || data.jibunAddress
+  const lotAddress = data.jibunAddress || data.roadAddress
+  const buildingName = data.buildingName?.trim() ?? ''
+  return {
+    roadAddress,
+    lotAddress,
+    buildingName,
+    displayAddress: buildingName ? `${roadAddress} (${buildingName})` : roadAddress,
+  }
+}
+
+export async function searchDaumAddress(query: string): Promise<SelectedAddress | null> {
+  await loadDaumPostcodeScript()
+  const Postcode = window.daum?.Postcode
+  if (!Postcode) throw new Error('Daum 우편번호 서비스를 사용할 수 없습니다.')
+
+  return new Promise<SelectedAddress | null>((resolve, reject) => {
+    let completed = false
+    try {
+      const postcode = new Postcode({
+        oncomplete: (data) => {
+          completed = true
+          resolve(toSelectedAddress(data))
+        },
+        onclose: () => { if (!completed) resolve(null) },
+      })
+      postcode.open({ q: query.trim() })
+    } catch {
+      reject(new Error('Daum 우편번호 검색창을 열지 못했습니다.'))
+    }
+  })
 }
 
 export async function openDaumPostcode(): Promise<string | null> {

@@ -16,6 +16,7 @@ import {
   setActiveRequestId,
 } from '@/utils/requestFlow'
 import type { FloorPlanVariant } from '@/types/apartmentFloorPlan'
+import { searchDaumAddress, type SelectedAddress } from '@/utils/daumPostcode'
 
 interface ApartmentVariantResult extends FloorPlanVariant {
   apartmentId: number
@@ -71,6 +72,7 @@ export default function ApartmentAddressSearchPage() {
   const [manualArea, setManualArea] = useState('')
   const [manualAreaError, setManualAreaError] = useState('')
   const [preparedRequestId, setPreparedRequestId] = useState<number | null>(null)
+  const [selectedAddress, setSelectedAddress] = useState<SelectedAddress | null>(null)
 
   const selectedApartment = searchResults.find(
     (result) => result.id === selectedApartmentId,
@@ -104,8 +106,11 @@ export default function ApartmentAddressSearchPage() {
     setIsAreaListOpen(false)
 
     try {
+      const address = await searchDaumAddress(keyword)
+      if (!address) return
+      setSelectedAddress(address)
       const result = await searchApartmentFloorPlans({
-        keyword,
+        keyword: address.buildingName || address.roadAddress,
         page: 0,
         size: 20,
       })
@@ -118,7 +123,7 @@ export default function ApartmentAddressSearchPage() {
         region: apartment.region,
       })))
       setSearchResults(variants)
-      setTotalElements(variants.length)
+      setTotalElements(1)
       setHasSearched(true)
     } catch (error) {
       setSearchResults([])
@@ -152,6 +157,7 @@ export default function ApartmentAddressSearchPage() {
     setManualArea('')
     setManualAreaError('')
     setPreparedRequestId(null)
+    setSelectedAddress(null)
   }
 
   const handleBack = () => {
@@ -248,7 +254,7 @@ export default function ApartmentAddressSearchPage() {
     }
 
     setManualAreaError('')
-    void continueWithDirectUpload(areaM2, query.trim())
+    void continueWithDirectUpload(areaM2, selectedAddress?.roadAddress ?? query.trim())
   }
 
   return (
@@ -598,14 +604,17 @@ export default function ApartmentAddressSearchPage() {
                     </button>
                   ))}
                 </div>
-              ) : (
+              ) : selectedAddress ? (
                 <div className="mt-2.5 rounded-[12px] bg-[#f8fafc] px-4 py-14 text-center">
                   <p className="text-[15px] font-bold text-[#1e293b]">
-                    검색 결과가 없습니다
+                    {selectedAddress.buildingName || '선택한 주소'}
                   </p>
 
                   <p className="mt-2 text-[11px] leading-[18px] text-[#64748b]">
-                    아파트명 또는 주소를 다시 확인해주세요.
+                    {selectedAddress.roadAddress}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-[18px] text-[#64748b]">
+                    SpaceUP에 등록된 평면도가 없어 직접 업로드가 필요합니다.
                   </p>
 
                   <div className="mx-auto mt-5 max-w-[280px] text-left">
@@ -645,6 +654,10 @@ export default function ApartmentAddressSearchPage() {
                       {submitError}
                     </p>
                   </div>
+                </div>
+              ) : (
+                <div className="mt-2.5 rounded-[12px] bg-[#f8fafc] px-4 py-14 text-center">
+                  <p className="text-[15px] font-bold text-[#1e293b]">주소를 선택하지 않았습니다</p>
                 </div>
               )}
             </section>
