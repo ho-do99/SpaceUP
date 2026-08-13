@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorEmailChangeDialog from '@/components/contractor/ContractorEmailChangeDialog'
 import { MemberPasswordChangeDialog, MemberPhoneChangeDialog } from '@/components/member/MemberAccountChangeDialogs'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import ContractorSectionCard from '@/components/contractor/ContractorSectionCard'
+import ContractorLogoutDialog from '@/components/contractor/ContractorLogoutDialog'
 import { confirmEmailVerificationCode, getMember, sendEmailVerificationCode, updateMember, updateMyPassword, updateMyPhoneNumber } from '@/api/memberApi'
-import { getMemberId } from '@/utils/authSession'
+import { clearAuthSession, getMemberId } from '@/utils/authSession'
+import { clearRequestFlow } from '@/utils/requestFlow'
 
 interface AccountInformationRowProps {
   label: string
@@ -52,6 +54,7 @@ function AccountInformationRow({
 }
 
 export default function ContractorAccountSettingsPage() {
+  const navigate = useNavigate()
   const [loginEmail, setLoginEmail] = useState(
     'contractor@spaceup.co.kr',
   )
@@ -68,6 +71,14 @@ export default function ContractorAccountSettingsPage() {
   const [isPhoneDialogOpen, setIsPhoneDialogOpen] = useState(false)
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
   const [accountSuccessMessage, setAccountSuccessMessage] = useState('')
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
+
+  const handleLogout = () => {
+    setLogoutDialogOpen(false)
+    clearAuthSession()
+    clearRequestFlow()
+    navigate('/login', { replace: true })
+  }
 
   const handleCloseEmailDialog = useCallback(() => {
     setIsEmailDialogOpen(false)
@@ -282,9 +293,8 @@ export default function ContractorAccountSettingsPage() {
 
         <button
           type="button"
-          disabled
-          aria-disabled="true"
-          className="mt-3 h-12 w-full rounded-lg border border-[#e2e8f0] bg-white text-sm font-bold text-[#2563eb] disabled:cursor-not-allowed disabled:opacity-70"
+          onClick={() => setLogoutDialogOpen(true)}
+          className="mt-3 h-12 w-full rounded-lg border border-[#e2e8f0] bg-white text-sm font-bold text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
         >
           로그아웃
         </button>
@@ -337,6 +347,11 @@ export default function ContractorAccountSettingsPage() {
       />
       <MemberPhoneChangeDialog open={isPhoneDialogOpen} onClose={() => setIsPhoneDialogOpen(false)} onSubmit={handlePhoneChange} />
       <MemberPasswordChangeDialog open={isPasswordDialogOpen} onClose={() => setIsPasswordDialogOpen(false)} onSubmit={handlePasswordChange} />
+      <ContractorLogoutDialog
+        open={logoutDialogOpen}
+        onCancel={() => setLogoutDialogOpen(false)}
+        onConfirm={handleLogout}
+      />
     </ContractorMobileShell>
   )
 }
