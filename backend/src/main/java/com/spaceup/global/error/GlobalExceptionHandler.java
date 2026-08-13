@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import com.spaceup.domain.ai.exception.AiImageGenerationConfigurationException;
 import com.spaceup.domain.ai.exception.AiImageGenerationException;
+import com.spaceup.domain.ai.exception.AiImageGenerationInProgressException;
 import com.spaceup.domain.analysis.ai.exception.AiFloorplanAnalysisException;
 import com.spaceup.domain.rental.exception.RentalApiConfigurationException;
 import com.spaceup.domain.rental.exception.RentalApiException;
@@ -205,6 +206,15 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ApiResponse<Void>> handleAiImageGenerationException(AiImageGenerationException e) {
 		log.warn("AI 이미지 생성 실패: {}", e.getMessage());
 		return ResponseEntity.status(502).body(ApiResponse.fail(e.getMessage()));
+	}
+
+	// ⭐ [중복 생성 방지] 같은 의뢰에 대해 이미 생성이 진행 중일 때(새로고침 후 재요청 등) 두 번째 요청을
+	// 409로 명확히 거절합니다 - 그대로 두면 Gemini가 두 번 호출되어 결과 이미지가 중복 저장됩니다.
+	@ExceptionHandler(AiImageGenerationInProgressException.class)
+	public ResponseEntity<ApiResponse<Void>> handleAiImageGenerationInProgressException(
+			AiImageGenerationInProgressException e) {
+		log.warn("AI 이미지 생성 중복 요청: {}", e.getMessage());
+		return ResponseEntity.status(409).body(ApiResponse.fail(e.getMessage()));
 	}
 
 	// ⭐ [AI/OCR 연동] AI 평면도 분석 서비스(origin/ai, 포트 8004) 호출 실패 - 502

@@ -2,9 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiClientError, apiRequest } from './axiosInstance'
 import {
   generateInteriorImages,
+  getInteriorImages,
   getAnalysis,
   getInteriorImageGenerationErrorMessage,
   replaceAnalysisSpaces,
+  requestAnalysis,
+  scanFloorPlan,
+  scanLinkedFloorPlan,
+  scanStoredFloorPlan,
 } from './analysisApi'
 
 vi.mock('./axiosInstance', async (importOriginal) => {
@@ -27,11 +32,59 @@ describe('analysisApi', () => {
 
   it('replaces the complete analysis space list', async () => {
     const spaces = [{ spaceName: '거실', spaceAreaM2: 20, floorAreaM2: 20, wallpaperAreaM2: 45, selectedForConstruction: true }]
-    mockedApiRequest.mockResolvedValue({ success: true, message: 'ok', data: spaces })
-    await replaceAnalysisSpaces(7, spaces)
+    mockedApiRequest.mockResolvedValue({ success: true, message: '공간 정보 수정 완료', data: null })
+    await expect(replaceAnalysisSpaces(7, spaces)).resolves.toBeUndefined()
     expect(mockedApiRequest).toHaveBeenCalledWith(expect.objectContaining({
       method: 'PUT', url: '/api/analysis/request/7/spaces', data: spaces, authenticated: true,
     }))
+  })
+
+  it('scans a floor plan with the request id, multipart file, and analysis timeout', async () => {
+    mockedApiRequest.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      data: { requestId: 7, status: 'COMPLETED' },
+    })
+    const file = new File(['floor-plan'], 'floor-plan.png', { type: 'image/png' })
+
+    await scanFloorPlan(7, file)
+
+    expect(mockedApiRequest).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'POST',
+      url: '/api/analysis/request/7/floorplan-scan',
+      authenticated: true,
+      timeout: 45_000,
+      data: expect.any(FormData),
+    }))
+    const request = mockedApiRequest.mock.calls[0][0]
+    expect((request.data as FormData).get('file')).toBe(file)
+  })
+
+  it('scans an attached floor plan without sending a request body', async () => {
+    mockedApiRequest.mockResolvedValue({ success: true, message: 'ok', data: { requestId: 7, status: 'COMPLETED' } })
+    await scanLinkedFloorPlan(7)
+    expect(mockedApiRequest).toHaveBeenCalledWith({
+      method: 'POST',
+      url: '/api/analysis/request/7/floorplan-scan-linked',
+      authenticated: true,
+      timeout: 45_000,
+    })
+    expect(mockedApiRequest.mock.calls[0][0]).not.toHaveProperty('data')
+  })
+
+  it('creates the pending job before storage scan and sends only the variant id', async () => {
+    mockedApiRequest
+      .mockResolvedValueOnce({ success: true, message: 'created', data: 19 })
+      .mockResolvedValueOnce({ success: true, message: 'done', data: { requestId: 7, status: 'COMPLETED' } })
+
+    await requestAnalysis(7)
+    await scanStoredFloorPlan(7, 1)
+
+    expect(mockedApiRequest.mock.calls[0][0]).toEqual(expect.objectContaining({ method: 'POST', url: '/api/analysis/request/7', authenticated: true }))
+    expect(mockedApiRequest.mock.calls[1][0]).toEqual(expect.objectContaining({
+      method: 'POST', url: '/api/analysis/request/7/floorplan-scan-storage', data: { floorPlanVariantId: 1 }, authenticated: true,
+    }))
+    expect(mockedApiRequest.mock.calls[1][0].data).not.toHaveProperty('floorPlanImageUrl')
   })
 
   it('requests an interior image with a generation-specific timeout', async () => {
@@ -51,6 +104,19 @@ describe('analysisApi', () => {
       authenticated: true,
       timeout: 75_000,
     }))
+  })
+
+  it.each([
+    ['NOT_STARTED', []],
+    ['IN_PROGRESS', []],
+    ['COMPLETED', ['/api/files/images/generated.png']],
+  ] as const)('loads the %s interior image generation status', async (status, imageUrls) => {
+    mockedApiRequest.mockResolvedValue({ success: true, message: 'ok', data: { status, imageUrls } })
+
+    await expect(getInteriorImages(7)).resolves.toEqual({ status, imageUrls })
+    expect(mockedApiRequest).toHaveBeenCalledWith({
+      method: 'GET', url: '/api/analysis/request/7/interior-images', authenticated: true, signal: undefined,
+    })
   })
 
   it.each([

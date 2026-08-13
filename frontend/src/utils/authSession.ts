@@ -3,6 +3,9 @@ import type { LoginResponse, UserRole } from '@/types/auth'
 const ACCESS_TOKEN_KEY = 'accessToken'
 const MEMBER_ID_KEY = 'memberId'
 const USER_ROLE_KEY = 'role'
+export const AUTH_SESSION_EXPIRED_EVENT = 'spaceup:auth-session-expired'
+
+let authSessionExpirationNotified = false
 
 const userRoles: readonly UserRole[] = [
   'LANDLORD',
@@ -15,6 +18,7 @@ function isUserRole(value: string): value is UserRole {
 }
 
 export function saveAuthSession(session: LoginResponse) {
+  authSessionExpirationNotified = false
   sessionStorage.setItem(ACCESS_TOKEN_KEY, session.accessToken)
   sessionStorage.setItem(MEMBER_ID_KEY, String(session.memberId))
   sessionStorage.setItem(USER_ROLE_KEY, session.role)
@@ -42,4 +46,15 @@ export function clearAuthSession() {
   sessionStorage.removeItem(ACCESS_TOKEN_KEY)
   sessionStorage.removeItem(MEMBER_ID_KEY)
   sessionStorage.removeItem(USER_ROLE_KEY)
+  authSessionExpirationNotified = false
+}
+
+export function expireAuthSession() {
+  sessionStorage.removeItem(ACCESS_TOKEN_KEY)
+  sessionStorage.removeItem(MEMBER_ID_KEY)
+  sessionStorage.removeItem(USER_ROLE_KEY)
+
+  if (authSessionExpirationNotified || typeof window === 'undefined') return
+  authSessionExpirationNotified = true
+  window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT))
 }

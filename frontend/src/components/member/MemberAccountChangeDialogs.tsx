@@ -20,6 +20,53 @@ function DialogShell({ title, description, onClose, children }: { title: string;
 
 const inputClassName = 'mt-1 h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 text-sm text-[#1e293b] outline-none placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#dbeafe]'
 
+export function MemberProfileChangeDialog({ open, initialName, initialEmail, onClose, onSubmit }: {
+  open: boolean
+  initialName: string
+  initialEmail: string
+  onClose: () => void
+  onSubmit: (input: { name: string; email: string }) => Promise<void>
+}) {
+  const [name, setName] = useState(initialName)
+  const [email, setEmail] = useState(initialEmail)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (open) { setName(initialName); setEmail(initialEmail); setError('') }
+  }, [initialEmail, initialName, open])
+
+  if (!open) return null
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const nextName = name.trim()
+    const nextEmail = email.trim()
+    if (!nextName) { setError('이름을 입력해 주세요.'); return }
+    if (!/^\S+@\S+\.\S+$/.test(nextEmail)) { setError('올바른 이메일을 입력해 주세요.'); return }
+    setSubmitting(true); setError('')
+    try { await onSubmit({ name: nextName, email: nextEmail }); onClose() } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : '개인정보 수정에 실패했습니다.')
+    } finally { setSubmitting(false) }
+  }
+
+  return (
+    <DialogShell title="개인정보 수정" description="이름과 로그인 이메일을 수정할 수 있습니다." onClose={onClose}>
+      <form className="px-4 pt-3" onSubmit={submit} noValidate>
+        <label htmlFor="member-profile-name" className="block text-xs font-bold text-[#334155]">이름</label>
+        <input id="member-profile-name" autoComplete="name" value={name} onChange={(event) => { setName(event.target.value); setError('') }} className={inputClassName} />
+        <label htmlFor="member-profile-email" className="mt-3 block text-xs font-bold text-[#334155]">로그인 이메일</label>
+        <input id="member-profile-email" type="email" autoComplete="email" value={email} onChange={(event) => { setEmail(event.target.value); setError('') }} className={inputClassName} />
+        {error ? <p role="alert" className="mt-2 text-[11px] font-semibold text-[#dc2626]">{error}</p> : null}
+        <div className="mt-4 flex flex-col gap-3">
+          <button type="submit" disabled={submitting} className="h-12 rounded-lg bg-[#2563eb] text-sm font-bold text-white disabled:bg-[#93b4f5]">{submitting ? '수정 중...' : '수정하기'}</button>
+          <button type="button" disabled={submitting} onClick={onClose} className="h-12 rounded-lg border border-[#2563eb] bg-white text-sm font-bold text-[#2563eb]">취소</button>
+        </div>
+      </form>
+    </DialogShell>
+  )
+}
+
 export function MemberPhoneChangeDialog({ open, onClose, onSubmit }: { open: boolean; onClose: () => void; onSubmit: (phoneNumber: string) => Promise<void> }) {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [error, setError] = useState('')

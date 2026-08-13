@@ -121,7 +121,7 @@ export default function LoginPage() {
       }
 
       if (loginResponse.role === 'CONTRACTOR') {
-        navigate('/signup/contractor/status', { replace: true })
+        navigate('/contractor', { replace: true })
         return
       } else if (loginResponse.role === 'ADMIN') {
         setRoleNotice('관리자 화면은 아직 준비 중입니다.')

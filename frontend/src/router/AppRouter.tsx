@@ -15,7 +15,6 @@ import { getAccessToken } from '@/utils/authSession'
 import { shouldShowInitialLanding } from '@/utils/initialLanding'
 import LandlordSignupPage from '@/pages/signup/LandlordSignupPage'
 import ContractorSignupPage from '@/pages/signup/ContractorSignupPage'
-import ContractorSignupStatusPage from '@/pages/signup/ContractorSignupStatusPage'
 import FloorPlanUploadPage from '@/pages/FloorPlanUploadPage'
 import FloorPlanAnalysisLoadingPage from '@/pages/FloorPlanAnalysisLoadingPage'
 import SpaceInformationPage from '@/pages/SpaceInformationPage'
@@ -92,6 +91,7 @@ import ContractorRequestPhotosPage from '@/pages/contractor/ContractorRequestPho
 import ContractorVisitPage from '@/pages/contractor/ContractorVisitPage'
 
 import ContractorPortalFlowProvider from '@/components/contractor/ContractorPortalFlowProvider'
+import RequireRole, { AuthSessionExpirationHandler } from '@/components/auth/RequireRole'
 
 function InitialLandingGate({ children }: { children: ReactNode }) {
   const [showLanding, setShowLanding] = useState(() =>
@@ -109,12 +109,12 @@ function InitialLandingGate({ children }: { children: ReactNode }) {
 export default function AppRouter() {
   return (
     <BrowserRouter>
+      <AuthSessionExpirationHandler />
       <InitialLandingGate>
         <Routes>
-        <Route
-          path="/"
-          element={<HomePage />}
-        />
+        <Route element={<RequireRole role="LANDLORD" />}>
+          <Route path="/" element={<HomePage />} />
+        </Route>
 
         <Route
           path="/login"
@@ -131,11 +131,7 @@ export default function AppRouter() {
           element={<ContractorSignupPage />}
         />
 
-        <Route
-          path="/signup/contractor/status"
-          element={<ContractorSignupStatusPage />}
-        />
-
+        <Route element={<RequireRole role="LANDLORD" />}>
         <Route
           path="/upload"
           element={<FloorPlanUploadPage />}
@@ -238,12 +234,15 @@ export default function AppRouter() {
           path="/contractors/:contractorId"
           element={<ContractorDetailPage />}
         />
+        </Route>
 
         <Route
           element={
-            <ContractorPortalFlowProvider>
-              <Outlet />
-            </ContractorPortalFlowProvider>
+            <RequireRole role="CONTRACTOR">
+              <ContractorPortalFlowProvider>
+                <Outlet />
+              </ContractorPortalFlowProvider>
+            </RequireRole>
           }
         >
           <Route
@@ -452,6 +451,7 @@ export default function AppRouter() {
           />
         </Route>
 
+        <Route element={<RequireRole role="LANDLORD" />}>
         <Route
           path="/mypage/requests"
           element={<EstimateRequestHistoryPage />}
@@ -526,6 +526,7 @@ export default function AppRouter() {
           path="/analysis/new/property"
           element={<PropertyInformationPage />}
         />
+        </Route>
         </Routes>
       </InitialLandingGate>
     </BrowserRouter>

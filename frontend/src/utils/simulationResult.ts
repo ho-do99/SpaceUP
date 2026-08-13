@@ -1,4 +1,30 @@
 const SIMULATION_RESULT_KEY = 'spaceup.simulationResult'
+const SIMULATION_GENERATION_CONTEXT_KEY = 'spaceup.simulationGenerationContext'
+
+export interface SimulationGenerationContext {
+  requestId: number
+  styleId: string
+  uploadedImagePath: string
+  uploadedImageUrl: string
+}
+
+export function saveSimulationGenerationContext(context: SimulationGenerationContext) {
+  sessionStorage.setItem(SIMULATION_GENERATION_CONTEXT_KEY, JSON.stringify(context))
+}
+
+export function getSimulationGenerationContext(): SimulationGenerationContext | null {
+  const stored = sessionStorage.getItem(SIMULATION_GENERATION_CONTEXT_KEY)
+  if (!stored) return null
+  try {
+    const value = JSON.parse(stored) as Partial<SimulationGenerationContext>
+    return Number.isSafeInteger(value.requestId) && Number(value.requestId) > 0 &&
+      typeof value.styleId === 'string' && Boolean(value.styleId) &&
+      typeof value.uploadedImagePath === 'string' && Boolean(value.uploadedImagePath) &&
+      typeof value.uploadedImageUrl === 'string' && Boolean(value.uploadedImageUrl)
+      ? value as SimulationGenerationContext
+      : null
+  } catch { return null }
+}
 
 export interface SimulationResultState {
   requestId: number

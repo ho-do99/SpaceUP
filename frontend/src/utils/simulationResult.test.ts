@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   clearSimulationResult,
+  getSimulationGenerationContext,
   getSimulationResult,
   parseSimulationResult,
+  saveSimulationGenerationContext,
   saveSimulationResult,
   type SimulationResultState,
 } from './simulationResult'
@@ -27,5 +29,17 @@ describe('simulationResult', () => {
 
   it('rejects incomplete route state', () => {
     expect(parseSimulationResult({ requestId: 7, styleId: 'modern' })).toBeNull()
+  })
+
+  it('restores generation context without storing a File', () => {
+    const context = {
+      requestId: 7,
+      styleId: 'modern',
+      uploadedImagePath: '/api/files/images/room.png',
+      uploadedImageUrl: 'https://spaceup.test/api/files/images/room.png',
+    }
+    saveSimulationGenerationContext(context)
+    expect(getSimulationGenerationContext()).toEqual(context)
+    expect(sessionStorage.getItem('spaceup.simulationGenerationContext')).not.toContain('File')
   })
 })

@@ -26,7 +26,7 @@ import {
   uploadAndAttachRequestImage,
   type LinkedRequestImage,
 } from '@/utils/requestImageFlow'
-import { clearSimulationResult } from '@/utils/simulationResult'
+import { clearSimulationResult, saveSimulationGenerationContext } from '@/utils/simulationResult'
 
 const acceptedImageTypes = ['image/jpeg', 'image/png']
 const maximumImageSize = 10 * 1024 * 1024
@@ -160,6 +160,11 @@ export default function SimulationPhotoUploadPage() {
     if (!selectedFile || !linkedImage || isUploading) {
       return
     }
+    const requestId = getActiveRequestId()
+    if (!requestId) {
+      setErrorMessage('진행 중인 의뢰 정보를 찾을 수 없습니다. 처음부터 다시 진행해 주세요.')
+      return
+    }
     clearSimulationResult()
 
     const uploadedImageUrl = resolveApiAssetUrl(linkedImage.imageUrl)
@@ -167,6 +172,13 @@ export default function SimulationPhotoUploadPage() {
       setErrorMessage('서버 응답을 확인할 수 없습니다.')
       return
     }
+
+    saveSimulationGenerationContext({
+      requestId,
+      styleId: selectedStyle.id,
+      uploadedImagePath: linkedImage.imageUrl,
+      uploadedImageUrl,
+    })
 
     navigate('/analysis/simulation/generating', {
       state: {
