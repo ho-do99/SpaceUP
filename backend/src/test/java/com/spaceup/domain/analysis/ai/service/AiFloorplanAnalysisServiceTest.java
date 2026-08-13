@@ -50,6 +50,10 @@ class AiFloorplanAnalysisServiceTest {
 	@Mock
 	private FloorPlanVariantRepository floorPlanVariantRepository;
 	@Mock
+	private com.spaceup.domain.request.repository.RequestImageRepository requestImageRepository;
+	@Mock
+	private com.spaceup.domain.file.service.ImageStoreService imageStoreService;
+	@Mock
 	private ObjectProvider<S3Client> objectStorageClientProvider;
 
 	private AiFloorplanAnalysisService service;
@@ -59,8 +63,8 @@ class AiFloorplanAnalysisServiceTest {
 		ObjectStorageProperties objectStorageProperties = new ObjectStorageProperties(false, null, null, null, null,
 				null);
 		service = new AiFloorplanAnalysisService(aiFloorplanAnalysisClient, analysisJobService,
-				quoteRequestRepository, floorPlanVariantRepository, objectStorageProperties,
-				objectStorageClientProvider);
+				quoteRequestRepository, floorPlanVariantRepository, requestImageRepository, imageStoreService,
+				objectStorageProperties, objectStorageClientProvider);
 	}
 
 	@Test
@@ -144,5 +148,42 @@ class AiFloorplanAnalysisServiceTest {
 		// 합니다(존재하지 않는 설정으로 실제 S3 호출을 시도하면 안 됨).
 		assertThatThrownBy(() -> service.analyzeFromStorage(7L, 1L, 99L)).isInstanceOf(IllegalStateException.class)
 				.hasMessageContaining("Object Storage");
+	}
+
+	@Test
+	void analyzeFromLinkedImageThrowsWhenNoFloorPlanIsAttached() {
+		when(requestImageRepository.findByRequestIdAndImageTypeOrderBySortOrderAsc(7L,
+				com.spaceup.domain.request.entity.RequestImageType.FLOOR_PLAN)).thenReturn(List.of());
+
+		assertThatThrownBy(() -> service.analyzeFromLinkedImage(7L, 1L))
+				.isInstanceOf(com.spaceup.global.error.FileNotFoundException.class)
+				.hasMessageContaining("연결된 평면도");
+	}
+
+	@Test
+	void analyzeFromLinkedImageReusesStoredImageBytesWithoutReupload() {
+		Member owner = Member.builder().id(1L).password("encoded").email("owner@test.com")
+				.name("임대인").role(MemberRole.LANDLORD).build();
+		Property property = Property.builder().id(2L).owner(owner).region("광주").housingType("아파트")
+				.exclusiveAreaM2(84.0).build();
+		QuoteRequest quoteRequest = QuoteRequest.builder().id(7L).owner(owner).property(property)
+				.status(RequestStatus.NEW).build();
+		com.spaceup.domain.request.entity.RequestImage linkedImage = com.spaceup.domain.request.entity.RequestImage
+				.builder().id(500L).request(quoteRequest)
+				.imageType(com.spaceup.domain.request.entity.RequestImageType.FLOOR_PLAN)
+				.imageUrl("/api/files/images/abc123.png").sortOrder(0).build();
+
+		when(requestImageRepository.findByRequestIdAndImageTypeOrderBySortOrderAsc(7L,
+				com.spaceup.domain.request.entity.RequestImageType.FLOOR_PLAN)).thenReturn(List.of(linkedImage));
+		when(imageStoreService.loadAsResource("abc123.png"))
+				.thenReturn(new org.springframework.core.io.ByteArrayResource(new byte[] { 1, 2, 3 }));
+		when(quoteRequestRepository.findById(7L)).thenReturn(Optional.of(quoteRequest));
+		when(aiFloorplanAnalysisClient.analyze(any(byte[].class), anyString(), anyString()))
+				.thenReturn(new AiFloorplanAnalysisResponse(1000, List.of(new AiFloorplanRoom("거실", 4, 1000, true))));
+
+		service.analyzeFromLinkedImage(7L, 1L);
+
+		verify(imageStoreService).loadAsResource("abc123.png");
+		verify(analysisJobService).submitResult(org.mockito.ArgumentMatchers.eq(7L), any());
 	}
 }
