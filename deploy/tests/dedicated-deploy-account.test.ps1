@@ -26,8 +26,11 @@ if (-not $publicDeploy.Contains('ENV_FILE="${SPACEUP_PUBLIC_ENV:-/root/spaceup-p
 if (-not $privateDeploy.Contains('DEPLOY_BRANCH="${2:-main}"')) {
     throw 'private deployment does not default to main'
 }
-foreach ($required in @('permitopen="10.10.20.6:22"', "readonly key_options='restrict'", 'NOPASSWD')) {
+foreach ($required in @('permitopen="10.10.20.6:22"', 'permitlisten="127.0.0.1:65535"', "readonly key_options='restrict'", 'NOPASSWD')) {
     if (-not $installer.Contains($required)) { throw "installer is missing: $required" }
+}
+if ($installer.Contains('permitlisten="none"')) {
+    throw 'authorized_keys does not accept permitlisten="none" and would reject the entire key'
 }
 foreach ($required in @('openssl rand -base64 48', 'openssl passwd -6 -stdin')) {
     if (-not $installer.Contains($required)) { throw "installer is missing unlocked random password handling: $required" }

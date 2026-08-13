@@ -37,7 +37,9 @@ readonly deploy_group="$(id -gn "$deploy_user")"
 install -d -o "$deploy_user" -g "$deploy_group" -m 0700 "/home/${deploy_user}/.ssh"
 case "$role" in
   public)
-    readonly key_options='restrict,port-forwarding,permitopen="10.10.20.6:22",permitlisten="none"'
+    # authorized_keys does not accept the `none` form for permitlisten. Keep remote forwarding
+    # effectively unusable by limiting it to one loopback-only high port.
+    readonly key_options='restrict,port-forwarding,permitopen="10.10.20.6:22",permitlisten="127.0.0.1:65535"'
     ;;
   private)
     readonly key_options='restrict'
