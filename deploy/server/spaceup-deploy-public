@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+die() { printf '[spaceup-deploy-gateway] ERROR: %s\n' "$*" >&2; exit 1; }
+
+[[ "$EUID" -eq 0 ]] || die "gateway must run as root through sudo"
+[[ "$#" -eq 0 ]] || die "command-line arguments are not accepted"
+IFS= read -r revision || die "revision was not provided on standard input"
+if IFS= read -r _; then
+  die "unexpected additional input"
+fi
+[[ "$revision" =~ ^[0-9a-f]{40}$ ]] || die "revision must be a full 40-character commit SHA"
+
+readonly repository_dir=/root/SpaceUP
+readonly env_file=/root/spaceup-public.env
+[[ -r "$env_file" ]] || die "environment file is not readable: $env_file"
+
+exec /usr/bin/env \
+  SPACEUP_REPOSITORY_DIR="$repository_dir" \
+  SPACEUP_PUBLIC_ENV="$env_file" \
+  /usr/bin/bash "$repository_dir/deploy/scripts/deploy-public.sh" "$revision" main
