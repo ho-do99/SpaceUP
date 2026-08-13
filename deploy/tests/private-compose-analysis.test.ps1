@@ -4,6 +4,7 @@ $compose = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../compose.private.yml
 $workflow = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../.github/workflows/ci.yml"
 $deploy = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../scripts/deploy-private.sh"
 $spaDockerfile = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../ai/spa/Dockerfile"
+$ocrDockerfile = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../ai/ocr/Dockerfile"
 
 foreach ($service in @('ocr:', 'spa:', 'viewerwall:')) {
     if (-not $compose.Contains($service)) { throw "missing service: $service" }
@@ -23,6 +24,10 @@ foreach ($objectStorageKey in @('NCP_OBJECT_STORAGE_ENABLED=true', 'NCP_OBJECT_S
 
 foreach ($spaPath in @('COPY spa/requirements.txt', 'COPY spa/app ./app', 'COPY model_weights/segmentation /models')) {
     if (-not $spaDockerfile.Contains($spaPath)) { throw "SPA image uses the wrong build context path: $spaPath" }
+}
+
+foreach ($ocrBuildDependency in @('build-essential', 'pybind11==')) {
+    if (-not $ocrDockerfile.Contains($ocrBuildDependency)) { throw "OCR image is missing fastwer build dependency: $ocrBuildDependency" }
 }
 
 Write-Output 'private floorplan analysis deployment configuration is complete'
