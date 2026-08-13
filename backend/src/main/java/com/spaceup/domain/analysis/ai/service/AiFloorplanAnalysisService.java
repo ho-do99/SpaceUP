@@ -3,10 +3,7 @@ package com.spaceup.domain.analysis.ai.service;
 import java.io.IOException;
 import java.util.List;
 
-import java.util.List;
-
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,14 +16,10 @@ import com.spaceup.domain.analysis.dto.AnalysisJobResponse;
 import com.spaceup.domain.analysis.dto.AnalysisJobResultRequest;
 import com.spaceup.domain.analysis.dto.AnalysisSpaceRequest;
 import com.spaceup.domain.analysis.service.AnalysisJobService;
-import com.spaceup.domain.file.service.ImageStoreService;
 import com.spaceup.domain.floorplan.entity.FloorPlanVariant;
 import com.spaceup.domain.floorplan.repository.FloorPlanVariantRepository;
 import com.spaceup.domain.request.entity.QuoteRequest;
-import com.spaceup.domain.request.entity.RequestImage;
-import com.spaceup.domain.request.entity.RequestImageType;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
-import com.spaceup.domain.request.repository.RequestImageRepository;
 import com.spaceup.global.config.ObjectStorageProperties;
 import com.spaceup.global.error.FileNotFoundException;
 import com.spaceup.global.error.ForbiddenAccessException;
@@ -50,8 +43,6 @@ public class AiFloorplanAnalysisService {
 	private final AnalysisJobService analysisJobService;
 	private final QuoteRequestRepository quoteRequestRepository;
 	private final FloorPlanVariantRepository floorPlanVariantRepository;
-	private final RequestImageRepository requestImageRepository;
-	private final ImageStoreService imageStoreService;
 	private final ObjectStorageProperties objectStorageProperties;
 	private final ObjectProvider<S3Client> objectStorageClientProvider;
 
@@ -80,30 +71,6 @@ public class AiFloorplanAnalysisService {
 		byte[] imageBytes = fetchFromObjectStorage(objectKey);
 		String filename = objectKey.substring(objectKey.lastIndexOf('/') + 1);
 		return analyzeBytes(requestId, landlordId, imageBytes, filename, resolveContentType(filename));
-	}
-
-	// ⭐ [평면도 재분석] 이미 request_image(FLOOR_PLAN)로 연결돼 있는 평면도를, 프론트가 원본 파일을 다시
-	// 보내지 않고 requestId만으로 재분석할 수 있게 합니다. 같은 requestId에 평면도가 여러 장이면 가장
-	// 먼저 등록된 것(sortOrder=0)을 씁니다 - 지금 프론트 흐름상 의뢰당 평면도는 1장이 기본입니다.
-	@Transactional
-	public AnalysisJobResponse analyzeFromLinkedImage(Long requestId, Long landlordId) {
-		List<RequestImage> floorPlanImages = requestImageRepository
-				.findByRequestIdAndImageTypeOrderBySortOrderAsc(requestId, RequestImageType.FLOOR_PLAN);
-		if (floorPlanImages.isEmpty()) {
-			throw new FileNotFoundException("이 의뢰에 연결된 평면도 이미지가 없습니다: " + requestId);
-		}
-		String imageUrl = floorPlanImages.get(0).getImageUrl();
-		String storeFileName = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
-		byte[] imageBytes = readBytesFromResource(imageStoreService.loadAsResource(storeFileName));
-		return analyzeBytes(requestId, landlordId, imageBytes, storeFileName, resolveContentType(storeFileName));
-	}
-
-	private byte[] readBytesFromResource(Resource resource) {
-		try (var input = resource.getInputStream()) {
-			return input.readAllBytes();
-		} catch (IOException e) {
-			throw new AiFloorplanAnalysisException("연결된 평면도 이미지를 읽는 중 오류가 발생했습니다.", e);
-		}
 	}
 
 	private AnalysisJobResponse analyzeBytes(Long requestId, Long landlordId, byte[] imageBytes, String filename,
