@@ -3,6 +3,8 @@ package com.spaceup.domain.ai.service;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -11,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.spaceup.domain.ai.dto.InteriorImageGenerateRequest;
 import com.spaceup.domain.ai.dto.InteriorImageGenerateResponse;
 import com.spaceup.domain.ai.exception.AiImageGenerationException;
+import com.spaceup.domain.ai.exception.AiImageGenerationInProgressException;
 import com.spaceup.domain.ai.provider.GeneratedImage;
 import com.spaceup.domain.ai.provider.ImageGenerationProvider;
 import com.spaceup.domain.file.service.ImageStoreService;
@@ -38,20 +41,49 @@ public class AiInteriorImageService {
 	private final QuoteRequestRepository quoteRequestRepository;
 	private final RequestImageService requestImageService;
 
+	// ⭐ [중복 생성 방지] 생성 자체가 완전히 동기 호출이라(별도 job/상태 테이블 없음), "생성 중" 페이지에서
+	// 새로고침 후 같은 requestId로 재요청하면 Gemini가 두 번 호출되어 결과 이미지가 중복 저장될 수 있었습니다.
+	// requestId 단위로 진행 중 표시를 남겨서, 이미 진행 중인 요청은 두 번째 호출에서 바로 409로 거절합니다.
+	// (여러 서버 인스턴스로 수평 확장하면 이 인메모리 잠금은 인스턴스별로 따로 동작합니다 - 지금 규모에선
+	// 충분하지만, 나중에 확장하면 DB 락이나 Redis 기반 잠금으로 바꿔야 합니다.)
+	private final Set<Long> inProgressRequestIds = ConcurrentHashMap.newKeySet();
+
 	@Transactional
 	public InteriorImageGenerateResponse generate(Long requestId, Long landlordId, InteriorImageGenerateRequest dto) {
+		if (!inProgressRequestIds.add(requestId)) {
+			throw new AiImageGenerationInProgressException(
+					"이미 이 의뢰에 대한 AI 인테리어 이미지 생성이 진행 중입니다. 완료될 때까지 기다려 주세요: " + requestId);
+		}
+		try {
+			QuoteRequest request = quoteRequestRepository.findById(requestId)
+					.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + requestId));
+			if (!request.getOwner().getId().equals(landlordId)) {
+				throw new ForbiddenAccessException("본인이 등록한 의뢰만 AI 인테리어 이미지를 생성할 수 있습니다.");
+			}
+
+			String prompt = buildPrompt(request, dto.getStyle());
+			Optional<GeneratedImage> referenceImage = loadReferenceImage(dto.getReferenceImageUrl());
+
+			List<GeneratedImage> results = imageGenerationProvider.generate(prompt, referenceImage);
+			List<String> imageUrls = results.stream().map(this::store).toList();
+			imageUrls.forEach(imageUrl -> connectGeneratedImage(requestId, landlordId, imageUrl));
+			return new InteriorImageGenerateResponse(imageUrls);
+		} finally {
+			inProgressRequestIds.remove(requestId);
+		}
+	}
+
+	// ⭐ [프론트 연동] "생성 중" 페이지를 새로고침했을 때, 새 생성 요청을 보내는 대신 먼저 이 API로 이미
+	// 완료된 결과가 있는지 확인할 수 있습니다. 응답 형태를 POST와 동일하게(imageUrls) 맞춰서 프론트가
+	// 같은 처리 로직을 그대로 재사용할 수 있게 했습니다.
+	public InteriorImageGenerateResponse getGeneratedImages(Long requestId, Long landlordId) {
 		QuoteRequest request = quoteRequestRepository.findById(requestId)
 				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + requestId));
 		if (!request.getOwner().getId().equals(landlordId)) {
-			throw new ForbiddenAccessException("본인이 등록한 의뢰만 AI 인테리어 이미지를 생성할 수 있습니다.");
+			throw new ForbiddenAccessException("본인이 등록한 의뢰의 AI 인테리어 이미지만 조회할 수 있습니다.");
 		}
-
-		String prompt = buildPrompt(request, dto.getStyle());
-		Optional<GeneratedImage> referenceImage = loadReferenceImage(dto.getReferenceImageUrl());
-
-		List<GeneratedImage> results = imageGenerationProvider.generate(prompt, referenceImage);
-		List<String> imageUrls = results.stream().map(this::store).toList();
-		imageUrls.forEach(imageUrl -> connectGeneratedImage(requestId, landlordId, imageUrl));
+		List<String> imageUrls = requestImageService.getImages(requestId, RequestImageType.AI_GENERATED, landlordId)
+				.stream().map(image -> image.imageUrl()).toList();
 		return new InteriorImageGenerateResponse(imageUrls);
 	}
 
