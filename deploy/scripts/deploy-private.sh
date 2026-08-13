@@ -17,13 +17,16 @@ exec 9>"$LOCK_FILE"
 flock -n 9 || die "another private deployment is already running"
 
 update_source "$REPOSITORY_DIR" "$REVISION" "$DEPLOY_BRANCH"
-for key in COMPOSE_PROJECT_NAME IMAGE_REGISTRY SPACEUP_SECRET_ENV BACKEND_BIND_HOST AI_BIND_HOST DB_PORT; do
+for key in COMPOSE_PROJECT_NAME IMAGE_REGISTRY SPACEUP_SECRET_ENV BACKEND_BIND_HOST AI_BIND_HOST DB_PORT FLOORPLAN_HEALTHCHECK_VARIANT_IDS; do
   require_env_file_key "$ENV_FILE" "$key"
 done
 load_env_file "$ENV_FILE"
 validate_registry
 
 [[ "$DB_PORT" == "3307" ]] || die "production DB_PORT must be 3307"
+[[ "$FLOORPLAN_HEALTHCHECK_VARIANT_IDS" =~ ^[1-9][0-9]*([[:space:]][1-9][0-9]*)*$ ]] ||
+  die "FLOORPLAN_HEALTHCHECK_VARIANT_IDS must contain space-separated positive integers"
+read -r -a floorplan_healthcheck_variant_ids <<< "$FLOORPLAN_HEALTHCHECK_VARIANT_IDS"
 [[ "$BACKEND_BIND_HOST" != "0.0.0.0" ]] || die "backend must not bind to every interface"
 [[ "$AI_BIND_HOST" != "0.0.0.0" ]] || die "AI must not bind to every interface"
 [[ -r "$SPACEUP_SECRET_ENV" ]] || die "application secret file is not readable"
@@ -85,7 +88,7 @@ done
 try: urllib.request.urlopen(r, timeout=10)
 except urllib.error.HTTPError as e: assert e.code in (400, 422)"
 wait_for_http "http://${BACKEND_BIND_HOST}:${BACKEND_PORT:-8080}/api/rental-transactions/apartments?size=1" 40 2
-for variant_id in 18 19 20 21; do
+for variant_id in "${floorplan_healthcheck_variant_ids[@]}"; do
   wait_for_http "http://${BACKEND_BIND_HOST}:${BACKEND_PORT:-8080}/api/floorplans/apartments/variants/${variant_id}/image" 10 2
 done
 trap - ERR

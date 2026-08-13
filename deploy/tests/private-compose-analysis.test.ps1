@@ -5,6 +5,7 @@ $workflow = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../.github/workflo
 $deploy = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../scripts/deploy-private.sh"
 $spaDockerfile = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../ai/spa/Dockerfile"
 $ocrDockerfile = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../ai/ocr/Dockerfile"
+$privateEnvExample = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../examples/spaceup-private.env.example"
 
 foreach ($service in @('ocr:', 'spa:', 'viewerwall:')) {
     if (-not $compose.Contains($service)) { throw "missing service: $service" }
@@ -16,6 +17,16 @@ foreach ($image in @('spaceup-ocr', 'spaceup-spa', 'spaceup-viewerwall')) {
 
 foreach ($health in @('/health', '/api/analyze', '/api/floorplans/apartments/variants/${variant_id}/image')) {
     if (-not $deploy.Contains($health)) { throw "missing deployment verification: $health" }
+}
+
+if (-not $deploy.Contains('FLOORPLAN_HEALTHCHECK_VARIANT_IDS')) {
+    throw 'floorplan health-check variant IDs are not configurable'
+}
+if ($deploy.Contains('for variant_id in 18 19 20 21')) {
+    throw 'floorplan health-check variant IDs are hard-coded'
+}
+if (-not $privateEnvExample.Contains('FLOORPLAN_HEALTHCHECK_VARIANT_IDS=18 19 20 21')) {
+    throw 'private environment example is missing floorplan health-check variant IDs'
 }
 
 foreach ($objectStorageKey in @('NCP_OBJECT_STORAGE_ENABLED=true', 'NCP_OBJECT_STORAGE_ACCESS_KEY', 'NCP_OBJECT_STORAGE_SECRET_KEY')) {
