@@ -24,6 +24,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.spaceup.domain.ai.dto.InteriorImageGenerateRequest;
 import com.spaceup.domain.ai.dto.InteriorImageGenerateResponse;
+import com.spaceup.domain.ai.dto.InteriorImageGenerationStatus;
+import com.spaceup.domain.ai.dto.InteriorImageStatusResponse;
 import com.spaceup.domain.ai.exception.AiImageGenerationInProgressException;
 import com.spaceup.domain.ai.provider.GeneratedImage;
 import com.spaceup.domain.ai.provider.ImageGenerationProvider;
@@ -86,7 +88,7 @@ class AiInteriorImageServiceTest {
 	}
 
 	@Test
-	void getGeneratedImagesReturnsAlreadyStoredAiGeneratedImages() {
+	void getGenerationStatusReturnsCompletedWhenImagesAlreadyStored() {
 		Member owner = Member.builder().id(1L).password("encoded").email("owner@test.com")
 				.name("임대인").role(MemberRole.LANDLORD).build();
 		Property property = Property.builder().id(2L).owner(owner).region("광주").housingType("아파트")
@@ -99,9 +101,69 @@ class AiInteriorImageServiceTest {
 				.thenReturn(List.of(new RequestImageResponse(10L, RequestImageType.AI_GENERATED,
 						"/api/files/images/a.png", 0)));
 
-		InteriorImageGenerateResponse response = service.getGeneratedImages(7L, 1L);
+		InteriorImageStatusResponse response = service.getGenerationStatus(7L, 1L);
 
+		assertEquals(InteriorImageGenerationStatus.COMPLETED, response.status());
 		assertEquals(List.of("/api/files/images/a.png"), response.imageUrls());
+	}
+
+	@Test
+	void getGenerationStatusReturnsNotStartedWhenNothingEverRequested() {
+		Member owner = Member.builder().id(1L).password("encoded").email("owner@test.com")
+				.name("임대인").role(MemberRole.LANDLORD).build();
+		Property property = Property.builder().id(2L).owner(owner).region("광주").housingType("아파트")
+				.exclusiveAreaM2(84.0).build();
+		QuoteRequest quoteRequest = QuoteRequest.builder().id(7L).owner(owner).property(property)
+				.status(RequestStatus.REVIEWING).build();
+
+		when(quoteRequestRepository.findById(7L)).thenReturn(Optional.of(quoteRequest));
+		when(requestImageService.getImages(7L, RequestImageType.AI_GENERATED, 1L)).thenReturn(List.of());
+
+		InteriorImageStatusResponse response = service.getGenerationStatus(7L, 1L);
+
+		assertEquals(InteriorImageGenerationStatus.NOT_STARTED, response.status());
+		assertEquals(List.of(), response.imageUrls());
+	}
+
+	// ⭐ [새로고침 복구] generate()가 아직 끝나지 않은 상태에서(다른 탭 등) 조회하면 NOT_STARTED가 아니라
+	// IN_PROGRESS가 나와야, 프론트가 "신규 생성" 대신 "생성 대기"로 정확히 분기할 수 있습니다.
+	@Test
+	void getGenerationStatusReturnsInProgressWhileGenerateIsStillRunning() throws Exception {
+		Member owner = Member.builder().id(1L).password("encoded").email("owner@test.com")
+				.name("임대인").role(MemberRole.LANDLORD).build();
+		Property property = Property.builder().id(2L).owner(owner).region("광주").housingType("아파트")
+				.exclusiveAreaM2(84.0).build();
+		QuoteRequest quoteRequest = QuoteRequest.builder().id(7L).owner(owner).property(property)
+				.status(RequestStatus.REVIEWING).build();
+		when(quoteRequestRepository.findById(7L)).thenReturn(Optional.of(quoteRequest));
+		when(requestImageService.getImages(7L, RequestImageType.AI_GENERATED, 1L)).thenReturn(List.of());
+
+		CountDownLatch enteredProvider = new CountDownLatch(1);
+		CountDownLatch releaseProvider = new CountDownLatch(1);
+		when(imageGenerationProvider.generate(anyString(), any())).thenAnswer(invocation -> {
+			enteredProvider.countDown();
+			releaseProvider.await(5, TimeUnit.SECONDS);
+			return List.of(new GeneratedImage(new byte[] { 1 }, "image/png"));
+		});
+		when(imageStoreService.storeBytes(any(byte[].class), anyString())).thenReturn("generated.png");
+
+		InteriorImageGenerateRequest request = new InteriorImageGenerateRequest();
+		request.setStyle("모던");
+
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		try {
+			var firstCall = executor.submit(() -> service.generate(7L, 1L, request));
+			enteredProvider.await(5, TimeUnit.SECONDS);
+
+			InteriorImageStatusResponse whileRunning = service.getGenerationStatus(7L, 1L);
+			assertEquals(InteriorImageGenerationStatus.IN_PROGRESS, whileRunning.status());
+			assertEquals(List.of(), whileRunning.imageUrls());
+
+			releaseProvider.countDown();
+			firstCall.get(5, TimeUnit.SECONDS);
+		} finally {
+			executor.shutdownNow();
+		}
 	}
 
 	// ⭐ [중복 생성 방지] 첫 번째 생성이 아직 진행 중일 때 같은 requestId로 두 번째 요청이 들어오면

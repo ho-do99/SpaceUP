@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.spaceup.domain.ai.dto.InteriorImageGenerateRequest;
 import com.spaceup.domain.ai.dto.InteriorImageGenerateResponse;
+import com.spaceup.domain.ai.dto.InteriorImageGenerationStatus;
+import com.spaceup.domain.ai.dto.InteriorImageStatusResponse;
 import com.spaceup.domain.ai.exception.AiImageGenerationException;
 import com.spaceup.domain.ai.exception.AiImageGenerationInProgressException;
 import com.spaceup.domain.ai.provider.GeneratedImage;
@@ -73,10 +75,14 @@ public class AiInteriorImageService {
 		}
 	}
 
-	// ⭐ [프론트 연동] "생성 중" 페이지를 새로고침했을 때, 새 생성 요청을 보내는 대신 먼저 이 API로 이미
-	// 완료된 결과가 있는지 확인할 수 있습니다. 응답 형태를 POST와 동일하게(imageUrls) 맞춰서 프론트가
-	// 같은 처리 로직을 그대로 재사용할 수 있게 했습니다.
-	public InteriorImageGenerateResponse getGeneratedImages(Long requestId, Long landlordId) {
+	// ⭐ [프론트 연동] "생성 중" 페이지를 새로고침했을 때, 새 생성 요청을 보내는 대신 먼저 이 API로 현재
+	// 상태를 확인할 수 있습니다. HTTP 상태 코드는 요청 자체(존재/권한)의 성공 여부만 나타내고 - 늘 200 -
+	// 실제 생성 진행 상태는 항상 body의 status 필드로 구분합니다(AnalysisJob의 status 필드와 동일한
+	// 패턴). 세 가지 경우:
+	// - COMPLETED: request_image(AI_GENERATED)가 이미 있음 → imageUrls에 결과가 들어있음
+	// - IN_PROGRESS: 아직 결과는 없지만 이 requestId로 generate()가 지금 실행 중(다른 탭/이전 요청)
+	// - NOT_STARTED: 결과도 없고 진행 중도 아님 → 이 의뢰로 생성을 요청한 적이 없음
+	public InteriorImageStatusResponse getGenerationStatus(Long requestId, Long landlordId) {
 		QuoteRequest request = quoteRequestRepository.findById(requestId)
 				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + requestId));
 		if (!request.getOwner().getId().equals(landlordId)) {
@@ -84,7 +90,13 @@ public class AiInteriorImageService {
 		}
 		List<String> imageUrls = requestImageService.getImages(requestId, RequestImageType.AI_GENERATED, landlordId)
 				.stream().map(image -> image.imageUrl()).toList();
-		return new InteriorImageGenerateResponse(imageUrls);
+		if (!imageUrls.isEmpty()) {
+			return new InteriorImageStatusResponse(InteriorImageGenerationStatus.COMPLETED, imageUrls);
+		}
+		if (inProgressRequestIds.contains(requestId)) {
+			return new InteriorImageStatusResponse(InteriorImageGenerationStatus.IN_PROGRESS, List.of());
+		}
+		return new InteriorImageStatusResponse(InteriorImageGenerationStatus.NOT_STARTED, List.of());
 	}
 
 	private void connectGeneratedImage(Long requestId, Long landlordId, String imageUrl) {
