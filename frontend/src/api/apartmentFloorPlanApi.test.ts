@@ -14,6 +14,6 @@ describe('apartmentFloorPlanApi', () => {
     expect(request).toHaveBeenCalledWith({ method: 'GET', url: '/api/floorplans/apartments/search', params: { page: 0, size: 20, keyword: '상무' }, authenticated: false })
   })
   it('uses the backend image proxy instead of the object key', () => {
-    expect(getFloorPlanVariantPreviewUrl(1)).toBe('/api/floorplans/variants/1/image')
+    expect(getFloorPlanVariantPreviewUrl(1)).toBe('/api/floorplans/apartments/variants/1/image')
   })
 })
