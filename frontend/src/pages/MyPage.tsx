@@ -31,7 +31,7 @@ export default function MyPage() {
       <UserHeader
         variant="detail"
         title="마이페이지"
-        onBack={() => navigate(-1)}
+        onBack={() => navigate('/', { replace: true })}
       />
 
       <main className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-8 pt-9">
