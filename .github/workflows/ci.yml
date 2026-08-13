@@ -107,6 +107,9 @@ jobs:
           COMPOSE_PROJECT_NAME: spaceup-ci-private
           BACKEND_IMAGE: ghcr.io/ho-do99/spaceup-backend:0000000000000000000000000000000000000000
           AI_IMAGE: ghcr.io/ho-do99/spaceup-ai:0000000000000000000000000000000000000000
+          OCR_IMAGE: ghcr.io/ho-do99/spaceup-ocr:0000000000000000000000000000000000000000
+          SPA_IMAGE: ghcr.io/ho-do99/spaceup-spa:0000000000000000000000000000000000000000
+          VIEWERWALL_IMAGE: ghcr.io/ho-do99/spaceup-viewerwall:0000000000000000000000000000000000000000
           SPACEUP_SECRET_ENV: /tmp/spaceup-secret.env
           BACKEND_BIND_HOST: 10.10.20.6
           AI_BIND_HOST: 10.10.20.6
@@ -152,6 +155,15 @@ jobs:
           - image: spaceup-ai
             context: ai
             dockerfile: ai/Dockerfile.dev
+          - image: spaceup-ocr
+            context: ai
+            dockerfile: ai/ocr/Dockerfile
+          - image: spaceup-spa
+            context: ai
+            dockerfile: ai/spa/Dockerfile
+          - image: spaceup-viewerwall
+            context: ai
+            dockerfile: ai/viewerwall/Dockerfile
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
