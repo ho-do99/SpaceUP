@@ -90,6 +90,16 @@ public class AnalysisJobController {
 				aiFloorplanAnalysisService.analyzeFromStorage(requestId, principal.getId(), request.floorPlanVariantId())));
 	}
 
+	// ⭐ [평면도 재분석] 이미 request_image(FLOOR_PLAN)로 연결된 평면도를 원본 파일 재전송 없이 requestId
+	// 만으로 다시 분석합니다. body가 필요 없습니다 - 이미 연결된 이미지를 그대로 씁니다.
+	@PostMapping("/request/{requestId}/floorplan-scan-linked")
+	public ResponseEntity<ApiResponse<AnalysisJobResponse>> scanLinkedFloorplan(@PathVariable Long requestId,
+			Authentication authentication) {
+		MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+		return ResponseEntity.ok(ApiResponse.success("AI 평면도 재분석이 완료되었습니다.",
+				aiFloorplanAnalysisService.analyzeFromLinkedImage(requestId, principal.getId())));
+	}
+
 	// ⭐ PDF "공간 정보 확인" 화면 조회
 	@GetMapping("/request/{requestId}")
 	public ResponseEntity<ApiResponse<AnalysisJobResponse>> getByRequest(@PathVariable Long requestId,
