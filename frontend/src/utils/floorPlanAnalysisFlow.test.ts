@@ -11,9 +11,26 @@ describe('floor plan analysis flow', () => {
       file,
       { id: 7, imageUrl: '/api/files/images/floor-plan.png' },
       'https://spaceup.test/api/files/images/floor-plan.png',
+      19,
     )
 
     expect(getFloorPlanAnalysisNavigationState(state)).toEqual(state)
     expect(getFloorPlanAnalysisNavigationState({ ...state, floorPlanFile: undefined })).toBeNull()
+  })
+
+  it('persists a linked recovery context without serializing the File', () => {
+    const file = new File(['floor-plan'], 'floor-plan.png', { type: 'image/png' })
+    createFloorPlanAnalysisNavigationState(
+      file,
+      { id: 7, imageUrl: '/api/files/images/floor-plan.png' },
+      'https://spaceup.test/api/files/images/floor-plan.png',
+      19,
+    )
+
+    expect(JSON.parse(sessionStorage.getItem('spaceup.floorPlanLinkedAnalysis') ?? '{}')).toEqual({
+      mode: 'linked',
+      analysisJobId: 19,
+      uploadedImageUrl: 'https://spaceup.test/api/files/images/floor-plan.png',
+    })
   })
 })

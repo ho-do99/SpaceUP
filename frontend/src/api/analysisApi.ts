@@ -48,6 +48,16 @@ export async function scanFloorPlan(requestId: number, file: File) {
   return unwrapApiResponse<AnalysisJobResponse>(response, '평면도 분석에 실패했습니다.')
 }
 
+export async function scanLinkedFloorPlan(requestId: number) {
+  const response = await apiRequest<ApiResponse<AnalysisJobResponse>>({
+    method: 'POST',
+    url: `/api/analysis/request/${requestId}/floorplan-scan-linked`,
+    authenticated: true,
+    timeout: FLOOR_PLAN_SCAN_TIMEOUT_MS,
+  })
+  return unwrapApiResponse<AnalysisJobResponse>(response, '연결된 평면도 분석에 실패했습니다.')
+}
+
 export async function scanStoredFloorPlan(requestId: number, floorPlanVariantId: number) {
   const response = await apiRequest<ApiResponse<AnalysisJobResponse>, { floorPlanVariantId: number }>({
     method: 'POST',

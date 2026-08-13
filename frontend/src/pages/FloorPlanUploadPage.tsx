@@ -115,9 +115,9 @@ export default function FloorPlanUploadPage() {
 
     setIsUploading(true)
     try {
-      await requestAnalysis(requestId)
+      const analysisJobId = await requestAnalysis(requestId)
       navigate('/analysis/loading', {
-        state: createFloorPlanAnalysisNavigationState(file, linkedImage, uploadedImageUrl),
+        state: createFloorPlanAnalysisNavigationState(file, linkedImage, uploadedImageUrl, analysisJobId),
       })
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '분석 요청 생성에 실패했습니다.')

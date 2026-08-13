@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import analysisSpinner from '@/assets/user/icons/analysis-spinner.svg'
-import { getAnalysis, scanFloorPlan, scanStoredFloorPlan } from '@/api/analysisApi'
+import { getAnalysis, scanFloorPlan, scanLinkedFloorPlan, scanStoredFloorPlan } from '@/api/analysisApi'
 import { getFloorPlanVariantPreviewUrl } from '@/api/apartmentFloorPlanApi'
 import { ApiClientError } from '@/api/axiosInstance'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
-import { clearStoredFloorPlanAnalysisState, getFloorPlanAnalysisNavigationState, getStoredFloorPlanAnalysisState } from '@/utils/floorPlanAnalysisFlow'
+import { clearStoredFloorPlanAnalysisState, getFloorPlanAnalysisNavigationState, getStoredFloorPlanAnalysisState, getStoredLinkedFloorPlanAnalysisState } from '@/utils/floorPlanAnalysisFlow'
 import { getActiveRequestId } from '@/utils/requestFlow'
 
 function getScanErrorMessage(error: unknown) {
@@ -32,12 +32,15 @@ export default function FloorPlanAnalysisLoadingPage() {
   const navigate = useNavigate()
   const { state } = useLocation()
   const routeAnalysisState = useMemo(() => getFloorPlanAnalysisNavigationState(state), [state])
-  const analysisState = useMemo(() => routeAnalysisState ?? getStoredFloorPlanAnalysisState(), [routeAnalysisState])
+  const analysisState = useMemo(
+    () => routeAnalysisState ?? getStoredFloorPlanAnalysisState() ?? getStoredLinkedFloorPlanAnalysisState(),
+    [routeAnalysisState],
+  )
   const recoveredStorageState = !routeAnalysisState && analysisState?.mode === 'storage'
+  const recoveredLinkedState = !routeAnalysisState && analysisState?.mode === 'linked'
   const requestId = getActiveRequestId()
-  const floorPlanFile = analysisState?.mode === 'multipart' ? analysisState.floorPlanFile : null
   const [attempt, setAttempt] = useState(0)
-  const [isAnalyzing, setIsAnalyzing] = useState(Boolean(requestId && floorPlanFile))
+  const [isAnalyzing, setIsAnalyzing] = useState(Boolean(requestId && analysisState))
   const [errorMessage, setErrorMessage] = useState('')
 
   const moveToSpaceResults = useCallback(() => {
@@ -77,7 +80,11 @@ export default function FloorPlanAnalysisLoadingPage() {
         ? recoveredStorageState && attempt === 0
           ? getAnalysis(requestId)
           : scanStoredFloorPlan(requestId, analysisState.floorPlanVariantId)
-        : scanFloorPlan(requestId, analysisState.floorPlanFile)
+        : analysisState.mode === 'linked' || attempt > 0
+          ? recoveredLinkedState && attempt === 0
+            ? getAnalysis(requestId)
+            : scanLinkedFloorPlan(requestId)
+          : scanFloorPlan(requestId, analysisState.floorPlanFile)
 
       void analyze
         .then((analysis) => {
@@ -97,7 +104,7 @@ export default function FloorPlanAnalysisLoadingPage() {
         })
         .catch(async (error: unknown) => {
           if (!active) return
-          if (analysisState.mode === 'storage') {
+          if (analysisState.mode === 'storage' || analysisState.mode === 'linked') {
             try {
               const current = await getAnalysis(requestId)
               if (!active) return
@@ -121,7 +128,7 @@ export default function FloorPlanAnalysisLoadingPage() {
       active = false
       window.clearTimeout(startTimer)
     }
-  }, [analysisState, attempt, moveToSpaceResults, recoveredStorageState, requestId])
+  }, [analysisState, attempt, moveToSpaceResults, recoveredLinkedState, recoveredStorageState, requestId])
 
   const handleFooterAction = () => {
     if (!requestId) {

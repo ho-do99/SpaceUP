@@ -2,13 +2,19 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { getAnalysis, scanFloorPlan, scanStoredFloorPlan } from '@/api/analysisApi'
+import { getAnalysis, scanFloorPlan, scanLinkedFloorPlan, scanStoredFloorPlan } from '@/api/analysisApi'
 import { setActiveRequestId } from '@/utils/requestFlow'
 import FloorPlanAnalysisLoadingPage from './FloorPlanAnalysisLoadingPage'
 
-vi.mock('@/api/analysisApi', () => ({ scanFloorPlan: vi.fn(), scanStoredFloorPlan: vi.fn(), getAnalysis: vi.fn() }))
+vi.mock('@/api/analysisApi', () => ({
+  scanFloorPlan: vi.fn(),
+  scanLinkedFloorPlan: vi.fn(),
+  scanStoredFloorPlan: vi.fn(),
+  getAnalysis: vi.fn(),
+}))
 
 const scan = vi.mocked(scanFloorPlan)
+const scanLinked = vi.mocked(scanLinkedFloorPlan)
 const scanStorage = vi.mocked(scanStoredFloorPlan)
 const getJob = vi.mocked(getAnalysis)
 const floorPlanFile = new File(['floor-plan'], 'floor-plan.png', { type: 'image/png' })
@@ -18,6 +24,7 @@ const navigationState = {
   uploadedImagePath: '/api/files/images/floor-plan.png',
   uploadedImageUrl: 'https://spaceup.test/api/files/images/floor-plan.png',
   originalFileName: floorPlanFile.name,
+  analysisJobId: 18,
 }
 
 function renderLoading(state: unknown = navigationState, strictMode = false) {
@@ -38,6 +45,7 @@ function renderLoading(state: unknown = navigationState, strictMode = false) {
 describe('FloorPlanAnalysisLoadingPage', () => {
   beforeEach(() => {
     scan.mockReset()
+    scanLinked.mockReset()
     scanStorage.mockReset()
     getJob.mockReset()
     sessionStorage.clear()
@@ -86,16 +94,15 @@ describe('FloorPlanAnalysisLoadingPage', () => {
 
   it('shows a failure and only scans again after an explicit retry', async () => {
     setActiveRequestId(77)
-    scan
-      .mockResolvedValueOnce({ requestId: 77, status: 'FAILED' })
-      .mockResolvedValueOnce({ requestId: 77, status: 'COMPLETED' })
+    scan.mockResolvedValueOnce({ requestId: 77, status: 'FAILED' })
+    scanLinked.mockResolvedValueOnce({ requestId: 77, status: 'COMPLETED' })
 
     renderLoading()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('평면도 분석에 실패했습니다.')
     expect(scan).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }))
-    await waitFor(() => expect(scan).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(scanLinked).toHaveBeenCalledTimes(1))
     expect(await screen.findByText('space results')).toBeInTheDocument()
   })
 
@@ -111,15 +118,32 @@ describe('FloorPlanAnalysisLoadingPage', () => {
 
   it('recovers from an API error without losing the retry file', async () => {
     setActiveRequestId(77)
-    scan
-      .mockRejectedValueOnce(new Error('network unavailable'))
-      .mockResolvedValueOnce({ requestId: 77, status: 'COMPLETED' })
+    scan.mockRejectedValueOnce(new Error('network unavailable'))
+    scanLinked.mockResolvedValueOnce({ requestId: 77, status: 'COMPLETED' })
 
     renderLoading()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('network unavailable')
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }))
-    await waitFor(() => expect(scan).toHaveBeenLastCalledWith(77, floorPlanFile))
+    await waitFor(() => expect(scanLinked).toHaveBeenLastCalledWith(77))
+  })
+
+  it('recovers a linked upload after route state is lost and retries without a File', async () => {
+    setActiveRequestId(77)
+    sessionStorage.setItem('spaceup.floorPlanLinkedAnalysis', JSON.stringify({
+      mode: 'linked', analysisJobId: 18, uploadedImageUrl: 'https://spaceup.test/floor-plan.png',
+    }))
+    getJob.mockResolvedValue({ requestId: 77, status: 'FAILED' })
+    scanLinked.mockResolvedValue({ requestId: 77, status: 'COMPLETED' })
+
+    renderLoading(null)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('평면도 분석에 실패했습니다.')
+    expect(getJob).toHaveBeenCalledWith(77)
+    expect(scan).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }))
+    await waitFor(() => expect(scanLinked).toHaveBeenCalledWith(77))
+    expect(await screen.findByText('space results')).toBeInTheDocument()
   })
 
   it('uses only the variant id for storage analysis and exposes a persisted FAILED state after 502', async () => {

@@ -7,6 +7,7 @@ import {
   replaceAnalysisSpaces,
   requestAnalysis,
   scanFloorPlan,
+  scanLinkedFloorPlan,
   scanStoredFloorPlan,
 } from './analysisApi'
 
@@ -56,6 +57,18 @@ describe('analysisApi', () => {
     }))
     const request = mockedApiRequest.mock.calls[0][0]
     expect((request.data as FormData).get('file')).toBe(file)
+  })
+
+  it('scans an attached floor plan without sending a request body', async () => {
+    mockedApiRequest.mockResolvedValue({ success: true, message: 'ok', data: { requestId: 7, status: 'COMPLETED' } })
+    await scanLinkedFloorPlan(7)
+    expect(mockedApiRequest).toHaveBeenCalledWith({
+      method: 'POST',
+      url: '/api/analysis/request/7/floorplan-scan-linked',
+      authenticated: true,
+      timeout: 45_000,
+    })
+    expect(mockedApiRequest.mock.calls[0][0]).not.toHaveProperty('data')
   })
 
   it('creates the pending job before storage scan and sends only the variant id', async () => {

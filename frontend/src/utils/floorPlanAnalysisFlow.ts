@@ -6,6 +6,13 @@ export interface FloorPlanAnalysisNavigationState {
   uploadedImagePath: string
   uploadedImageUrl: string
   originalFileName: string
+  analysisJobId: number
+}
+
+export interface LinkedFloorPlanAnalysisState {
+  mode: 'linked'
+  analysisJobId: number
+  uploadedImageUrl: string
 }
 
 export interface StoredFloorPlanAnalysisNavigationState {
@@ -14,21 +21,26 @@ export interface StoredFloorPlanAnalysisNavigationState {
   analysisJobId: number
 }
 
-export type FloorPlanAnalysisState = FloorPlanAnalysisNavigationState | StoredFloorPlanAnalysisNavigationState
+export type FloorPlanAnalysisState = FloorPlanAnalysisNavigationState | LinkedFloorPlanAnalysisState | StoredFloorPlanAnalysisNavigationState
 
 const STORAGE_ANALYSIS_KEY = 'spaceup.floorPlanStorageAnalysis'
+const LINKED_ANALYSIS_KEY = 'spaceup.floorPlanLinkedAnalysis'
 
 export function createFloorPlanAnalysisNavigationState(
   file: File,
   linkedImage: LinkedRequestImage,
   uploadedImageUrl: string,
+  analysisJobId: number,
 ): FloorPlanAnalysisNavigationState {
+  const linkedState: LinkedFloorPlanAnalysisState = { mode: 'linked', analysisJobId, uploadedImageUrl }
+  sessionStorage.setItem(LINKED_ANALYSIS_KEY, JSON.stringify(linkedState))
   return {
     mode: 'multipart',
     floorPlanFile: file,
     uploadedImagePath: linkedImage.imageUrl,
     uploadedImageUrl,
     originalFileName: file.name,
+    analysisJobId,
   }
 }
 
@@ -40,6 +52,7 @@ export function createStoredFloorPlanAnalysisState(floorPlanVariantId: number, a
 
 export function clearStoredFloorPlanAnalysisState() {
   sessionStorage.removeItem(STORAGE_ANALYSIS_KEY)
+  sessionStorage.removeItem(LINKED_ANALYSIS_KEY)
 }
 
 export function getFloorPlanAnalysisNavigationState(
@@ -56,17 +69,31 @@ export function getFloorPlanAnalysisNavigationState(
       ? stored as StoredFloorPlanAnalysisNavigationState : null
   }
 
+  if (mode === 'linked') {
+    const linked = value as Partial<LinkedFloorPlanAnalysisState>
+    return Number.isSafeInteger(linked.analysisJobId) && Number(linked.analysisJobId) > 0 &&
+      typeof linked.uploadedImageUrl === 'string' && Boolean(linked.uploadedImageUrl.trim())
+      ? linked as LinkedFloorPlanAnalysisState : null
+  }
+
   const candidate = value as Partial<FloorPlanAnalysisNavigationState>
   if (
     mode !== 'multipart' || !(candidate.floorPlanFile instanceof File) ||
     typeof candidate.uploadedImagePath !== 'string' ||
     typeof candidate.uploadedImageUrl !== 'string' ||
     typeof candidate.originalFileName !== 'string'
+    || !Number.isSafeInteger(candidate.analysisJobId) || Number(candidate.analysisJobId) <= 0
   ) {
     return null
   }
 
   return candidate as FloorPlanAnalysisNavigationState
+}
+
+export function getStoredLinkedFloorPlanAnalysisState(): LinkedFloorPlanAnalysisState | null {
+  const value = sessionStorage.getItem(LINKED_ANALYSIS_KEY)
+  if (!value) return null
+  try { return getFloorPlanAnalysisNavigationState(JSON.parse(value)) as LinkedFloorPlanAnalysisState | null } catch { return null }
 }
 
 export function getStoredFloorPlanAnalysisState(): StoredFloorPlanAnalysisNavigationState | null {
