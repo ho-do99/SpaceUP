@@ -21,5 +21,5 @@ export async function searchApartmentFloorPlans({
 }
 
 export function getFloorPlanVariantPreviewUrl(variantId: number) {
-  return `/api/floorplans/variants/${variantId}/image`
+  return `/api/floorplans/apartments/variants/${variantId}/image`
 }

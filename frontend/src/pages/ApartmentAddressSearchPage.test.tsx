@@ -50,7 +50,7 @@ describe('ApartmentAddressSearchPage storage floor plan flow', () => {
     await waitFor(() => expect(search).toHaveBeenCalledWith({ keyword: '상무센트럴아파트', page: 0, size: 20 }))
     fireEvent.click(screen.getByRole('button', { name: '면적을 선택해주세요' }))
     fireEvent.click(screen.getByRole('radio'))
-    expect(screen.getByRole('img', { name: '선택한 등록 평면도' })).toHaveAttribute('src', '/api/floorplans/variants/1/image')
+    expect(screen.getByRole('img', { name: '선택한 등록 평면도' })).toHaveAttribute('src', '/api/floorplans/apartments/variants/1/image')
     fireEvent.click(screen.getByRole('button', { name: '다음' }))
     await waitFor(() => expect(create).toHaveBeenCalled())
     expect(createJob).toHaveBeenCalledWith(77)
