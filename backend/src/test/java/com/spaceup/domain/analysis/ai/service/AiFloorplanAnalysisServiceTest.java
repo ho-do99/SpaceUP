@@ -37,6 +37,8 @@ import com.spaceup.domain.request.repository.QuoteRequestRepository;
 import com.spaceup.global.config.ObjectStorageProperties;
 
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 @ExtendWith(MockitoExtension.class)
 class AiFloorplanAnalysisServiceTest {
@@ -148,6 +150,39 @@ class AiFloorplanAnalysisServiceTest {
 		// 합니다(존재하지 않는 설정으로 실제 S3 호출을 시도하면 안 됨).
 		assertThatThrownBy(() -> service.analyzeFromStorage(7L, 1L, 99L)).isInstanceOf(IllegalStateException.class)
 				.hasMessageContaining("Object Storage");
+	}
+
+	@Test
+	void analyzeFromStorageDownloadsRegisteredObjectAndSendsItsBytesToAi() {
+		S3Client objectStorageClient = org.mockito.Mockito.mock(S3Client.class);
+		ObjectStorageProperties properties = new ObjectStorageProperties(true, "https://kr.object.ncloudstorage.com",
+				"kr-standard", "spaceup", "access", "secret");
+		service = new AiFloorplanAnalysisService(aiFloorplanAnalysisClient, analysisJobService,
+				quoteRequestRepository, floorPlanVariantRepository, requestImageRepository, imageStoreService,
+				properties, objectStorageClientProvider);
+		Member owner = Member.builder().id(1L).password("encoded").email("owner@test.com")
+				.name("owner").role(MemberRole.LANDLORD).build();
+		Property property = Property.builder().id(2L).owner(owner).region("Gwangju").housingType("APARTMENT")
+				.exclusiveAreaM2(84.0).build();
+		QuoteRequest quoteRequest = QuoteRequest.builder().id(7L).owner(owner).property(property)
+				.status(RequestStatus.NEW).build();
+		FloorPlanVariant variant = FloorPlanVariant.builder().id(99L).exclusiveAreaM2(84.0)
+				.floorPlanImageUrl("floorplans/floorplan1.png").build();
+		byte[] storedImage = new byte[] { 1, 2, 3 };
+
+		when(floorPlanVariantRepository.findById(99L)).thenReturn(Optional.of(variant));
+		when(objectStorageClientProvider.getIfAvailable()).thenReturn(objectStorageClient);
+		when(objectStorageClient.getObjectAsBytes(any(software.amazon.awssdk.services.s3.model.GetObjectRequest.class)))
+				.thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), storedImage));
+		when(quoteRequestRepository.findById(7L)).thenReturn(Optional.of(quoteRequest));
+		when(aiFloorplanAnalysisClient.analyze(storedImage, "floorplan1.png", "image/png"))
+				.thenReturn(new AiFloorplanAnalysisResponse(1000,
+						List.of(new AiFloorplanRoom("living room", 4, 1000, true))));
+
+		service.analyzeFromStorage(7L, 1L, 99L);
+
+		verify(aiFloorplanAnalysisClient).analyze(storedImage, "floorplan1.png", "image/png");
+		verify(analysisJobService).submitResult(org.mockito.ArgumentMatchers.eq(7L), any());
 	}
 
 	@Test

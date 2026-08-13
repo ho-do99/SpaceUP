@@ -12,6 +12,28 @@ services:
     volumes:
       - ../storage/floorplans:/app/storage/floorplans
 
+  ocr:
+    image: ${OCR_IMAGE:?OCR_IMAGE is required}
+    restart: unless-stopped
+
+  spa:
+    image: ${SPA_IMAGE:?SPA_IMAGE is required}
+    restart: unless-stopped
+    environment:
+      OCR_URL: http://ocr:8000/ocr
+    depends_on:
+      - ocr
+
+  viewerwall:
+    image: ${VIEWERWALL_IMAGE:?VIEWERWALL_IMAGE is required}
+    restart: unless-stopped
+    environment:
+      OCR_URL: http://ocr:8000
+      SPA_URL: http://spa:8000
+    depends_on:
+      - ocr
+      - spa
+
   backend:
     image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
     restart: unless-stopped
@@ -27,4 +49,6 @@ services:
       - ../storage:/app/storage
     depends_on:
       ai:
+        condition: service_started
+      viewerwall:
         condition: service_started
