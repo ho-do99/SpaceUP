@@ -7,7 +7,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -55,7 +54,7 @@ public class ApartmentController {
 					.build();
 		}
 		Resource resource = apartmentService.loadVariantImage(variantId);
-		return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(resource);
+		return ResponseEntity.ok().contentType(apartmentService.getVariantImageMediaType(variantId)).body(resource);
 	}
 
 	// ⭐ 키워드/지역/면적범위/방개수 전부 선택 파라미터

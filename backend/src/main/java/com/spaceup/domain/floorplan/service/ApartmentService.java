@@ -3,6 +3,7 @@ package com.spaceup.domain.floorplan.service;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -100,6 +101,17 @@ public class ApartmentService {
 			}
 			throw new IllegalStateException("Object Storage에서 평면도 파일을 읽는 중 오류가 발생했습니다(권한 오류 가능성 포함).", e);
 		}
+	}
+
+	public MediaType getVariantImageMediaType(Long variantId) {
+		return resolveImageMediaType(findVariantOrThrow(variantId).getFloorPlanImageUrl());
+	}
+
+	static MediaType resolveImageMediaType(String objectKey) {
+		String lower = objectKey == null ? "" : objectKey.toLowerCase();
+		if (lower.endsWith(".png")) return MediaType.IMAGE_PNG;
+		if (lower.endsWith(".webp")) return MediaType.parseMediaType("image/webp");
+		return MediaType.IMAGE_JPEG;
 	}
 
 	private FloorPlanVariant findVariantOrThrow(Long variantId) {

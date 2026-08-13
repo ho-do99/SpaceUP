@@ -65,7 +65,7 @@ jobs:
           REVISION: ${{ needs.resolve.outputs.revision }}
         run: |
           set -Eeuo pipefail
-          for image in spaceup-backend spaceup-frontend spaceup-ai; do
+          for image in spaceup-backend spaceup-frontend spaceup-ai spaceup-ocr spaceup-spa spaceup-viewerwall; do
             docker manifest inspect "ghcr.io/ho-do99/${image}:${REVISION}" >/dev/null
           done
 

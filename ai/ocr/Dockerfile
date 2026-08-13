@@ -1,10 +1,11 @@
-FROM floorplan4:latest
+FROM pytorch/pytorch:2.1.2-cuda11.8-cudnn8-runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 DEBIAN_FRONTEND=noninteractive TZ=Asia/Seoul
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends fonts-noto-cjk tesseract-ocr tesseract-ocr-eng \
+    && apt-get install -y --no-install-recommends build-essential fonts-noto-cjk tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir fastapi==0.115.8 "uvicorn[standard]==0.33.0" python-multipart==0.0.20 pytesseract==0.3.10
+RUN pip install --no-cache-dir pybind11==2.13.6 \
+    && pip install --no-cache-dir fastapi==0.115.8 "uvicorn[standard]==0.33.0" python-multipart==0.0.20 pytesseract==0.3.10 torchvision==0.16.2 pandas==2.2.3 pyyaml==6.0.2 tqdm==4.67.1 fastwer==0.1.3 opencv-python-headless==4.10.0.84
 COPY ocr/app ./app
 COPY aihub-ocr/OCREvaluation.py /opt/aihub-ocr/OCREvaluation.py
 COPY aihub-ocr/model /opt/aihub-ocr/model
