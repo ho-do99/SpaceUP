@@ -10,7 +10,8 @@ import MyPageMenuItem from '@/components/user/MyPageMenuItem'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 
-import { getMember } from '@/api/memberApi'
+import { getMember, updateMember } from '@/api/memberApi'
+import { MemberProfileChangeDialog } from '@/components/member/MemberAccountChangeDialogs'
 import { getMemberId } from '@/utils/authSession'
 import type { MemberResponse } from '@/types/member'
 
@@ -18,6 +19,7 @@ export default function MyPage() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState<MemberResponse | null>(null)
   const [profileError, setProfileError] = useState('')
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false)
   useEffect(() => {
     const memberId = getMemberId()
     if (!memberId) { setProfileError('로그인 정보가 없습니다.'); return }
@@ -29,7 +31,7 @@ export default function MyPage() {
       <UserHeader
         variant="detail"
         title="마이페이지"
-        onBack={() => navigate(-1)}
+        onBack={() => navigate('/', { replace: true })}
       />
 
       <main className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-8 pt-9">
@@ -70,9 +72,8 @@ export default function MyPage() {
 
             <button
               type="button"
-              disabled
-              aria-disabled="true"
-              className="absolute right-4 top-4 h-7 cursor-default rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 text-[11px] text-[#2563eb] disabled:opacity-100"
+              onClick={() => { setProfileError(''); setProfileDialogOpen(true) }}
+              className="absolute right-4 top-4 h-7 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 text-[11px] text-[#2563eb]"
             >
               개인정보 수정
             </button>
@@ -112,6 +113,19 @@ export default function MyPage() {
           />
         </section>
       </main>
+      <MemberProfileChangeDialog
+        open={profileDialogOpen}
+        initialName={profile?.name ?? ''}
+        initialEmail={profile?.email ?? ''}
+        onClose={() => setProfileDialogOpen(false)}
+        onSubmit={async (input) => {
+          const memberId = getMemberId()
+          if (!memberId) throw new Error('회원 정보를 확인할 수 없습니다.')
+          await updateMember(memberId, input)
+          const updatedProfile = await getMember(memberId)
+          setProfile(updatedProfile)
+        }}
+      />
     </UserScreenShell>
   )
 }

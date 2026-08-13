@@ -1,5 +1,5 @@
 import { ApiClientError, apiRequest } from './axiosInstance'
-import { unwrapApiResponse } from './apiResponse'
+import { unwrapApiResponse, unwrapEmptyApiResponse } from './apiResponse'
 import type { ApiResponse } from '@/types/api'
 import type {
   AnalysisJobResponse,
@@ -8,16 +8,25 @@ import type {
   AnalysisSpaceResponse,
   InteriorImageGenerateInput,
   InteriorImageGenerateResponse,
+  InteriorImageGenerationStatusResponse,
   RecommendedProduct,
 } from '@/types/analysis'
 
 const INTERIOR_IMAGE_TIMEOUT_MS = 75_000
+const FLOOR_PLAN_SCAN_TIMEOUT_MS = 45_000
 
 export async function getAnalysis(requestId: number) {
   const response = await apiRequest<ApiResponse<AnalysisJobResponse>>({
     method: 'GET', url: `/api/analysis/request/${requestId}`, authenticated: true,
   })
   return unwrapApiResponse<AnalysisJobResponse>(response, '분석 조회에 실패했습니다.')
+}
+
+export async function requestAnalysis(requestId: number) {
+  const response = await apiRequest<ApiResponse<number>>({
+    method: 'POST', url: `/api/analysis/request/${requestId}`, authenticated: true,
+  })
+  return unwrapApiResponse<number>(response, '분석 요청 생성에 실패했습니다.')
 }
 
 export async function updateAnalysis(requestId: number, input: AnalysisJobEditInput) {
@@ -31,16 +40,41 @@ export async function scanFloorPlan(requestId: number, file: File) {
   const data = new FormData()
   data.append('file', file)
   const response = await apiRequest<ApiResponse<AnalysisJobResponse>, FormData>({
-    method: 'POST', url: `/api/analysis/request/${requestId}/floorplan-scan`, data, authenticated: true,
+    method: 'POST',
+    url: `/api/analysis/request/${requestId}/floorplan-scan`,
+    data,
+    authenticated: true,
+    timeout: FLOOR_PLAN_SCAN_TIMEOUT_MS,
   })
   return unwrapApiResponse<AnalysisJobResponse>(response, '평면도 분석에 실패했습니다.')
 }
 
+export async function scanLinkedFloorPlan(requestId: number) {
+  const response = await apiRequest<ApiResponse<AnalysisJobResponse>>({
+    method: 'POST',
+    url: `/api/analysis/request/${requestId}/floorplan-scan-linked`,
+    authenticated: true,
+    timeout: FLOOR_PLAN_SCAN_TIMEOUT_MS,
+  })
+  return unwrapApiResponse<AnalysisJobResponse>(response, '연결된 평면도 분석에 실패했습니다.')
+}
+
+export async function scanStoredFloorPlan(requestId: number, floorPlanVariantId: number) {
+  const response = await apiRequest<ApiResponse<AnalysisJobResponse>, { floorPlanVariantId: number }>({
+    method: 'POST',
+    url: `/api/analysis/request/${requestId}/floorplan-scan-storage`,
+    data: { floorPlanVariantId },
+    authenticated: true,
+    timeout: FLOOR_PLAN_SCAN_TIMEOUT_MS,
+  })
+  return unwrapApiResponse<AnalysisJobResponse>(response, '등록 평면도 분석에 실패했습니다.')
+}
+
 export async function replaceAnalysisSpaces(requestId: number, spaces: AnalysisSpaceInput[]) {
-  const response = await apiRequest<ApiResponse<AnalysisSpaceResponse[]>, AnalysisSpaceInput[]>({
+  const response = await apiRequest<ApiResponse<null>, AnalysisSpaceInput[]>({
     method: 'PUT', url: `/api/analysis/request/${requestId}/spaces`, data: spaces, authenticated: true,
   })
-  return unwrapApiResponse<AnalysisSpaceResponse[]>(response, '공간 저장에 실패했습니다.')
+  unwrapEmptyApiResponse(response, '공간 저장에 실패했습니다.')
 }
 
 export async function getAnalysisSpaces(requestId: number) {
@@ -71,6 +105,16 @@ export async function generateInteriorImages(
     signal,
   })
   return unwrapApiResponse<InteriorImageGenerateResponse>(response, 'AI 이미지 생성에 실패했습니다.')
+}
+
+export async function getInteriorImages(requestId: number, signal?: AbortSignal) {
+  const response = await apiRequest<ApiResponse<InteriorImageGenerationStatusResponse>>({
+    method: 'GET',
+    url: `/api/analysis/request/${requestId}/interior-images`,
+    authenticated: true,
+    signal,
+  })
+  return unwrapApiResponse<InteriorImageGenerationStatusResponse>(response, 'AI 이미지 생성 상태 조회에 실패했습니다.')
 }
 
 export function getInteriorImageGenerationErrorMessage(error: unknown) {

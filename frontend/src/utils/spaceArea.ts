@@ -16,19 +16,18 @@ export function formatSpaceArea(areaM2: number | null) {
 }
 
 interface SpaceAreaValue {
-  spaceName: string
   spaceAreaM2?: number | null
+  selectedForConstruction: boolean
 }
 
 export function sumSelectedSpaceAreaM2(
   spaces: readonly SpaceAreaValue[],
-  selectedSpaceNames: ReadonlySet<string>,
 ) {
   let hasCalculatedArea = false
 
   const totalAreaM2 = spaces.reduce((total, space) => {
     if (
-      !selectedSpaceNames.has(space.spaceName) ||
+      !space.selectedForConstruction ||
       typeof space.spaceAreaM2 !== 'number'
     ) {
       return total

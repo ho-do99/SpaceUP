@@ -4,6 +4,8 @@ import AppRouter from './AppRouter'
 
 vi.mock('@/pages/HomePage', () => ({ default: () => <p>사용자 홈</p> }))
 vi.mock('@/pages/LoginPage', () => ({ default: () => <p>로그인 화면</p> }))
+vi.mock('@/pages/signup/LandlordSignupPage', () => ({ default: () => <p>사용자 회원가입</p> }))
+vi.mock('@/pages/signup/ContractorSignupPage', () => ({ default: () => <p>시공사 회원가입</p> }))
 
 describe('AppRouter initial landing gate', () => {
   beforeEach(() => {
@@ -33,6 +35,8 @@ describe('AppRouter initial landing gate', () => {
 
   it('renders HomePage immediately when an existing access token is present at root', () => {
     sessionStorage.setItem('accessToken', 'existing-access-token')
+    sessionStorage.setItem('memberId', '1')
+    sessionStorage.setItem('role', 'LANDLORD')
     render(<AppRouter />)
 
     expect(screen.getByText('사용자 홈')).toBeInTheDocument()
@@ -42,5 +46,14 @@ describe('AppRouter initial landing gate', () => {
     expect(window.location.pathname).toBe('/')
     expect(screen.getByText('사용자 홈')).toBeInTheDocument()
   })
-})
 
+  it.each([
+    ['/login', '로그인 화면'],
+    ['/signup/landlord', '사용자 회원가입'],
+    ['/signup/contractor', '시공사 회원가입'],
+  ])('keeps public route %s accessible without authentication', (path, content) => {
+    window.history.replaceState({}, '', path)
+    render(<AppRouter />)
+    expect(screen.getByText(content)).toBeInTheDocument()
+  })
+})

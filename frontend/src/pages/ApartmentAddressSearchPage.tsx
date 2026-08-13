@@ -7,32 +7,43 @@ import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 
 import { createRequest } from '@/api/requestApi'
-import { searchRentalApartments } from '@/api/rentalApartmentApi'
+import { getFloorPlanVariantPreviewUrl, searchApartmentFloorPlans } from '@/api/apartmentFloorPlanApi'
+import { requestAnalysis } from '@/api/analysisApi'
+import { createStoredFloorPlanAnalysisState } from '@/utils/floorPlanAnalysisFlow'
 import {
   getRequestDraft,
   saveRequestDraft,
   setActiveRequestId,
 } from '@/utils/requestFlow'
+import type { FloorPlanVariant } from '@/types/apartmentFloorPlan'
 
-import {
-  findMockFloorPlan,
-  type ApartmentFloorPlanOption,
-} from '@/mocks/apartments'
-import type { RentalApartmentSearchItem } from '@/types/rentalApartment'
+interface ApartmentVariantResult extends FloorPlanVariant {
+  apartmentId: number
+  apartmentName: string
+  roadAddress: string
+  lotAddress: string
+  region: string
+}
+
+function parsePositiveArea(value: string) {
+  if (!/^\d+(?:\.\d+)?$/.test(value.trim())) return null
+  const area = Number(value)
+  return Number.isFinite(area) && area > 0 ? area : null
+}
 
 function FloorPlanLabel({
   option,
 }: {
-  option: ApartmentFloorPlanOption
+  option: ApartmentVariantResult
 }) {
   return (
     <>
       <span className="block">
-        전용 {option.exclusiveArea}m² · 공급 {option.supplyArea}m²
+        전용 {option.exclusiveAreaM2}m² · 공급 {option.supplyAreaM2 ?? '-'}m²
       </span>
 
       <span className="block">
-        {option.exclusivePyeong}평(전용) / {option.supplyPyeong}평(공급)
+        {option.exclusivePyeong ?? '-'}평(전용) / {option.supplyPyeong ?? '-'}평(공급)
       </span>
     </>
   )
@@ -45,30 +56,27 @@ export default function ApartmentAddressSearchPage() {
   const [hasSearched, setHasSearched] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
-  const [searchResults, setSearchResults] = useState<RentalApartmentSearchItem[]>([])
+  const [searchResults, setSearchResults] = useState<ApartmentVariantResult[]>([])
   const [totalElements, setTotalElements] = useState(0)
 
   const [selectedApartmentId, setSelectedApartmentId] =
     useState<number | null>(null)
 
-  const [selectedFloorPlanId, setSelectedFloorPlanId] =
-    useState<string | null>(null)
+  const [selectedFloorPlanId, setSelectedFloorPlanId] = useState<number | null>(null)
 
   const [isAreaListOpen, setIsAreaListOpen] = useState(false)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [manualArea, setManualArea] = useState('')
+  const [manualAreaError, setManualAreaError] = useState('')
+  const [preparedRequestId, setPreparedRequestId] = useState<number | null>(null)
 
   const selectedApartment = searchResults.find(
     (result) => result.id === selectedApartmentId,
   )
 
-  const matchedFloorPlan = selectedApartment
-    ? findMockFloorPlan(
-        selectedApartment.apartmentName,
-        selectedApartment.exclusiveAreaM2,
-      )
-    : null
+  const matchedFloorPlan = selectedApartment?.floorPlanImageUrl ? selectedApartment : null
 
   const selectedFloorPlan = matchedFloorPlan?.id === selectedFloorPlanId
     ? matchedFloorPlan
@@ -96,13 +104,21 @@ export default function ApartmentAddressSearchPage() {
     setIsAreaListOpen(false)
 
     try {
-      const result = await searchRentalApartments({
+      const result = await searchApartmentFloorPlans({
         keyword,
         page: 0,
         size: 20,
       })
-      setSearchResults(result.content)
-      setTotalElements(result.totalElements)
+      const variants = result.content.flatMap((apartment) => apartment.variants.map((variant) => ({
+        ...variant,
+        apartmentId: apartment.id,
+        apartmentName: apartment.name,
+        roadAddress: apartment.roadAddress,
+        lotAddress: apartment.lotAddress,
+        region: apartment.region,
+      })))
+      setSearchResults(variants)
+      setTotalElements(variants.length)
       setHasSearched(true)
     } catch (error) {
       setSearchResults([])
@@ -133,6 +149,9 @@ export default function ApartmentAddressSearchPage() {
     setSelectedApartmentId(null)
     setSelectedFloorPlanId(null)
     setIsAreaListOpen(false)
+    setManualArea('')
+    setManualAreaError('')
+    setPreparedRequestId(null)
   }
 
   const handleBack = () => {
@@ -146,6 +165,24 @@ export default function ApartmentAddressSearchPage() {
     navigate('/analysis/new/property')
   }
 
+  const createApartmentRequest = async (areaM2: number, region: string) => {
+    if (preparedRequestId) return preparedRequestId
+
+    const previous = getRequestDraft()
+    const draft = {
+      ...previous,
+      region,
+      propertyType: 'APARTMENT',
+      areaM2,
+    }
+
+    saveRequestDraft(draft)
+    const requestId = await createRequest(draft)
+    setActiveRequestId(requestId)
+    setPreparedRequestId(requestId)
+    return requestId
+  }
+
   const continueWithApartment = async () => {
     if (
       !selectedApartment ||
@@ -155,26 +192,19 @@ export default function ApartmentAddressSearchPage() {
       return
     }
 
-    const previous = getRequestDraft()
-
-    const draft = {
-      ...previous,
-      region: selectedApartment.roadAddress,
-      propertyType: 'APARTMENT',
-      areaM2: selectedFloorPlan.exclusiveArea,
-    }
-
-    saveRequestDraft(draft)
-
     setIsSubmitting(true)
     setSubmitError('')
 
     try {
-      const requestId = await createRequest(draft)
+      const requestId = await createApartmentRequest(
+        selectedFloorPlan.exclusiveAreaM2,
+        selectedApartment.roadAddress,
+      )
+      const analysisJobId = await requestAnalysis(requestId)
 
-      setActiveRequestId(requestId)
-
-      navigate('/analysis/spaces')
+      navigate('/analysis/loading', {
+        state: createStoredFloorPlanAnalysisState(selectedFloorPlan.id, analysisJobId),
+      })
     } catch (error) {
       setSubmitError(
         error instanceof Error
@@ -184,6 +214,41 @@ export default function ApartmentAddressSearchPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const continueWithDirectUpload = async (
+    areaM2: number,
+    region: string,
+  ) => {
+    if (isSubmitting) return
+
+    setIsSubmitting(true)
+    setSubmitError('')
+
+    try {
+      await createApartmentRequest(areaM2, region)
+      navigate('/upload')
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : '의뢰 생성에 실패했습니다.',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const continueEmptyResultWithUpload = () => {
+    const areaM2 = parsePositiveArea(manualArea)
+
+    if (areaM2 === null) {
+      setManualAreaError('전용면적은 0보다 큰 숫자로 입력해 주세요.')
+      return
+    }
+
+    setManualAreaError('')
+    void continueWithDirectUpload(areaM2, query.trim())
   }
 
   return (
@@ -343,7 +408,7 @@ export default function ApartmentAddressSearchPage() {
 
                         <span>
                           <span className="block font-bold">
-                            전용 {matchedFloorPlan.exclusiveArea}m²
+                            전용 {matchedFloorPlan.exclusiveAreaM2}m²
                           </span>
 
                           <span className="block text-[11px] text-[#64748b]">
@@ -351,7 +416,7 @@ export default function ApartmentAddressSearchPage() {
                             {' / '}
                             {matchedFloorPlan.supplyPyeong}평(공급)
                             {' · '}
-                            공급 {matchedFloorPlan.supplyArea}m²
+                            공급 {matchedFloorPlan.supplyAreaM2 ?? '-'}m²
                           </span>
                         </span>
                       </label>
@@ -360,9 +425,33 @@ export default function ApartmentAddressSearchPage() {
               ) : null}
             </section>
 
+            {!matchedFloorPlan ? (
+              <section className="mt-3 rounded-[10px] border border-[#dbeafe] bg-[#f8fafc] p-3.5">
+                <p className="text-[11px] leading-[18px] text-[#64748b]">
+                  등록된 평면도가 없어 보유한 평면도를 직접 업로드해야 합니다.
+                </p>
+                <Button
+                  type="button"
+                  disabled={isSubmitting}
+                  isLoading={isSubmitting}
+                  onClick={() => void continueWithDirectUpload(
+                    selectedApartment.exclusiveAreaM2,
+                    selectedApartment.roadAddress,
+                  )}
+                  className="mt-3 h-11 w-full !rounded-[8px] !border !border-[#2563eb] !bg-[#2563eb] !px-4 !py-0 !text-[12px] !font-bold !shadow-none"
+                >
+                  평면도 직접 업로드
+                </Button>
+                <p role="alert" className="mt-2 min-h-4 text-center text-[10px] text-[#ef4444]">
+                  {submitError}
+                </p>
+              </section>
+            ) : null}
+
             {/* 면적 선택 완료 안내 */}
             {selectedFloorPlan ? (
               <aside className="mt-3 rounded-[10px] border border-[#bfdbfe] bg-[#eff6ff] px-3.5 py-3">
+                <img src={getFloorPlanVariantPreviewUrl(selectedFloorPlan.id)} alt="선택한 등록 평면도" className="mb-3 h-32 w-full rounded-lg object-contain" />
                 <p className="text-[13px] font-bold leading-[22px] text-[#2563eb]">
                   면적 선택 완료
                 </p>
@@ -518,6 +607,44 @@ export default function ApartmentAddressSearchPage() {
                   <p className="mt-2 text-[11px] leading-[18px] text-[#64748b]">
                     아파트명 또는 주소를 다시 확인해주세요.
                   </p>
+
+                  <div className="mx-auto mt-5 max-w-[280px] text-left">
+                    <label htmlFor="manual-exclusive-area" className="block text-[11px] font-bold text-[#1e293b]">
+                      전용면적(㎡)
+                    </label>
+                    <input
+                      id="manual-exclusive-area"
+                      type="text"
+                      inputMode="decimal"
+                      value={manualArea}
+                      aria-invalid={Boolean(manualAreaError)}
+                      aria-describedby={manualAreaError ? 'manual-exclusive-area-error' : undefined}
+                      placeholder="예: 59.5"
+                      className="mt-1.5 h-11 w-full rounded-[8px] border border-[#d5dfed] bg-white px-3 text-[13px] text-[#1e293b] outline-none focus:border-[#2563eb]"
+                      onChange={(event) => {
+                        const nextValue = event.target.value
+                        if (/^\d*(?:\.\d*)?$/.test(nextValue)) {
+                          setManualArea(nextValue)
+                          setManualAreaError('')
+                        }
+                      }}
+                    />
+                    <p id="manual-exclusive-area-error" role="alert" className="mt-1 min-h-4 text-[10px] text-[#ef4444]">
+                      {manualAreaError}
+                    </p>
+                    <Button
+                      type="button"
+                      disabled={isSubmitting}
+                      isLoading={isSubmitting}
+                      onClick={continueEmptyResultWithUpload}
+                      className="mt-2 h-11 w-full !rounded-[8px] !border !border-[#2563eb] !bg-[#2563eb] !px-4 !py-0 !text-[12px] !font-bold !shadow-none"
+                    >
+                      평면도 직접 업로드
+                    </Button>
+                    <p role="alert" className="mt-2 min-h-4 text-center text-[10px] text-[#ef4444]">
+                      {submitError}
+                    </p>
+                  </div>
                 </div>
               )}
             </section>

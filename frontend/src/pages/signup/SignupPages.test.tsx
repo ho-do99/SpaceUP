@@ -69,12 +69,12 @@ describe('signup routes and guarded flows', () => {
     cleanup()
 
     loginRequest.mockResolvedValueOnce({ accessToken: 'contractor-token', memberId: 2, role: 'CONTRACTOR' })
-    render(<MemoryRouter initialEntries={['/login']}><Routes><Route path="/login" element={<LoginPage />} /><Route path="/signup/contractor/status" element={<p>contractor status</p>} /></Routes></MemoryRouter>)
+    render(<MemoryRouter initialEntries={['/login']}><Routes><Route path="/login" element={<LoginPage />} /><Route path="/contractor" element={<p>contractor dashboard</p>} /></Routes></MemoryRouter>)
     fireEvent.click(screen.getByLabelText('시공사'))
     fireEvent.change(screen.getByLabelText('이메일'), { target: { value: 'contractor@spaceup.co.kr' } })
     fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'Test1234!' } })
     fireEvent.click(screen.getByRole('button', { name: '로그인' }))
-    expect(await screen.findByText('contractor status')).toBeInTheDocument()
+    expect(await screen.findByText('contractor dashboard')).toBeInTheDocument()
   })
 
   it('routes the login signup action according to the selected role', () => {
@@ -145,7 +145,7 @@ describe('signup routes and guarded flows', () => {
 
   it('joins contractor, verifies and uploads business data, then saves the authenticated profile', async () => {
     join.mockResolvedValue({ accessToken: 'contractor-token', memberId: 41, role: 'CONTRACTOR' })
-    render(<MemoryRouter initialEntries={['/signup/contractor']}><Routes><Route path="/signup/contractor" element={<ContractorSignupPage />} /><Route path="/signup/contractor/status" element={<p>pending status</p>} /></Routes></MemoryRouter>)
+    render(<MemoryRouter initialEntries={['/signup/contractor']}><Routes><Route path="/signup/contractor" element={<ContractorSignupPage />} /><Route path="/contractor" element={<p>contractor dashboard</p>} /></Routes></MemoryRouter>)
     fireEvent.change(screen.getByLabelText('담당자명'), { target: { value: '김현수' } })
     fireEvent.change(screen.getByLabelText('휴대폰 번호'), { target: { value: '01012345678' } })
     fireEvent.change(screen.getByLabelText('이메일'), { target: { value: 'contractor@spaceup.co.kr' } })
@@ -185,13 +185,13 @@ describe('signup routes and guarded flows', () => {
     fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } })
     fireEvent.click(screen.getByRole('checkbox'))
     updateProfile.mockRejectedValueOnce(new Error('profile save failed'))
-    fireEvent.click(screen.getByRole('button', { name: '입점 심사 요청' }))
+    fireEvent.click(screen.getByRole('button', { name: '회원가입 완료' }))
     await waitFor(() => expect(uploadCertificate).toHaveBeenCalledWith(file))
-    expect(await screen.findByRole('alert')).toHaveTextContent('입점 심사 요청에 실패했습니다.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('회원가입 완료 처리에 실패했습니다.')
     expect(screen.getByLabelText('상호명')).toHaveValue('최종 상호')
-    expect(screen.queryByText('pending status')).not.toBeInTheDocument()
+    expect(screen.queryByText('회원가입이 완료되었습니다.')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '입점 심사 요청' }))
+    fireEvent.click(screen.getByRole('button', { name: '회원가입 완료' }))
     await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({
       businessRegistrationNumber: '220-81-62517',
       representativeName: '최종 대표',
@@ -206,6 +206,7 @@ describe('signup routes and guarded flows', () => {
     }))
     expect(uploadCertificate).toHaveBeenCalledTimes(1)
     expect(openPostcode).toHaveBeenCalledTimes(2)
-    expect(await screen.findByText('pending status')).toBeInTheDocument()
+    expect(await screen.findByText('회원가입이 완료되었습니다.')).toBeInTheDocument()
+    expect(screen.queryByText('심사')).not.toBeInTheDocument()
   })
 })

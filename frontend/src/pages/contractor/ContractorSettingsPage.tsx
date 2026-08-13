@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorBottomNavigation from '@/components/contractor/ContractorBottomNavigation'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import { clearAuthSession } from '@/utils/authSession'
 
 interface SettingsMenuCardProps {
   title: string
@@ -235,8 +236,8 @@ export default function ContractorSettingsPage() {
 
   const handleLogout = () => {
     setLogoutDialogOpen(false)
-
-    navigate('/login')
+    clearAuthSession()
+    navigate('/login', { replace: true })
   }
 
   return (

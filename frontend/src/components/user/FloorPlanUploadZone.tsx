@@ -60,7 +60,7 @@ export default function FloorPlanUploadZone({
         ref={inputRef}
         id="villa-floor-plan"
         type="file"
-        accept="image/*"
+        accept="image/png,image/jpeg,.jpg,.jpeg,.png"
         disabled={disabled}
         aria-describedby={`floor-plan-file-hint${errorMessage ? ' floor-plan-file-error' : ''}`}
         aria-invalid={Boolean(errorMessage)}
@@ -117,7 +117,7 @@ export default function FloorPlanUploadZone({
               id="floor-plan-file-hint"
               className="text-[10px] leading-3 text-[#64748b]"
             >
-              PNG, JPEG, GIF, WebP 등 / 최대 20MB
+              PNG, JPEG, JPG / 최대 20MB
             </p>
             <label
               htmlFor="villa-floor-plan"
