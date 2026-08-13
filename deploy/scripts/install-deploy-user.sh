@@ -12,7 +12,7 @@ case "$role" in
   *) die "role must be public or private" ;;
 esac
 
-for command_name in id install mktemp useradd usermod visudo; do
+for command_name in id install mktemp openssl useradd usermod visudo; do
   command -v "$command_name" >/dev/null 2>&1 || die "required command not found: $command_name"
 done
 
@@ -27,8 +27,11 @@ readonly deploy_user=spaceup-deploy
 if ! id "$deploy_user" >/dev/null 2>&1; then
   useradd --create-home --shell /bin/bash "$deploy_user"
 fi
-# '*' cannot authenticate as a password but does not trigger OpenSSH's locked-account rejection.
-usermod --password '*' --shell /bin/bash "$deploy_user"
+# OpenSSH rejects public-key authentication when the shadow entry is locked (`*`/`!`).
+# Use an unknown, randomly generated password hash so the account remains eligible for
+# public-key authentication without creating a usable shared password.
+readonly deploy_password_hash="$(openssl rand -base64 48 | openssl passwd -6 -stdin)"
+usermod --password "$deploy_password_hash" --shell /bin/bash "$deploy_user"
 readonly deploy_group="$(id -gn "$deploy_user")"
 
 install -d -o "$deploy_user" -g "$deploy_group" -m 0700 "/home/${deploy_user}/.ssh"

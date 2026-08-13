@@ -29,6 +29,12 @@ if (-not $privateDeploy.Contains('DEPLOY_BRANCH="${2:-main}"')) {
 foreach ($required in @('permitopen="10.10.20.6:22"', "readonly key_options='restrict'", 'NOPASSWD')) {
     if (-not $installer.Contains($required)) { throw "installer is missing: $required" }
 }
+foreach ($required in @('openssl rand -base64 48', 'openssl passwd -6 -stdin')) {
+    if (-not $installer.Contains($required)) { throw "installer is missing unlocked random password handling: $required" }
+}
+if ($installer.Contains("usermod --password '*'")) {
+    throw 'deploy user shadow entry must not be locked because OpenSSH rejects its public key'
+}
 if ($installer.Contains('docker group') -or $installer.Contains('usermod -aG docker')) {
     throw 'deploy user must not receive unrestricted Docker access'
 }
