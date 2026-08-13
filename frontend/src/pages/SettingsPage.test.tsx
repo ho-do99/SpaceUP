@@ -69,6 +69,14 @@ describe('SettingsPage account actions', () => {
 
   afterEach(cleanup)
 
+  it('renders the authenticated member email instead of a mock profile value', async () => {
+    seedUserSession()
+    renderSettings()
+
+    expect(await screen.findByText('landlord@spaceup.test')).toBeInTheDocument()
+    expect(getMemberRequest).toHaveBeenCalledWith(17)
+  })
+
   it('enables logout, confirms it without an API request, and clears only auth and request flow storage', async () => {
     seedUserSession()
     renderSettings()

@@ -11,7 +11,6 @@ import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import UserAccountConfirmDialog, { type UserAccountAction } from '@/components/user/UserAccountConfirmDialog'
 import { MemberPasswordChangeDialog, MemberPhoneChangeDialog } from '@/components/member/MemberAccountChangeDialogs'
-import { userProfile } from '@/mocks/userProfile'
 import { deleteMember, getMember, updateMyPassword, updateMyPhoneNumber } from '@/api/memberApi'
 import { clearAuthSession, getMemberId } from '@/utils/authSession'
 import { clearRequestFlow } from '@/utils/requestFlow'
@@ -36,7 +35,8 @@ function SettingsIcon({ src, danger = false }: SettingsIconProps) {
 export default function SettingsPage() {
   const navigate = useNavigate()
   const [settings, setSettings] = useState<SettingsState>({ loginSecurity: true })
-  const [phoneNumber, setPhoneNumber] = useState(userProfile.phone)
+  const [email, setEmail] = useState('-')
+  const [phoneNumber, setPhoneNumber] = useState('-')
   const [phoneDialogOpen, setPhoneDialogOpen] = useState(false)
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
@@ -50,7 +50,7 @@ export default function SettingsPage() {
     const memberId = getMemberId()
     if (!memberId) return
     getMember(memberId)
-      .then((member) => setPhoneNumber(member.phoneNumber))
+      .then((member) => { setEmail(member.email); setPhoneNumber(member.phoneNumber) })
       .catch((error) => setAccountError(error instanceof Error ? error.message : '회원 정보를 불러오지 못했습니다.'))
   }, [])
 
@@ -145,7 +145,7 @@ export default function SettingsPage() {
             <div className="flex h-16 items-center gap-3 px-4">
               <SettingsIcon src={emailIcon} />
               <span className="min-w-0 flex-1 text-[14px] font-bold text-[#1e293b]">로그인 이메일</span>
-              <span className="shrink-0 text-[11px] text-[#64748b]">{userProfile.email}</span>
+              <span className="min-w-0 shrink truncate text-[11px] text-[#64748b]">{email}</span>
             </div>
             <div className="ml-16 border-t border-[#e2e8f0]" />
             <div className="flex h-16 items-center gap-3 px-4">
