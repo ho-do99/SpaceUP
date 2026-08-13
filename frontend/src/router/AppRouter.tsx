@@ -15,7 +15,6 @@ import { getAccessToken } from '@/utils/authSession'
 import { shouldShowInitialLanding } from '@/utils/initialLanding'
 import LandlordSignupPage from '@/pages/signup/LandlordSignupPage'
 import ContractorSignupPage from '@/pages/signup/ContractorSignupPage'
-import ContractorSignupStatusPage from '@/pages/signup/ContractorSignupStatusPage'
 import FloorPlanUploadPage from '@/pages/FloorPlanUploadPage'
 import FloorPlanAnalysisLoadingPage from '@/pages/FloorPlanAnalysisLoadingPage'
 import SpaceInformationPage from '@/pages/SpaceInformationPage'
@@ -131,10 +130,6 @@ export default function AppRouter() {
           element={<ContractorSignupPage />}
         />
 
-        <Route
-          path="/signup/contractor/status"
-          element={<ContractorSignupStatusPage />}
-        />
 
         <Route
           path="/upload"

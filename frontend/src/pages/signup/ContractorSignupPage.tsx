@@ -41,7 +41,6 @@ const steps = [
   { label: '휴대폰' },
   { label: '업체/시공' },
   { label: '사업자' },
-  { label: '심사' },
   { label: '완료' },
 ]
 const regionOptions = ['광주 전체', '동구', '서구', '남구', '북구', '광산구', '전남']
@@ -92,7 +91,7 @@ function ToggleChip({ selected, label, onClick }: { selected: boolean; label: st
 export default function ContractorSignupPage() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1)
   const [account, setAccount] = useState(initialAccount)
   const [company, setCompany] = useState(initialCompany)
   const [business, setBusiness] = useState(initialBusiness)
@@ -149,7 +148,7 @@ export default function ContractorSignupPage() {
   const handleBack = () => {
     setPageError('')
     if (step === 1) navigate('/login')
-    else setStep((step - 1) as 1 | 2 | 3)
+    else if (step < 5) setStep((step - 1) as 1 | 2 | 3)
   }
 
   const handlePhoneChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -284,7 +283,7 @@ export default function ContractorSignupPage() {
     }
   }
 
-  const submitReview = async () => {
+  const completeSignup = async () => {
     if (!canSubmitBusiness || isSubmitting || !business.registrationDocument) return
     setIsSubmitting(true)
     setPageError('')
@@ -295,16 +294,16 @@ export default function ContractorSignupPage() {
       await updateMyContractorProfile(
         buildContractorProfileSignupPayload(company, business, certificateUrl),
       )
-      navigate('/signup/contractor/status', { replace: true })
+      setStep(5)
     } catch (error: unknown) {
-      setPageError(errorMessage(error, '입점 심사 요청에 실패했습니다.'))
+      setPageError(errorMessage(error, '회원가입 완료 처리에 실패했습니다.'))
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const title = step === 1 ? '회원가입' : step === 2 ? '휴대폰 인증' : step === 3 ? '업체·시공 정보' : '사업자 정보'
-  const description = step === 1 ? '입점 신청에 사용할 담당자 계정을 만드세요.' : step === 2 ? '본인 명의의 휴대폰 번호를 인증해 주세요.' : step === 3 ? '시공사 입점을 위해 업체와 시공 정보를 입력해 주세요.' : '입점 심사를 위해 사업자 정보를 확인하고 사업자등록증을 등록해 주세요.'
+  const title = step === 1 ? '회원가입' : step === 2 ? '휴대폰 인증' : step === 3 ? '업체·시공 정보' : step === 4 ? '사업자 정보' : '회원가입 완료'
+  const description = step === 1 ? '서비스에 사용할 담당자 계정을 만드세요.' : step === 2 ? '본인 명의의 휴대폰 번호를 인증해 주세요.' : step === 3 ? '업체와 시공 정보를 입력해 주세요.' : step === 4 ? '사업자 정보를 확인하고 사업자등록증을 등록해 주세요.' : 'SpaceUP 시공사 가입이 완료되었습니다.'
 
   return (
     <SignupPage>
@@ -360,11 +359,18 @@ export default function ContractorSignupPage() {
               <div className="flex min-h-[146px] flex-col items-center justify-center rounded-lg border border-[#2563eb] bg-[#eff6ff] p-3 text-center"><span aria-hidden="true" className="text-3xl text-[#2563eb]">⇧</span><p className="mt-2 text-xs font-bold">{business.registrationDocument?.name || '사업자등록증을 첨부해 주세요.'}</p><p className="mt-1 text-[10px] text-[#64748b]">JPG, PNG, PDF / 최대 10MB</p><input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" className="sr-only" onChange={handleFile} /><button type="button" className="mt-3 h-9 min-w-[122px] rounded-lg border border-[#2563eb] bg-white px-4 text-xs font-bold text-[#2563eb]" onClick={() => fileInputRef.current?.click()}>파일 선택</button></div>
               {fileError && <p role="alert" className="text-xs text-[#ef4444]">{fileError}</p>}
             </SignupField>
-            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[#e2e8f0] bg-white p-3 text-[11px] leading-4 text-[#475569]"><input type="checkbox" checked={business.submissionAgreed} className="mt-0.5 h-4 w-4 accent-[#2563eb]" onChange={(event) => updateBusiness('submissionAgreed', event.target.checked)} /><span>입력한 업체 정보와 사업자 정보가 일치하며,<br />입점 심사를 위해 해당 정보를 제출하는 것에 동의합니다.</span></label>
-            <div className="rounded-lg bg-[#eff6ff] p-3 text-[11px] leading-4 text-[#64748b]">사업자 정보와 제출 서류를 확인한 후 입점 심사가 진행됩니다.<br />심사 결과는 알림으로 안내해 드립니다.</div>
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[#e2e8f0] bg-white p-3 text-[11px] leading-4 text-[#475569]"><input type="checkbox" checked={business.submissionAgreed} className="mt-0.5 h-4 w-4 accent-[#2563eb]" onChange={(event) => updateBusiness('submissionAgreed', event.target.checked)} /><span>입력한 업체 정보와 사업자 정보가 일치하며,<br />해당 정보를 제출하는 것에 동의합니다.</span></label>
             {pageError && <p role="alert" className="text-xs font-bold text-[#ef4444]">! {pageError}</p>}
-            <div className="fixed inset-x-0 bottom-0 z-10 mx-auto w-full max-w-[393px] border border-[#e2e8f0] bg-white p-4"><button type="button" disabled={!canSubmitBusiness || isSubmitting} className={signupPrimaryButtonClass} onClick={submitReview}>{isSubmitting ? '제출 중...' : '입점 심사 요청'}</button></div>
+            <div className="fixed inset-x-0 bottom-0 z-10 mx-auto w-full max-w-[393px] border border-[#e2e8f0] bg-white p-4"><button type="button" disabled={!canSubmitBusiness || isSubmitting} className={signupPrimaryButtonClass} onClick={completeSignup}>{isSubmitting ? '처리 중...' : '회원가입 완료'}</button></div>
           </>
+        )}
+        {step === 5 && (
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
+            <div className="flex size-16 items-center justify-center rounded-full bg-[#eff6ff] text-3xl font-bold text-[#2563eb]">✓</div>
+            <h2 className="mt-5 text-xl font-bold text-[#1e293b]">회원가입이 완료되었습니다.</h2>
+            <p className="mt-3 text-xs leading-5 text-[#64748b]">이제 SpaceUP 시공사 서비스를 이용할 수 있습니다.</p>
+            <button type="button" className={`${signupPrimaryButtonClass} mt-8 w-full`} onClick={() => navigate('/contractor', { replace: true })}>시작하기</button>
+          </div>
         )}
       </section>
     </SignupPage>

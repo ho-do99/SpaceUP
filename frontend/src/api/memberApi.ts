@@ -116,12 +116,3 @@ export async function updateMyPassword(input: { currentPassword: string; newPass
   })
   unwrapEmptyApiResponse(response, '비밀번호 변경에 실패했습니다.')
 }
-
-export async function resubmitMemberApplication(): Promise<void> {
-  const response = await apiRequest<ApiResponse<null>>({
-    method: 'POST',
-    url: '/api/member/me/resubmit',
-    authenticated: true,
-  })
-  unwrapEmptyApiResponse(response, '보완 자료 재제출에 실패했습니다.')
-}
