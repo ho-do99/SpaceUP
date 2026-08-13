@@ -134,8 +134,7 @@ jobs:
         run: docker compose -f deploy/compose.public.yml config --quiet
 
   publish-images:
-    name: Publish ${{ matrix.image }}
-    if: github.event_name == 'push'
+    name: Build ${{ matrix.image }}
     needs: [backend, frontend, ai, deployment-config]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -169,6 +168,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: ghcr.io
@@ -178,13 +178,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
-      - name: Build and publish immutable image
+      - name: Build image and publish immutable image on push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
-          push: true
+          push: ${{ github.event_name == 'push' }}
           tags: ghcr.io/ho-do99/${{ matrix.image }}:${{ github.sha }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
