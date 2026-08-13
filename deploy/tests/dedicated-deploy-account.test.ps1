@@ -1,0 +1,36 @@
+$ErrorActionPreference = 'Stop'
+
+$workflow = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../.github/workflows/deploy.yml"
+$common = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../scripts/common.sh"
+$publicDeploy = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../scripts/deploy-public.sh"
+$privateDeploy = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../scripts/deploy-private.sh"
+$installer = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../scripts/install-deploy-user.sh"
+
+foreach ($required in @(
+    'readonly DEPLOY_BRANCH=main',
+    'sudo -n /usr/local/sbin/spaceup-deploy-private',
+    'sudo -n /usr/local/sbin/spaceup-deploy-public'
+)) {
+    if (-not $workflow.Contains($required)) { throw "workflow is missing: $required" }
+}
+if ($workflow.Contains('inputs.branch')) { throw 'production workflow still accepts a deployment branch' }
+if (-not $common.Contains('production deployment branch must be main')) {
+    throw 'deployment validation is not pinned to main'
+}
+if (-not $publicDeploy.Contains('DEPLOY_BRANCH="${2:-main}"')) {
+    throw 'public deployment does not default to main'
+}
+if (-not $publicDeploy.Contains('ENV_FILE="${SPACEUP_PUBLIC_ENV:-/root/spaceup-public.env}"')) {
+    throw 'public deployment uses the wrong environment-file path'
+}
+if (-not $privateDeploy.Contains('DEPLOY_BRANCH="${2:-main}"')) {
+    throw 'private deployment does not default to main'
+}
+foreach ($required in @('permitopen="10.10.20.6:22"', "readonly key_options='restrict'", 'NOPASSWD')) {
+    if (-not $installer.Contains($required)) { throw "installer is missing: $required" }
+}
+if ($installer.Contains('docker group') -or $installer.Contains('usermod -aG docker')) {
+    throw 'deploy user must not receive unrestricted Docker access'
+}
+
+Write-Output 'dedicated main-only deployment configuration is complete'

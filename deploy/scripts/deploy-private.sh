@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
 REVISION="${1:-}"
-DEPLOY_BRANCH="${2:-infra}"
+DEPLOY_BRANCH="${2:-main}"
 REPOSITORY_DIR="${SPACEUP_REPOSITORY_DIR:-/root/SpaceUP}"
 ENV_FILE="${SPACEUP_PRIVATE_ENV:-/home/ubuntu/spaceup-private.env}"
 LOCK_FILE="${SPACEUP_PRIVATE_LOCK:-/tmp/spaceup-private-deploy.lock}"
