@@ -4,7 +4,7 @@ import axios, {
   type AxiosResponse,
   type RawAxiosHeaders,
 } from 'axios'
-import { getAccessToken } from '@/utils/authSession'
+import { expireAuthSession, getAccessToken } from '@/utils/authSession'
 
 /**
  * 2026-08-06 백엔드 API 명세 기준 주소
@@ -233,6 +233,7 @@ export async function apiRequest<
     }
 
     if (status === 401) {
+      if (authenticated) expireAuthSession()
       throw new ApiClientError(
         '로그인이 필요하거나 아이디 또는 비밀번호가 올바르지 않습니다.',
         'http',
