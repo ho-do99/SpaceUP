@@ -123,8 +123,8 @@ def ocr_room_labels(content: bytes, content_type: str, image_size):
         )
         response.raise_for_status()
         result = response.json()
-    except Exception as exc:
-        raise HTTPException(503, f"OCR service is unavailable: {exc}") from exc
+    except (requests.RequestException, ValueError):
+        return []
 
     target_width, target_height = image_size
     source_width = max(int(result.get("width", target_width)), 1)

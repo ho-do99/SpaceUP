@@ -587,18 +587,8 @@ async def analyze(file: UploadFile = File(...)):
         # 외곽선 추출에 실패해도 기존 bbox 3D 미리보기는 계속 제공한다.
         pass
 
-    try:
-        ocr_response = requests.post(
-            f"{OCR_URL}/ocr",
-            files={"file": (file.filename or "floorplan.png", content, file.content_type)},
-            data={"rotate_clockwise": "false"},
-            timeout=240,
-        )
-        ocr_response.raise_for_status()
-        apply_ocr_display_names(result.get("rooms", []), ocr_response.json())
-    except (requests.RequestException, ValueError, json.JSONDecodeError):
-        # OCR display-name enrichment is optional; SPA geometry remains usable.
-        pass
+    # SPA room_json already performs OCR enrichment. Do not repeat the slowest
+    # dependency call after segmentation has already produced usable geometry.
 
     result["viewer_note"] = (
         "원본 AI Hub 모델은 수정하지 않았으며, SPA 실제 픽셀 외곽선을 3D로 시각화한 미리보기입니다."
