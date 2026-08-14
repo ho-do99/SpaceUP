@@ -44,6 +44,28 @@ export VIEWERWALL_IMAGE="${IMAGE_REGISTRY}/spaceup-viewerwall:${REVISION}"
 COMPOSE=(docker compose --env-file "$ENV_FILE" -f deploy/compose.private.yml)
 "${COMPOSE[@]}" config --quiet
 
+wait_for_service_http() {
+  local service="$1"
+  local url="$2"
+  local attempts="${3:-40}"
+  local delay="${4:-2}"
+  local count
+
+  for ((count = 1; count <= attempts; count++)); do
+    if "${COMPOSE[@]}" exec -T "$service" python -c \
+      "import urllib.request; urllib.request.urlopen('${url}', timeout=5).read()" \
+      >/dev/null 2>&1; then
+      log "service health check passed: ${service} ${url}"
+      return 0
+    fi
+    sleep "$delay"
+  done
+
+  printf '[spaceup-deploy] ERROR: service health check failed: %s %s\n' \
+    "$service" "$url" >&2
+  return 1
+}
+
 BACKEND_CONTAINER_ID="$("${COMPOSE[@]}" ps -q backend)"
 AI_CONTAINER_ID="$("${COMPOSE[@]}" ps -q ai)"
 OCR_CONTAINER_ID="$("${COMPOSE[@]}" ps -q ocr)"
@@ -82,7 +104,7 @@ REPLACEMENT_STARTED=1
 "${COMPOSE[@]}" up -d --no-deps backend
 wait_for_http "http://${AI_BIND_HOST}:${AI_PORT:-8000}/health" 40 2
 for service in ocr spa viewerwall; do
-  "${COMPOSE[@]}" exec -T "$service" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=10).read()"
+  wait_for_service_http "$service" "http://127.0.0.1:8000/health" 40 2
 done
 "${COMPOSE[@]}" exec -T viewerwall python -c "import urllib.request, urllib.error; r=urllib.request.Request('http://127.0.0.1:8000/api/analyze', method='POST');
 try: urllib.request.urlopen(r, timeout=10)

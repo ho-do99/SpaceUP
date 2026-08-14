@@ -19,6 +19,10 @@ foreach ($health in @('/health', '/api/analyze', '/api/floorplans/apartments/var
     if (-not $deploy.Contains($health)) { throw "missing deployment verification: $health" }
 }
 
+foreach ($retryMarker in @('wait_for_service_http()', 'count <= attempts', 'wait_for_service_http "$service"')) {
+    if (-not $deploy.Contains($retryMarker)) { throw "private service health check does not retry: $retryMarker" }
+}
+
 if (-not $deploy.Contains('FLOORPLAN_HEALTHCHECK_VARIANT_IDS')) {
     throw 'floorplan health-check variant IDs are not configurable'
 }
