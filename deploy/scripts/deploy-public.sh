@@ -40,7 +40,7 @@ done
 export FRONTEND_IMAGE="${IMAGE_REGISTRY}/spaceup-frontend:${REVISION}"
 COMPOSE=(docker compose --env-file "$ENV_FILE" -f deploy/compose.public.yml)
 "${COMPOSE[@]}" config --quiet
-"${COMPOSE[@]}" run --rm --no-deps --add-host frontend:127.0.0.1 nginx nginx -t
+"${COMPOSE[@]}" run --rm --no-deps nginx nginx -t
 
 FRONTEND_CONTAINER_ID="$("${COMPOSE[@]}" ps -q frontend)"
 PREVIOUS_FRONTEND_IMAGE="$(docker inspect --format '{{.Config.Image}}' "$FRONTEND_CONTAINER_ID" 2>/dev/null || true)"

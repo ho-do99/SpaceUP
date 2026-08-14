@@ -31,6 +31,12 @@ if (-not $publicDeploy.Contains('DEPLOY_BRANCH="${2:-main}"')) {
 if (-not $publicDeploy.Contains('ENV_FILE="${SPACEUP_PUBLIC_ENV:-/root/spaceup-public.env}"')) {
     throw 'public deployment uses the wrong environment-file path'
 }
+if (-not $publicDeploy.Contains('"${COMPOSE[@]}" run --rm --no-deps nginx nginx -t')) {
+    throw 'public deployment must validate nginx with the server-compatible compose run options'
+}
+if ($publicDeploy.Contains('--add-host')) {
+    throw 'public deployment uses a compose run option unsupported by the production Docker CLI'
+}
 if (-not $privateDeploy.Contains('DEPLOY_BRANCH="${2:-main}"')) {
     throw 'private deployment does not default to main'
 }
