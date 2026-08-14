@@ -9,11 +9,19 @@ $installer = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../scripts/install-d
 foreach ($required in @(
     'readonly DEPLOY_BRANCH=main',
     'sudo -n /usr/local/sbin/spaceup-deploy-private',
-    'sudo -n /usr/local/sbin/spaceup-deploy-public'
+    'sudo -n /usr/local/sbin/spaceup-deploy-public',
+    'Host spaceup-public',
+    'Host spaceup-private',
+    'ProxyJump spaceup-public',
+    'ssh spaceup-private',
+    'ssh spaceup-public'
 )) {
     if (-not $workflow.Contains($required)) { throw "workflow is missing: $required" }
 }
 if ($workflow.Contains('inputs.branch')) { throw 'production workflow still accepts a deployment branch' }
+if ($workflow.Contains('-J "${SSH_USER}@${PUBLIC_HOST}"')) {
+    throw 'jump host identity must be explicitly configured instead of relying on inherited -J options'
+}
 if (-not $common.Contains('production deployment branch must be main')) {
     throw 'deployment validation is not pinned to main'
 }

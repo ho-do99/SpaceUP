@@ -101,19 +101,34 @@ jobs:
           chmod 600 "$HOME/.ssh/known_hosts"
           ssh-keygen -F "$PUBLIC_HOST" -f "$HOME/.ssh/known_hosts" >/dev/null
           ssh-keygen -F "$PRIVATE_HOST" -f "$HOME/.ssh/known_hosts" >/dev/null
+          cat > "$HOME/.ssh/config" <<EOF
+          Host spaceup-public
+            HostName ${PUBLIC_HOST}
+            User ${SSH_USER}
+            IdentityFile $HOME/.ssh/spaceup_deploy
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile $HOME/.ssh/known_hosts
+            ConnectTimeout 15
+
+          Host spaceup-private
+            HostName ${PRIVATE_HOST}
+            User ${SSH_USER}
+            IdentityFile $HOME/.ssh/spaceup_deploy
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile $HOME/.ssh/known_hosts
+            ConnectTimeout 15
+            ProxyJump spaceup-public
+          EOF
+          chmod 600 "$HOME/.ssh/config"
 
       - name: Deploy through the public bastion
         run: |
           set -Eeuo pipefail
-          printf '%s\n' "$REVISION" | ssh \
-            -i "$HOME/.ssh/spaceup_deploy" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-            -o ConnectTimeout=15 \
-            -J "${SSH_USER}@${PUBLIC_HOST}" \
-            "${SSH_USER}@${PRIVATE_HOST}" \
+          printf '%s\n' "$REVISION" | ssh spaceup-private \
             "sudo -n /usr/local/sbin/spaceup-deploy-private"
 
   deploy-public:
@@ -146,18 +161,23 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/known_hosts"
           ssh-keygen -F "$PUBLIC_HOST" -f "$HOME/.ssh/known_hosts" >/dev/null
+          cat > "$HOME/.ssh/config" <<EOF
+          Host spaceup-public
+            HostName ${PUBLIC_HOST}
+            User ${SSH_USER}
+            IdentityFile $HOME/.ssh/spaceup_deploy
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile $HOME/.ssh/known_hosts
+            ConnectTimeout 15
+          EOF
+          chmod 600 "$HOME/.ssh/config"
 
       - name: Deploy public services
         run: |
           set -Eeuo pipefail
-          printf '%s\n' "$REVISION" | ssh \
-            -i "$HOME/.ssh/spaceup_deploy" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-            -o ConnectTimeout=15 \
-            "${SSH_USER}@${PUBLIC_HOST}" \
+          printf '%s\n' "$REVISION" | ssh spaceup-public \
             "sudo -n /usr/local/sbin/spaceup-deploy-public"
 
   verify-production:

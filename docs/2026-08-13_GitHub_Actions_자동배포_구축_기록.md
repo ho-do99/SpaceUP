@@ -20,6 +20,9 @@
 | GitHub Actions 배포 | `.github/workflows/deploy.yml`에서 전체 40자리 `main` 커밋 SHA 검증, GHCR 이미지 존재 확인, PRI 선배포, PUB 후배포, 공개 URL 검증 순서를 구성 | 검증되지 않은 브랜치나 가변 태그가 운영에 배포되는 것을 차단하고 장애 범위를 줄이기 위해 |
 | 전용 배포 계정 | `install-deploy-user.sh`와 PUB/PRI 배포 게이트웨이를 추가 | Actions에 root 계정을 직접 제공하지 않고 서버 역할별 배포 명령 하나만 sudo로 허용하기 위해 |
 | 전용 계정 잠금 수정 | 고정된 `*` shadow 값을 폐기하고 설치 시 생성한 예측 불가능한 임시 비밀번호의 SHA-512 해시를 저장 | Ubuntu OpenSSH가 잠긴 계정의 올바른 공개키까지 거부해 자동배포 SSH 연결이 실패했기 때문에. 평문은 저장하지 않고 공개키 인증만 사용한다. |
+| 공개키 옵션 호환 수정 | PUB의 잘못된 `permitlisten="none"`을 유효한 단일 loopback listen 제한으로 교체 | OpenSSH 9.6의 `authorized_keys`가 해당 키 한 줄 전체를 무시하던 문제를 해결하면서 임의 원격 포워딩을 제한하기 위해 |
+| 점프 호스트 키 명시 | Actions SSH 설정에 PUB/PRI 별칭과 동일한 `IdentityFile`을 지정하고 PRI가 PUB을 `ProxyJump`로 사용하도록 변경 | 명령행의 `-i`와 `-J` 조합이 점프 호스트에 전용 키를 확실히 전달하지 않아 PRI 연결이 시간 초과되던 문제를 방지하기 위해 |
+| PRI host key 교체 | PUB과 중복된 PRI SSH host key를 백업 후 새 키로 교체 | 복제된 동일 지문으로는 Actions가 PUB과 PRI를 서로 다른 서버로 신뢰성 있게 식별할 수 없기 때문에 |
 | SSH 제한 | PUB은 `10.10.20.6:22` 점프 연결만, PRI는 포트 포워딩 없이 접속하도록 공개키 옵션을 제한 | 탈취된 배포 키가 임의 터널이나 다른 관리자 작업에 사용될 가능성을 낮추기 위해 |
 | AI 이미지 빌드 | CI에서 OCR/SPA 모델 파일을 Git LFS로 내려받고 LFS 포인터가 이미지에 들어가지 않았는지 검사 | SPA 분석 시 모델 대신 LFS 포인터가 포함되어 `invalid load key 'v'` 오류가 발생했던 문제를 방지하기 위해 |
 | 평면도 API | 프론트 요청 경로를 `/api/floorplans/apartments/variants/{id}/image`로 수정하고 테스트를 같은 경로로 정렬 | 기존 경로가 백엔드 컨트롤러와 달라 500 오류가 발생했기 때문에 |
