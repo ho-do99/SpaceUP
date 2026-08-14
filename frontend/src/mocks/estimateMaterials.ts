@@ -32,6 +32,7 @@ export interface MaterialCostRow {
 
 export interface MaterialProduct {
   id: string
+  unitPrice?: number
   category: MaterialCategory
   name: string
   brandDetail: string

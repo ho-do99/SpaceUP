@@ -59,6 +59,7 @@ function toMaterialProduct(product: CatalogMaterialProduct): MaterialProduct {
     name: product.productName,
     brandDetail: [product.brandName, product.modelCode].filter(Boolean).join(' · '),
     materialCost: price,
+    unitPrice: product.currentPrice,
     installationCost: '시공비 별도 견적',
     totalLabel: `자재 참고가 ${price}`,
     thumbnailSrc: product.imageUrl || fallbackImageFor(product.workType),

@@ -5,6 +5,7 @@ import {
   getInteriorImages,
   getAnalysis,
   getFloorplanVisualization,
+  getRecommendedProducts,
   getInteriorImageGenerationErrorMessage,
   replaceAnalysisSpaces,
   requestAnalysis,
@@ -49,6 +50,19 @@ describe('analysisApi', () => {
     })
   })
 
+
+  it('requests analysis-based material recommendations for the selected theme', async () => {
+    mockedApiRequest.mockResolvedValue({ success: true, message: 'ok', data: [] })
+
+    await getRecommendedProducts(77, 'WOOD')
+
+    expect(mockedApiRequest).toHaveBeenCalledWith({
+      method: 'GET',
+      url: '/api/analysis/request/77/recommended-products',
+      params: { theme: 'WOOD' },
+      authenticated: true,
+    })
+  })
   it('scans a floor plan with the request id, multipart file, and analysis timeout', async () => {
     mockedApiRequest.mockResolvedValue({
       success: true,

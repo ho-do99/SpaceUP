@@ -12,6 +12,7 @@ import type {
   RecommendedProduct,
   FloorplanVisualization,
 } from '@/types/analysis'
+import type { MaterialTheme } from '@/types/materialCatalog'
 
 const INTERIOR_IMAGE_TIMEOUT_MS = 75_000
 const FLOOR_PLAN_SCAN_TIMEOUT_MS = 360_000
@@ -92,9 +93,10 @@ export async function getAnalysisSpaces(requestId: number) {
   return unwrapApiResponse<AnalysisSpaceResponse[]>(response, '공간 조회에 실패했습니다.')
 }
 
-export async function getRecommendedProducts(requestId: number) {
+export async function getRecommendedProducts(requestId: number, theme: MaterialTheme) {
   const response = await apiRequest<ApiResponse<RecommendedProduct[]>>({
-    method: 'GET', url: `/api/analysis/request/${requestId}/recommended-products`, authenticated: true,
+    method: 'GET', url: `/api/analysis/request/${requestId}/recommended-products`,
+    params: { theme }, authenticated: true,
   })
   return unwrapApiResponse<RecommendedProduct[]>(response, '추천 상품 조회에 실패했습니다.')
 }

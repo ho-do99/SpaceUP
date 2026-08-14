@@ -1,3 +1,5 @@
+import type { MaterialTheme } from '@/types/materialCatalog'
+
 export type PropertyType = 'APARTMENT' | 'VILLA' | string
 export type RequestImageType = 'FLOOR_PLAN' | 'PHOTO' | 'AI_GENERATED'
 
@@ -15,7 +17,12 @@ export interface RequestCreateInput {
   requestedItems?: string
 }
 
-export type RequestUpdateInput = Partial<RequestCreateInput>
+export type RequestUpdateInput = Partial<RequestCreateInput> & {
+  selectedTheme?: MaterialTheme
+  selectedWallpaperProductId?: number
+  selectedFlooringProductId?: number
+  selectedLightingProductId?: number
+}
 
 export interface RequestResponse extends RequestCreateInput {
   id: number

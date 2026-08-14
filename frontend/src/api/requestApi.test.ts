@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiRequest } from './axiosInstance'
 import { attachRequestImage, createRequest, deleteRequestImage, getRequestImages, updateRequest } from './requestApi'
+import type { RequestUpdateInput } from '@/types/request'
 
 vi.mock('./axiosInstance', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./axiosInstance')>()
@@ -33,7 +34,16 @@ describe('requestApi', () => {
 
   it('accepts the backend null payload for a successful partial update', async () => {
     mockedApiRequest.mockResolvedValue({ success: true, message: 'ok', data: null })
-    await expect(updateRequest(7, { budgetMin: 3_000_000 })).resolves.toBeUndefined()
+    const input = {
+      budgetMin: 3_000_000,
+      selectedTheme: 'WOOD',
+      selectedFlooringProductId: 11,
+      selectedWallpaperProductId: 12,
+      selectedLightingProductId: 13,
+    } satisfies RequestUpdateInput
+
+    await expect(updateRequest(7, input)).resolves.toBeUndefined()
+    expect(mockedApiRequest).toHaveBeenCalledWith(expect.objectContaining({ data: input }))
   })
 
   it('deletes the exact request image id from its owning request', async () => {
