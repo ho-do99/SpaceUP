@@ -17,5 +17,5 @@ public class AiFloorplanProperties {
 
 	private String baseUrl = "http://localhost:8004";
 	private Duration connectTimeout = Duration.ofSeconds(5);
-	private Duration readTimeout = Duration.ofSeconds(30);
+	private Duration readTimeout = Duration.ofSeconds(300);
 }

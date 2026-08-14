@@ -10,16 +10,24 @@ import type {
   InteriorImageGenerateResponse,
   InteriorImageGenerationStatusResponse,
   RecommendedProduct,
+  FloorplanVisualization,
 } from '@/types/analysis'
 
 const INTERIOR_IMAGE_TIMEOUT_MS = 75_000
-const FLOOR_PLAN_SCAN_TIMEOUT_MS = 45_000
+const FLOOR_PLAN_SCAN_TIMEOUT_MS = 360_000
 
 export async function getAnalysis(requestId: number) {
   const response = await apiRequest<ApiResponse<AnalysisJobResponse>>({
     method: 'GET', url: `/api/analysis/request/${requestId}`, authenticated: true,
   })
   return unwrapApiResponse<AnalysisJobResponse>(response, '분석 조회에 실패했습니다.')
+}
+
+export async function getFloorplanVisualization(requestId: number) {
+  const response = await apiRequest<ApiResponse<FloorplanVisualization>>({
+    method: 'GET', url: `/api/analysis/request/${requestId}/floorplan-visualization`, authenticated: true,
+  })
+  return unwrapApiResponse<FloorplanVisualization>(response, '3D 분석 결과 조회에 실패했습니다.')
 }
 
 export async function requestAnalysis(requestId: number) {

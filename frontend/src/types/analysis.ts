@@ -81,3 +81,31 @@ export interface InteriorImageGenerationStatusResponse {
   status: InteriorImageGenerationStatus
   imageUrls: string[]
 }
+
+export type FloorplanPoint = [number, number]
+
+export interface FloorplanBoundingBox {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface FloorplanVisualizationRoom {
+  instance_id?: number
+  room_name: string
+  display_name?: string
+  class_id: number
+  pixel_count: number
+  included_in_total_area: boolean
+  bbox?: FloorplanBoundingBox
+  polygons?: FloorplanPoint[][]
+  viewer_polygons?: FloorplanPoint[][]
+}
+
+export interface FloorplanVisualization {
+  image_width: number
+  image_height: number
+  total_area_pixel_count: number
+  rooms: FloorplanVisualizationRoom[]
+}

@@ -5,6 +5,7 @@ $workflow = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../.github/workflo
 $deploy = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../scripts/deploy-private.sh"
 $spaDockerfile = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../ai/spa/Dockerfile"
 $ocrDockerfile = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../ai/ocr/Dockerfile"
+$nginx = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../nginx.production.conf.template"
 $privateEnvExample = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../examples/spaceup-private.env.example"
 
 foreach ($service in @('ocr:', 'spa:', 'viewerwall:')) {
@@ -29,6 +30,10 @@ if (-not $deploy.Contains('FLOORPLAN_HEALTHCHECK_VARIANT_IDS')) {
 if ($deploy.Contains('for variant_id in 18 19 20 21')) {
     throw 'floorplan health-check variant IDs are hard-coded'
 }
+if (-not $nginx.Contains('proxy_read_timeout 330s;')) {
+    throw 'nginx API timeout is shorter than the floorplan analysis timeout'
+}
+
 if (-not $privateEnvExample.Contains('FLOORPLAN_HEALTHCHECK_VARIANT_IDS=18 19 20 21')) {
     throw 'private environment example is missing floorplan health-check variant IDs'
 }

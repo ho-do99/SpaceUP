@@ -102,6 +102,9 @@ public class AnalysisJob extends BaseTimeEntity {
 
 	@Column(name = "total_wallpaper_area_m2")
 	private Double totalWallpaperAreaM2;
+	@Column(name = "floorplan_visualization_json", columnDefinition = "json")
+	private String floorplanVisualizationJson;
+
 
 	// ⭐ ML 파이프라인 콜백이 이 메서드로 결과를 채웁니다.
 	public void completeWith(Integer roomCount, Integer bathroomCount, Boolean hasBalcony, String kitchenType,
@@ -148,8 +151,13 @@ public class AnalysisJob extends BaseTimeEntity {
 		this.totalWallpaperAreaM2 = totalWallpaperAreaM2;
 	}
 
+	public void saveFloorplanVisualizationJson(String visualizationJson) {
+		this.floorplanVisualizationJson = visualizationJson;
+	}
+
 	public void fail() {
 		this.status = AnalysisStatus.FAILED;
+		this.floorplanVisualizationJson = null;
 	}
 
 	public void updateMatchingScore(int matchingScore) {

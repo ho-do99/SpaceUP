@@ -147,6 +147,9 @@ public class AiFloorplanAnalysisService {
 			if (!spaceRequests.isEmpty()) {
 				analysisJobService.replaceSpaces(requestId, landlordId, spaceRequests);
 			}
+			if (analysisResponse.visualizationJson() != null) {
+				analysisJobService.saveVisualization(requestId, landlordId, analysisResponse.visualizationJson());
+			}
 		} catch (RuntimeException e) {
 			markFailedQuietly(requestId);
 			throw e;

@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.spaceup.domain.analysis.dto.AnalysisJobEditRequest;
 import com.spaceup.domain.analysis.dto.AnalysisJobResponse;
 import com.spaceup.domain.analysis.dto.AnalysisJobResultRequest;
+import com.spaceup.domain.analysis.ai.exception.AiFloorplanAnalysisException;
 import com.spaceup.domain.analysis.dto.AnalysisSpaceRequest;
 import com.spaceup.domain.analysis.dto.AnalysisSpaceResponse;
 import com.spaceup.domain.analysis.entity.AnalysisJob;
@@ -23,6 +24,11 @@ import com.spaceup.domain.request.repository.RequestContractorRepository;
 import com.spaceup.global.error.AnalysisNotFoundException;
 import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.RequestNotFoundException;
+import com.spaceup.global.error.InvalidStatusTransitionException;
+
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -35,6 +41,7 @@ public class AnalysisJobService {
 	private final AnalysisSpaceRepository analysisSpaceRepository;
 	private final QuoteRequestRepository quoteRequestRepository;
 	private final RequestContractorRepository requestContractorRepository;
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	// 평면도 선택 또는 업로드가 끝난 뒤 호출합니다. 같은 의뢰의 중복 호출은 기존 작업 ID를 반환합니다.
 	// 의뢰 행을 잠가 동시 호출도 request_id UNIQUE 충돌 없이 직렬화합니다.
@@ -102,6 +109,13 @@ public class AnalysisJobService {
 		analysis.applyTotalConstructionArea(totalFloorArea, totalWallpaperArea);
 	}
 
+	@Transactional
+	public void saveVisualization(Long requestId, Long landlordId, String visualizationJson) {
+		AnalysisJob analysis = findByRequestOrThrow(requestId);
+		validateOwner(analysis.getRequest(), landlordId);
+		analysis.saveFloorplanVisualizationJson(visualizationJson);
+	}
+
 	public List<AnalysisSpaceResponse> getSpaces(Long requestId, Long memberId) {
 		AnalysisJob analysis = findByRequestOrThrow(requestId);
 		validateParticipant(analysis.getRequest(), memberId);
@@ -129,6 +143,20 @@ public class AnalysisJobService {
 	@Transactional
 	public void updateMatchingScoreIfExists(Long requestId, int score) {
 		analysisJobRepository.findByRequestId(requestId).ifPresent(analysis -> analysis.updateMatchingScore(score));
+	}
+
+	public JsonNode getVisualization(Long requestId, Long memberId) {
+		AnalysisJob analysis = findByRequestOrThrow(requestId);
+		validateParticipant(analysis.getRequest(), memberId);
+		String visualizationJson = analysis.getFloorplanVisualizationJson();
+		if (visualizationJson == null || visualizationJson.isBlank()) {
+			throw new InvalidStatusTransitionException("평면도 3D 분석 결과가 없습니다. 평면도를 먼저 분석해 주세요.");
+		}
+		try {
+			return objectMapper.readTree(visualizationJson);
+		} catch (JacksonException e) {
+			throw new AiFloorplanAnalysisException("저장된 평면도 3D 분석 결과를 읽을 수 없습니다.", e);
+		}
 	}
 
 	public AnalysisJobResponse getByRequest(Long requestId, Long memberId) {

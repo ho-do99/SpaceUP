@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
+import FloorPlanPreviewTabs from '@/components/user/FloorPlanPreviewTabs'
 import SpaceSelectionCard from '@/components/user/SpaceSelectionCard'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
@@ -31,6 +32,7 @@ export default function SpaceInformationPage() {
   const navigate = useNavigate()
   const { state } = useLocation()
   const floorPlanPreviewUrl = useMemo(() => getFloorPlanPreviewUrl(state), [state])
+  const requestId = getActiveRequestId()
   const [analysis, setAnalysis] = useState<AnalysisJobResponse | null>(null)
   const [ceilingHeight, setCeilingHeight] = useState('')
   const [isEditingCeilingHeight, setIsEditingCeilingHeight] = useState(false)
@@ -138,13 +140,7 @@ export default function SpaceInformationPage() {
           </section>
 
           <section className="mt-[17px] grid grid-cols-[176px_minmax(0,1fr)] items-start gap-2">
-            {floorPlanPreviewUrl ? (
-              <img src={floorPlanPreviewUrl} alt="분석한 평면도" className="h-[322px] w-[176px] border-[3px] border-[#777] bg-[#fafafa] object-contain" />
-            ) : (
-              <div role="img" aria-label="분석 평면도 미리보기를 표시할 수 없습니다." className="flex h-[322px] w-[176px] items-center justify-center border-[3px] border-[#777] bg-[#fafafa] px-4 text-center text-[11px] leading-5 text-[#64748b]">
-                평면도 미리보기 없음
-              </div>
-            )}
+            <FloorPlanPreviewTabs requestId={requestId} floorPlanPreviewUrl={floorPlanPreviewUrl} spaces={spaces} />
 
             <div className="h-[248px] overflow-hidden rounded-[7px] border border-[#d5dfed] bg-white">
               <h2 className="flex h-7 items-center px-[7px] text-[11px] font-bold text-[#1e293b]">공간 정보</h2>

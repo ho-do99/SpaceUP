@@ -6,6 +6,9 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -30,14 +33,19 @@ public class AiFloorplanAnalysisClient {
 	}
 
 	public AiFloorplanAnalysisResponse analyze(byte[] imageBytes, String filename, String contentType) {
+		String safeFilename = safeFilename(filename);
+		MediaType imageMediaType = resolveImageMediaType(safeFilename, contentType);
 		MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 		ByteArrayResource fileResource = new ByteArrayResource(imageBytes) {
 			@Override
 			public String getFilename() {
-				return filename;
+				return safeFilename;
 			}
 		};
-		body.add("file", fileResource);
+		HttpHeaders fileHeaders = new HttpHeaders();
+		fileHeaders.setContentType(imageMediaType);
+		fileHeaders.setContentDisposition(ContentDisposition.formData().name("file").filename(safeFilename).build());
+		body.add("file", new HttpEntity<>(fileResource, fileHeaders));
 
 		try {
 			String responseJson = restClient.post().uri("/api/analyze")
@@ -51,6 +59,30 @@ public class AiFloorplanAnalysisClient {
 		} catch (tools.jackson.core.JacksonException e) {
 			throw new AiFloorplanAnalysisException("AI 평면도 분석 응답 파싱에 실패했습니다.", e);
 		}
+	}
+
+	private String safeFilename(String filename) {
+		String normalized = filename == null ? "" : filename.replace('\\', '/');
+		String basename = normalized.substring(normalized.lastIndexOf('/') + 1).trim();
+		if (basename.isEmpty() || basename.indexOf('\r') >= 0 || basename.indexOf('\n') >= 0) {
+			throw new AiFloorplanAnalysisException("AI 분석용 파일 이름이 올바르지 않습니다.");
+		}
+		return basename;
+	}
+
+	private MediaType resolveImageMediaType(String filename, String contentType) {
+		String normalizedType = contentType == null ? "" : contentType.trim().toLowerCase();
+		String lowerFilename = filename.toLowerCase();
+		if (MediaType.IMAGE_PNG_VALUE.equals(normalizedType)
+				|| (normalizedType.isEmpty() && lowerFilename.endsWith(".png"))) {
+			return MediaType.IMAGE_PNG;
+		}
+		if (MediaType.IMAGE_JPEG_VALUE.equals(normalizedType)
+				|| (normalizedType.isEmpty()
+						&& (lowerFilename.endsWith(".jpg") || lowerFilename.endsWith(".jpeg")))) {
+			return MediaType.IMAGE_JPEG;
+		}
+		throw new AiFloorplanAnalysisException("AI 평면도 분석은 PNG 또는 JPEG 이미지만 지원합니다.");
 	}
 
 	private AiFloorplanAnalysisResponse parseRooms(String responseJson) {
@@ -103,6 +135,6 @@ public class AiFloorplanAnalysisClient {
 		if (rooms.isEmpty()) {
 			throw new AiFloorplanAnalysisException("AI 응답에서 유효한 방을 찾을 수 없습니다.");
 		}
-		return new AiFloorplanAnalysisResponse(totalAreaPixelCount, List.copyOf(rooms));
+		return new AiFloorplanAnalysisResponse(totalAreaPixelCount, List.copyOf(rooms), responseJson);
 	}
 }

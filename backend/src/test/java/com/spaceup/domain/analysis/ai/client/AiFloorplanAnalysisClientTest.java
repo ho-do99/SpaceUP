@@ -2,10 +2,15 @@ package com.spaceup.domain.analysis.ai.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
+import java.nio.charset.StandardCharsets;
+
+import org.springframework.http.HttpMethod;
+import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -25,6 +30,34 @@ class AiFloorplanAnalysisClientTest {
 		RestClient.Builder builder = RestClient.builder();
 		server = MockRestServiceServer.bindTo(builder).build();
 		client = new AiFloorplanAnalysisClient(builder.baseUrl("https://ai.test").build());
+	}
+
+	@Test
+	void sendsPngAsTypedMultipartFilePart() {
+		server.expect(requestTo("https://ai.test/api/analyze"))
+				.andExpect(method(HttpMethod.POST))
+				.andExpect(request -> {
+					String body = ((MockClientHttpRequest) request).getBodyAsString(StandardCharsets.ISO_8859_1);
+					assertThat(body).contains("filename=\"plan.png\"");
+					assertThat(body).contains("Content-Type: image/png");
+				})
+				.andRespond(withSuccess("""
+						{"total_area_pixel_count": 100, "rooms": [
+						  {"room_name": "??", "class_id": 4, "pixel_count": 100, "included_in_total_area": true}
+						]}
+						""", MediaType.APPLICATION_JSON));
+
+		client.analyze(new byte[] { 1 }, "folder/plan.png", "image/png");
+		server.verify();
+	}
+
+	@Test
+	void rejectsUnsupportedMediaTypeBeforeCallingAi() {
+		assertThatThrownBy(() -> client.analyze(new byte[] { 1 }, "plan.webp", "image/webp"))
+				.isInstanceOf(AiFloorplanAnalysisException.class)
+				.hasMessageContaining("PNG")
+				.hasMessageContaining("JPEG");
+		server.verify();
 	}
 
 	@Test

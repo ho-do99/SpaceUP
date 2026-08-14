@@ -4,6 +4,7 @@ import {
   generateInteriorImages,
   getInteriorImages,
   getAnalysis,
+  getFloorplanVisualization,
   getInteriorImageGenerationErrorMessage,
   replaceAnalysisSpaces,
   requestAnalysis,
@@ -32,11 +33,20 @@ describe('analysisApi', () => {
 
   it('replaces the complete analysis space list', async () => {
     const spaces = [{ spaceName: '거실', spaceAreaM2: 20, floorAreaM2: 20, wallpaperAreaM2: 45, selectedForConstruction: true }]
+
     mockedApiRequest.mockResolvedValue({ success: true, message: '공간 정보 수정 완료', data: null })
     await expect(replaceAnalysisSpaces(7, spaces)).resolves.toBeUndefined()
     expect(mockedApiRequest).toHaveBeenCalledWith(expect.objectContaining({
       method: 'PUT', url: '/api/analysis/request/7/spaces', data: spaces, authenticated: true,
     }))
+  })
+
+  it('loads the saved floorplan visualization without starting analysis', async () => {
+    mockedApiRequest.mockResolvedValue({ success: true, message: 'ok', data: { image_width: 100, image_height: 80, rooms: [] } })
+    await getFloorplanVisualization(77)
+    expect(mockedApiRequest).toHaveBeenCalledWith({
+      method: 'GET', url: '/api/analysis/request/77/floorplan-visualization', authenticated: true,
+    })
   })
 
   it('scans a floor plan with the request id, multipart file, and analysis timeout', async () => {
@@ -53,7 +63,7 @@ describe('analysisApi', () => {
       method: 'POST',
       url: '/api/analysis/request/7/floorplan-scan',
       authenticated: true,
-      timeout: 45_000,
+      timeout: 360_000,
       data: expect.any(FormData),
     }))
     const request = mockedApiRequest.mock.calls[0][0]
@@ -67,7 +77,7 @@ describe('analysisApi', () => {
       method: 'POST',
       url: '/api/analysis/request/7/floorplan-scan-linked',
       authenticated: true,
-      timeout: 45_000,
+      timeout: 360_000,
     })
     expect(mockedApiRequest.mock.calls[0][0]).not.toHaveProperty('data')
   })

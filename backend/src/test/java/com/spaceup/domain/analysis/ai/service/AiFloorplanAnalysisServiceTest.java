@@ -177,12 +177,13 @@ class AiFloorplanAnalysisServiceTest {
 		when(quoteRequestRepository.findById(7L)).thenReturn(Optional.of(quoteRequest));
 		when(aiFloorplanAnalysisClient.analyze(storedImage, "floorplan1.png", "image/png"))
 				.thenReturn(new AiFloorplanAnalysisResponse(1000,
-						List.of(new AiFloorplanRoom("living room", 4, 1000, true))));
+						List.of(new AiFloorplanRoom("living room", 4, 1000, true)), "{\"image_width\":100}"));
 
 		service.analyzeFromStorage(7L, 1L, 99L);
 
 		verify(aiFloorplanAnalysisClient).analyze(storedImage, "floorplan1.png", "image/png");
 		verify(analysisJobService).submitResult(org.mockito.ArgumentMatchers.eq(7L), any());
+		verify(analysisJobService).saveVisualization(7L, 1L, "{\"image_width\":100}");
 	}
 
 	@Test

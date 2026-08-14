@@ -9,6 +9,7 @@ const api = vi.hoisted(() => ({
   getAnalysisSpaces: vi.fn(),
   replaceAnalysisSpaces: vi.fn(),
   updateAnalysis: vi.fn(),
+  getFloorplanVisualization: vi.fn(),
 }))
 
 vi.mock('@/api/analysisApi', () => api)
@@ -46,6 +47,7 @@ describe('SpaceInformationPage', () => {
       ceilingHeightM: 2.4,
     })
     api.getAnalysisSpaces.mockReset().mockResolvedValue(spaces)
+    api.getFloorplanVisualization.mockReset().mockResolvedValue({ image_width: 100, image_height: 100, total_area_pixel_count: 5000, rooms: [] })
     api.replaceAnalysisSpaces.mockReset().mockResolvedValue(undefined)
     api.updateAnalysis.mockReset().mockResolvedValue(undefined)
   })
@@ -69,6 +71,15 @@ describe('SpaceInformationPage', () => {
     expect(screen.getByText('3개')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: '분석한 평면도' })).toHaveAttribute('src', '/api/floorplans/variants/1/image')
   })
+  it('loads the saved AI geometry only when the 3D tab is opened', async () => {
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('tab', { name: '3D 분석' }))
+
+    await waitFor(() => expect(api.getFloorplanVisualization).toHaveBeenCalledOnce())
+    expect(api.getFloorplanVisualization).toHaveBeenCalledWith(77)
+  })
+
 
   it('preserves all backend spaces in PUT, reloads them, and moves only after refresh succeeds', async () => {
     const refreshedSpaces = spaces.map((space) => ({ ...space, selectedForConstruction: true }))

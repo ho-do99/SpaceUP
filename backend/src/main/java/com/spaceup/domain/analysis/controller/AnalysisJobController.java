@@ -23,6 +23,7 @@ import com.spaceup.domain.material.dto.RecommendedMaterialResponse;
 import com.spaceup.domain.material.entity.MaterialTheme;
 import com.spaceup.domain.material.service.MaterialRecommendationService;
 import com.spaceup.global.util.ApiResponse;
+import tools.jackson.databind.JsonNode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -99,6 +100,13 @@ public class AnalysisJobController {
 		return ResponseEntity.ok(ApiResponse.success("AI 평면도 재분석이 완료되었습니다.",
 				aiFloorplanAnalysisService.analyzeFromLinkedImage(requestId, principal.getId())));
 	}
+	@GetMapping("/request/{requestId}/floorplan-visualization")
+	public ResponseEntity<ApiResponse<JsonNode>> getFloorplanVisualization(@PathVariable Long requestId,
+			Authentication authentication) {
+		return ResponseEntity.ok(ApiResponse.success("평면도 3D 분석 결과 조회 완료",
+				analysisJobService.getVisualization(requestId, getMemberId(authentication))));
+	}
+
 
 	// ⭐ PDF "공간 정보 확인" 화면 조회
 	@GetMapping("/request/{requestId}")

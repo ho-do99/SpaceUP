@@ -84,4 +84,4 @@ external-api:
   ai-floorplan:
     base-url: ${AI_FLOORPLAN_BASE_URL:http://localhost:8004}
     connect-timeout: 5s
-    read-timeout: 30s
+    read-timeout: 300s
