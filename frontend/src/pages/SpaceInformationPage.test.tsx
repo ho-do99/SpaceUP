@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import SpaceInformationPage from './SpaceInformationPage'
-import type { AnalysisSpaceResponse } from '@/types/analysis'
+import type { AnalysisSpaceResponse, FloorplanVisualization } from '@/types/analysis'
 
 const api = vi.hoisted(() => ({
   getAnalysis: vi.fn(),
@@ -10,6 +10,12 @@ const api = vi.hoisted(() => ({
   replaceAnalysisSpaces: vi.fn(),
   updateAnalysis: vi.fn(),
   getFloorplanVisualization: vi.fn(),
+}))
+
+vi.mock('@/components/user/FloorPlan3DViewer', () => ({
+  default: ({ visualization }: { visualization: FloorplanVisualization }) => (
+    <p>저장된 3D 모델 {visualization.image_width}</p>
+  ),
 }))
 
 vi.mock('@/api/analysisApi', () => api)
@@ -69,15 +75,18 @@ describe('SpaceInformationPage', () => {
     expect(screen.getByRole('button', { name: /안방/ })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: /침실1/ })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByText('3개')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: '원본' }))
     expect(screen.getByRole('img', { name: '분석한 평면도' })).toHaveAttribute('src', '/api/floorplans/variants/1/image')
   })
-  it('loads the saved AI geometry only when the 3D tab is opened', async () => {
+  it('loads the saved AI geometry and selects the 3D result by default', async () => {
     renderPage()
-
-    fireEvent.click(await screen.findByRole('tab', { name: '3D 분석' }))
 
     await waitFor(() => expect(api.getFloorplanVisualization).toHaveBeenCalledOnce())
     expect(api.getFloorplanVisualization).toHaveBeenCalledWith(77)
+    expect(screen.getByRole('tab', { name: '3D 분석' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('img', { name: '분석한 평면도' })).not.toBeInTheDocument()
+    expect(await screen.findByText('저장된 3D 모델 100')).toBeInTheDocument()
   })
 
 
@@ -110,7 +119,7 @@ describe('SpaceInformationPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: '다음' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('공간 저장 실패')
+    expect(await screen.findByText('공간 저장 실패')).toBeInTheDocument()
     expect(screen.queryByText('style page')).not.toBeInTheDocument()
     expect(api.getAnalysisSpaces).toHaveBeenCalledOnce()
   })
@@ -123,7 +132,7 @@ describe('SpaceInformationPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: '다음' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('공간 정보는 저장되었지만 최신 정보를 불러오지 못했습니다. 재조회 실패')
+    expect(await screen.findByText('공간 정보는 저장되었지만 최신 정보를 불러오지 못했습니다. 재조회 실패')).toBeInTheDocument()
     expect(screen.queryByText('style page')).not.toBeInTheDocument()
   })
 })

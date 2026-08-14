@@ -1,18 +1,23 @@
 package com.spaceup.domain.analysis.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.spaceup.domain.analysis.dto.AnalysisSpaceRequest;
 import com.spaceup.domain.analysis.entity.AnalysisJob;
 import com.spaceup.domain.analysis.entity.AnalysisStatus;
 import com.spaceup.domain.analysis.repository.AnalysisJobRepository;
@@ -57,5 +62,27 @@ class AnalysisJobServiceIdempotencyTest {
 
 		assertThat(analysisJobId).isEqualTo(55L);
 		verify(analysisJobRepository, never()).save(org.mockito.ArgumentMatchers.any(AnalysisJob.class));
+	}
+
+	@Test
+	void replacingSpacesFlushesDeletedRowsBeforeReusingTheirSortOrders() {
+		Member owner = Member.builder().id(100L).password("encoded").email("owner@test.com")
+				.name("임대인").role(MemberRole.LANDLORD).build();
+		QuoteRequest request = QuoteRequest.builder().id(7L).owner(owner).status(RequestStatus.NEW).build();
+		AnalysisJob analysis = AnalysisJob.builder().id(55L).request(request).status(AnalysisStatus.COMPLETED).build();
+		AnalysisSpaceRequest space = new AnalysisSpaceRequest();
+		space.setSpaceName("거실");
+		space.setSpaceAreaM2(24.0);
+		space.setFloorAreaM2(24.0);
+		space.setWallpaperAreaM2(36.0);
+		space.setSelectedForConstruction(true);
+		when(analysisJobRepository.findByRequestId(7L)).thenReturn(Optional.of(analysis));
+
+		service.replaceSpaces(7L, 100L, List.of(space));
+
+		InOrder persistenceOrder = inOrder(analysisSpaceRepository);
+		persistenceOrder.verify(analysisSpaceRepository).deleteByAnalysisJobId(55L);
+		persistenceOrder.verify(analysisSpaceRepository).flush();
+		persistenceOrder.verify(analysisSpaceRepository).save(any());
 	}
 }

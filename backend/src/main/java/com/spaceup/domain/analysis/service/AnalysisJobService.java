@@ -89,6 +89,7 @@ public class AnalysisJobService {
 		AnalysisJob analysis = findByRequestOrThrow(requestId);
 		validateOwner(analysis.getRequest(), landlordId);
 		analysisSpaceRepository.deleteByAnalysisJobId(analysis.getId());
+		analysisSpaceRepository.flush();
 
 		double totalFloorArea = 0;
 		double totalWallpaperArea = 0;
