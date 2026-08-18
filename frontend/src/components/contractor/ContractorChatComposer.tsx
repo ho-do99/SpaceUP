@@ -1,8 +1,16 @@
 import { useState, type KeyboardEvent } from 'react'
 
-export default function ContractorChatComposer({ onSend }: { onSend: (message: string) => void }) {
+export default function ContractorChatComposer({
+  onSend,
+  enabled = true,
+  sending = false,
+}: {
+  onSend: (message: string) => void
+  enabled?: boolean
+  sending?: boolean
+}) {
   const [message, setMessage] = useState('')
-  const canSend = message.trim().length > 0
+  const canSend = enabled && !sending && message.trim().length > 0
 
   const send = () => {
     if (!canSend) return
@@ -26,9 +34,10 @@ export default function ContractorChatComposer({ onSend }: { onSend: (message: s
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             onKeyDown={handleKeyDown}
+            disabled={!enabled}
             rows={1}
             aria-label="채팅 메시지"
-            placeholder="메시지를 입력하세요."
+            placeholder={enabled ? '메시지를 입력하세요.' : '종료된 채팅방입니다.'}
             className="max-h-24 min-h-11 w-full resize-none rounded-xl border border-[#cbd5e1] px-3 py-3 text-xs leading-5 outline-none placeholder:text-[#94a3b8] focus:border-[#2563eb] focus-visible:ring-2 focus-visible:ring-[#bfdbfe]"
           />
         </label>

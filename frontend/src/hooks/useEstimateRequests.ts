@@ -21,10 +21,11 @@ export function toEstimateRequestSummary(request: RequestResponse): EstimateRequ
   const selectedItems = request.requestedItems?.split(',').map((item) => item.trim()).filter(Boolean) ?? []
   const state = requestStatus(request.status)
   const budget = request.budgetMax ?? request.budget ?? request.budgetMin
+  const contractorName = request.contractorNames?.length ? request.contractorNames.join(', ') : request.contractorId ? `선택 시공사 #${request.contractorId}` : '여러 시공사 견적 비교'
   return {
     id: String(request.id),
     contractorId: request.contractorId ? String(request.contractorId) : '',
-    contractorName: request.contractorId ? `선택 시공사 #${request.contractorId}` : '여러 시공사 견적 비교',
+    contractorName,
     regionAndSpecialty: `${request.region} · ${request.requestCode ?? `의뢰 #${request.id}`}`,
     requestedAtLabel: request.createdAt?.slice(0, 10) ?? '-',
     itemCountLabel: `${selectedItems.length}개 항목`,

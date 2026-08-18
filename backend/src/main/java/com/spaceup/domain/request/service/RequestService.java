@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
@@ -16,6 +17,8 @@ import com.spaceup.domain.analysis.entity.AnalysisJob;
 import com.spaceup.domain.analysis.repository.AnalysisJobRepository;
 import com.spaceup.domain.analysis.service.AnalysisJobService;
 import com.spaceup.domain.contractor.repository.ContractorProfileRepository;
+import com.spaceup.domain.floorplan.entity.FloorPlanVariant;
+import com.spaceup.domain.floorplan.repository.FloorPlanVariantRepository;
 import com.spaceup.domain.matching.service.MatchingScoreCalculator;
 import com.spaceup.domain.material.entity.MaterialProduct;
 import com.spaceup.domain.material.entity.MaterialTheme;
@@ -59,6 +62,7 @@ public class RequestService {
 	private final MemberRepository memberRepository;
 	private final MatchingScoreCalculator matchingScoreCalculator;
 	private final ContractorProfileRepository contractorProfileRepository;
+	private final FloorPlanVariantRepository floorPlanVariantRepository;
 	private final AnalysisJobService analysisJobService;
 	private final AnalysisJobRepository analysisJobRepository;
 	private final ContractorQuoteRepository contractorQuoteRepository;
@@ -144,22 +148,21 @@ public class RequestService {
 		if (!isOwner && !isContractor) {
 			throw new ForbiddenAccessException("본인이 참여 중인 의뢰만 조회할 수 있습니다.");
 		}
-		return new RequestResponse(request, lookupMatchingScore(requestId), lookupAcceptedQuoteAmount(requestId),
-				participation != null ? participation.getStatus() : null);
+		return toResponse(request, participation != null ? participation.getStatus() : null,
+				participation != null ? participation.getMatchingScore() : lookupMatchingScore(requestId), isOwner);
 	}
 
 	// ⭐ PDF "의뢰 목록" 화면 - 시공사 관점 (페이지네이션)
 	public Page<RequestResponse> getRequestsForContractor(Long contractorId, Pageable pageable) {
 		return requestContractorRepository.findByContractorId(contractorId, pageable)
-				.map(participation -> new RequestResponse(participation.getRequest(),
-						participation.getMatchingScore(),
-						lookupAcceptedQuoteAmount(participation.getRequest().getId()), participation.getStatus()));
+				.map(participation -> toResponse(participation.getRequest(), participation.getStatus(),
+						participation.getMatchingScore(), false));
 	}
 
 	// ⭐ PDF "마이페이지 - 견적 요청 내역" 화면 - 임대인 관점 (페이지네이션)
 	public Page<RequestResponse> getRequestsForLandlord(Long landlordId, Pageable pageable) {
-		return quoteRequestRepository.findByOwnerId(landlordId, pageable).map(request -> new RequestResponse(request,
-				lookupMatchingScore(request.getId()), lookupAcceptedQuoteAmount(request.getId())));
+		return quoteRequestRepository.findByOwnerId(landlordId, pageable)
+				.map(request -> toResponse(request, null, lookupMatchingScore(request.getId()), true));
 	}
 
 	// ⭐ 임대인이 특정 시공사에게 견적을 요청하는 순간(PDF 08 견적 요청) 시공사가 매칭됩니다. 본인이 등록한 의뢰만 배정
@@ -212,7 +215,6 @@ public class RequestService {
 		participation.approve();
 		request.markQuoteRequested();
 		request.touch();
-		siteVisitService.createIfAbsent(request, participation.getContractor());
 
 		notificationService.notify(request.getOwner().getId(), NotificationType.REQUEST, "의뢰가 승인되었습니다",
 				String.format("%s 의뢰를 시공사가 승인했습니다. 견적을 확인해 주세요.", request.getRequestCode()));
@@ -245,6 +247,27 @@ public class RequestService {
 
 	private Integer lookupMatchingScore(Long requestId) {
 		return analysisJobRepository.findByRequestId(requestId).map(AnalysisJob::getMatchingScore).orElse(null);
+	}
+
+
+	private RequestResponse toResponse(QuoteRequest request, RequestContractorStatus participationStatus,
+			Integer matchingScore, boolean includeContractorNames) {
+		Long requestId = request.getId();
+		Long floorPlanVariantId = floorPlanVariantRepository
+				.findFirstByApartmentRoadAddressAndExclusiveAreaM2AndFloorPlanImageUrlIsNotNull(
+						request.getProperty().getRegion(), request.getProperty().getExclusiveAreaM2())
+				.map(FloorPlanVariant::getId).orElse(null);
+		List<String> contractorNames = includeContractorNames
+				? requestContractorRepository.findByRequestId(requestId).stream()
+						.map(RequestContractor::getContractor)
+						.map(contractor -> contractorProfileRepository.findByMemberId(contractor.getId())
+								.map(profile -> profile.getCompanyName())
+								.filter(name -> name != null && !name.isBlank())
+								.orElse(contractor.getName()))
+						.distinct().toList()
+				: List.of();
+		return new RequestResponse(request, matchingScore, lookupAcceptedQuoteAmount(requestId), participationStatus,
+				floorPlanVariantId, contractorNames);
 	}
 
 	// ⭐ [고도화] "임대인 예상 공사비 vs 시공사 확정 견적" 비교용 - 수락된 견적이 없으면 null(아직 비교 불가)

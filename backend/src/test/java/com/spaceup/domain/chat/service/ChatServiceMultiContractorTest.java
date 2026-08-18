@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.spaceup.domain.chat.repository.ChatMessageRepository;
+import com.spaceup.domain.contractor.repository.ContractorProfileRepository;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.entity.MemberRole;
 import com.spaceup.domain.member.repository.MemberRepository;
@@ -31,6 +32,7 @@ import com.spaceup.global.error.ForbiddenAccessException;
 class ChatServiceMultiContractorTest {
 
 	@Mock ChatMessageRepository chatMessageRepository;
+	@Mock ContractorProfileRepository contractorProfileRepository;
 	@Mock QuoteRequestRepository quoteRequestRepository;
 	@Mock RequestContractorRepository requestContractorRepository;
 	@Mock MemberRepository memberRepository;

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import {
-  Navigate,
   useNavigate,
   useParams,
   useSearchParams,
@@ -82,7 +81,6 @@ export default function ContractorEstimateEditPage() {
   const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
 
   const {
-    visitStatus,
     estimateDraft,
     estimateLifecycleStatus,
     revisionRequest,
@@ -119,18 +117,6 @@ export default function ContractorEstimateEditPage() {
     return <ContractorRequestNotFound />
   }
 
-  if (
-    visitStatus !== 'COMPLETED' &&
-    !isRevision &&
-    !isCompletedView
-  ) {
-    return (
-      <Navigate
-        to={`/contractor/requests/${request.requestId}/visit`}
-        replace
-      />
-    )
-  }
 
   const updateMeasurement = (
     field: keyof ContractorEstimateMeasurement,
