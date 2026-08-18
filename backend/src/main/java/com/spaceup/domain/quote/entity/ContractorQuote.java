@@ -111,6 +111,11 @@ public class ContractorQuote extends BaseTimeEntity {
 	private QuoteStatus status;
 
 	@Builder.Default
+	@Enumerated(EnumType.STRING)
+	@Column(name = "quote_phase", nullable = false, length = 20)
+	private QuotePhase phase = QuotePhase.PRELIMINARY;
+
+	@Builder.Default
 	@OneToMany(mappedBy = "quote", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
 	private List<ContractorQuoteItem> items = new ArrayList<>();
 

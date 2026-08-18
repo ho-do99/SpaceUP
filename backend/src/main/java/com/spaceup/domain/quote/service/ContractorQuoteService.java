@@ -16,12 +16,16 @@ import com.spaceup.domain.quote.dto.ContractorQuoteItemRequest;
 import com.spaceup.domain.quote.dto.ContractorQuoteResponse;
 import com.spaceup.domain.quote.entity.ContractorQuote;
 import com.spaceup.domain.quote.entity.ContractorQuoteItem;
+import com.spaceup.domain.quote.entity.QuotePhase;
 import com.spaceup.domain.quote.entity.QuoteStatus;
 import com.spaceup.domain.quote.repository.ContractorQuoteRepository;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.entity.RequestContractor;
 import com.spaceup.domain.request.entity.RequestContractorStatus;
 import com.spaceup.domain.request.repository.RequestContractorRepository;
+import com.spaceup.domain.visit.entity.SiteVisitStatus;
+import com.spaceup.domain.visit.repository.SiteVisitRepository;
+import com.spaceup.domain.visit.service.SiteVisitService;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
 import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.InvalidStatusTransitionException;
@@ -44,6 +48,8 @@ public class ContractorQuoteService {
 	private final QuoteRequestRepository quoteRequestRepository;
 	private final MemberRepository memberRepository;
 	private final NotificationService notificationService;
+	private final SiteVisitService siteVisitService;
+	private final SiteVisitRepository siteVisitRepository;
 
 	// ⭐ PDF "임시 저장" 버튼 → DRAFT 상태로 생성. 항목 금액 합계 + 부가세 - 할인 = 최종 견적으로 자동 계산합니다.
 	@Transactional
@@ -53,9 +59,7 @@ public class ContractorQuoteService {
 		RequestContractor participation = requestContractorRepository
 				.findByRequestIdAndContractorId(request.getId(), contractorId)
 				.orElseThrow(() -> new ForbiddenAccessException("견적 참여를 요청받은 의뢰에만 견적을 작성할 수 있습니다."));
-		if (participation.getStatus() != RequestContractorStatus.APPROVED) {
-			throw new InvalidStatusTransitionException("참여를 승인한 뒤 견적을 작성할 수 있습니다.");
-		}
+		QuotePhase phase = resolveQuotePhase(participation);
 		Member contractor = memberRepository.findById(contractorId)
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 시공사입니다: " + contractorId));
 
@@ -65,7 +69,7 @@ public class ContractorQuoteService {
 				.title(dto.getTitle()).startDate(dto.getStartDate()).durationDays(dto.getDurationDays())
 				.materialCost(dto.getMaterialCost() != null ? dto.getMaterialCost() : materialCost)
 				.laborCost(dto.getLaborCost()).vat(dto.getVat()).discount(dto.getDiscount())
-				.detailContent(dto.getDetailContent()).status(QuoteStatus.DRAFT).build();
+				.detailContent(dto.getDetailContent()).status(QuoteStatus.DRAFT).phase(phase).build();
 
 		dto.getItems().forEach(itemDto -> quote.addItem(ContractorQuoteItem.builder()
 				.category(itemDto.getCategory()).description(itemDto.getDescription()).amount(itemDto.getAmount())
@@ -115,25 +119,30 @@ public class ContractorQuoteService {
 		validateLandlordOwnership(quote, landlordId);
 		quoteRequestRepository.findByIdForUpdate(quote.getRequest().getId())
 				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + quote.getRequest().getId()));
-		// ⭐ [보안 수정] 이미 이 의뢰에 수락된 견적이 있으면 중복 수락을 막습니다(두 시공사가 모두 낙찰됐다고
-		// 알림을 받는 것을 방지).
-		contractorQuoteRepository
-				.findFirstByRequestIdAndStatusOrderByUpdatedAtDesc(quote.getRequest().getId(), QuoteStatus.ACCEPTED)
-				.ifPresent(existing -> {
-					throw new InvalidStatusTransitionException("이미 이 의뢰에 수락된 견적이 있습니다.");
+		contractorQuoteRepository.findFirstByRequestIdAndPhaseAndStatusOrderByUpdatedAtDesc(
+				quote.getRequest().getId(), quote.getPhase(), QuoteStatus.ACCEPTED).ifPresent(existing -> {
+					throw new InvalidStatusTransitionException("이미 이 단계에서 수락된 견적이 있습니다.");
 				});
 		quote.accept();
-		RequestContractor selected = requestContractorRepository
-				.findByRequestIdAndContractorId(quote.getRequest().getId(), quote.getContractor().getId())
-				.orElseThrow(() -> new InvalidStatusTransitionException("견적 참여 정보가 없어 시공사를 확정할 수 없습니다."));
-		selected.select();
-		requestContractorRepository.findByRequestId(quote.getRequest().getId()).stream()
-				.filter(participation -> !participation.getId().equals(selected.getId()))
-				.forEach(RequestContractor::close);
-		quote.getRequest().selectContractor(quote.getContractor());
 
-		notificationService.notify(quote.getContractor().getId(), NotificationType.QUOTE, "견적이 선택되었습니다",
-				String.format("%s 견적이 최종 선택되었습니다. 일정을 등록해 주세요.", quote.getTitle()));
+		if (quote.getPhase() == QuotePhase.PRELIMINARY) {
+			RequestContractor selected = requestContractorRepository
+					.findByRequestIdAndContractorId(quote.getRequest().getId(), quote.getContractor().getId())
+					.orElseThrow(() -> new InvalidStatusTransitionException("견적 참여 정보가 없어 시공사를 확정할 수 없습니다."));
+			selected.select();
+			requestContractorRepository.findByRequestId(quote.getRequest().getId()).stream()
+					.filter(participation -> !participation.getId().equals(selected.getId()))
+					.forEach(RequestContractor::close);
+			quote.getRequest().selectContractor(quote.getContractor());
+			siteVisitService.createIfAbsent(quote.getRequest(), quote.getContractor());
+
+			notificationService.notify(quote.getContractor().getId(), NotificationType.QUOTE, "1차 예상 견적이 선택되었습니다",
+					String.format("%s 1차 예상 견적이 선택되었습니다. 실측 방문 일정을 등록해 주세요.", quote.getTitle()));
+			return;
+		}
+
+		notificationService.notify(quote.getContractor().getId(), NotificationType.QUOTE, "최종 견적이 확정되었습니다",
+				String.format("%s 최종 견적이 확정되었습니다.", quote.getTitle()));
 	}
 
 	@Transactional
@@ -196,6 +205,22 @@ public class ContractorQuoteService {
 					.collect(Collectors.toList());
 		}
 		return quotes.stream().map(ContractorQuoteResponse::new).collect(Collectors.toList());
+	}
+
+	private QuotePhase resolveQuotePhase(RequestContractor participation) {
+		if (participation.getStatus() == RequestContractorStatus.APPROVED) {
+			return QuotePhase.PRELIMINARY;
+		}
+		if (participation.getStatus() == RequestContractorStatus.SELECTED) {
+			boolean visitCompleted = siteVisitRepository.findByRequestIdAndContractorId(
+					participation.getRequest().getId(), participation.getContractor().getId())
+					.map(visit -> visit.getStatus() == SiteVisitStatus.COMPLETED).orElse(false);
+			if (!visitCompleted) {
+				throw new InvalidStatusTransitionException("실측 방문 완료 후 최종 견적을 작성할 수 있습니다.");
+			}
+			return QuotePhase.FINAL;
+		}
+		throw new InvalidStatusTransitionException("참여를 승인한 시공사만 1차 예상 견적을 작성할 수 있습니다.");
 	}
 
 	private void validateContractorOwnership(ContractorQuote quote, Long contractorId) {

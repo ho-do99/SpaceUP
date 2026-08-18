@@ -215,7 +215,6 @@ public class RequestService {
 		participation.approve();
 		request.markQuoteRequested();
 		request.touch();
-		siteVisitService.createIfAbsent(request, participation.getContractor());
 
 		notificationService.notify(request.getOwner().getId(), NotificationType.REQUEST, "의뢰가 승인되었습니다",
 				String.format("%s 의뢰를 시공사가 승인했습니다. 견적을 확인해 주세요.", request.getRequestCode()));

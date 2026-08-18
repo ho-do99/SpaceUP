@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.spaceup.domain.quote.entity.ContractorQuote;
+import com.spaceup.domain.quote.entity.QuotePhase;
 import com.spaceup.domain.quote.entity.QuoteStatus;
 
 import lombok.Getter;
@@ -21,6 +22,7 @@ public class ContractorQuoteResponse {
 	private final Integer durationDays;
 	private final Long totalAmount;
 	private final QuoteStatus status;
+	private final QuotePhase phase;
 	private final LocalDate validUntil;
 	private final String revisionRequestNote;
 	private final List<Long> revisionTargetItemIds;
@@ -38,6 +40,7 @@ public class ContractorQuoteResponse {
 		this.durationDays = quote.getDurationDays();
 		this.totalAmount = quote.getTotalAmount();
 		this.status = quote.getStatus();
+		this.phase = quote.getPhase();
 		this.validUntil = quote.getValidUntil();
 		this.revisionRequestNote = quote.getRevisionRequestNote();
 		this.revisionTargetItemIds = quote.getRevisionTargetItemIds() == null

@@ -39,7 +39,6 @@ export default function ContractorEstimatePreviewPage() {
   const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
 
   const {
-    visitStatus,
     estimateDraft,
     estimateLifecycleStatus,
     submitEstimate,
@@ -71,18 +70,6 @@ export default function ContractorEstimatePreviewPage() {
     return <ContractorRequestNotFound />
   }
 
-  if (
-    visitStatus !== 'COMPLETED' &&
-    !isRevision &&
-    !isCompletedView
-  ) {
-    return (
-      <Navigate
-        to={`/contractor/requests/${request.requestId}/visit`}
-        replace
-      />
-    )
-  }
 
   if (
     !estimateDraft ||
