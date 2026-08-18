@@ -42,6 +42,14 @@ foreach ($objectStorageKey in @('NCP_OBJECT_STORAGE_ENABLED=true', 'NCP_OBJECT_S
     if (-not $deploy.Contains($objectStorageKey)) { throw "missing Object Storage deployment guard: $objectStorageKey" }
 }
 
+$geminiGuard = 'require_env_file_key "$SPACEUP_SECRET_ENV" "GEMINI_API_KEY"'
+if (-not $deploy.Contains($geminiGuard)) {
+    throw 'missing Gemini API key deployment guard'
+}
+if ($deploy.IndexOf($geminiGuard) -gt $deploy.IndexOf('pulling immutable private images')) {
+    throw 'Gemini API key must be validated before private images are replaced'
+}
+
 foreach ($spaPath in @('COPY spa/requirements.txt', 'COPY spa/app ./app', 'COPY model_weights/segmentation /models')) {
     if (-not $spaDockerfile.Contains($spaPath)) { throw "SPA image uses the wrong build context path: $spaPath" }
 }
