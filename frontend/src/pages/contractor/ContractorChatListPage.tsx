@@ -65,7 +65,7 @@ export default function ContractorChatListPage() {
           requestId: String(thread.requestId),
           projectName: thread.requestCode,
           customerName: thread.counterpartName,
-          progressLabel: completed ? '완료' : '견적 협의 중',
+          progressLabel: thread.contactable ? (completed ? '완료' : '견적 협의 중') : '채팅 종료',
           lastMessage: thread.lastMessage || '아직 메시지가 없습니다.',
           timeLabel: thread.lastMessageAt?.slice(5, 16).replace('T', ' ') || '-',
           unreadCount: thread.unreadCount,
@@ -78,10 +78,10 @@ export default function ContractorChatListPage() {
       setUsingLiveData(true)
       setLoading(false)
       setError('')
-    } catch {
+    } catch (loadError) {
       setUsingLiveData(false)
       setLoading(false)
-      setError('채팅 목록을 불러오지 못했습니다.')
+      setError(loadError instanceof Error ? loadError.message : '채팅 목록을 불러오지 못했습니다.')
     }
   }, [])
   useEffect(() => { void loadThreads() }, [loadThreads])

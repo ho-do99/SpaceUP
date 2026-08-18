@@ -2,6 +2,7 @@ import floorPlanFallback from '@/assets/user/images/floor-plan-preview.png'
 import type { AnalysisJobResponse } from '@/types/analysis'
 import type { ContractorRequest, ContractorRequestDetail, ContractorRequestStatus } from '@/types/contractorPortal'
 import type { RequestImageResponse, RequestResponse } from '@/types/request'
+import { getFloorPlanVariantPreviewUrl } from '@/api/apartmentFloorPlanApi'
 import { resolveApiAssetUrl } from '@/utils/apiAssetUrl'
 
 const won = new Intl.NumberFormat('ko-KR')
@@ -67,6 +68,12 @@ export function requestToContractorDetail(
   const card = requestToContractorCard(request)
   const floorPlan = images.find((image) => image.imageType === 'FLOOR_PLAN')
   const photos = images.filter((image) => image.imageType === 'PHOTO')
+  const generatedImages = images.filter((image) => image.imageType === 'AI_GENERATED')
+  const resolveImage = (image?: RequestImageResponse) => image
+    ? resolveApiAssetUrl(image.imageUrl) || image.imageUrl
+    : undefined
+  const linkedFloorPlanImage = resolveImage(floorPlan)
+    || (request.floorPlanVariantId ? getFloorPlanVariantPreviewUrl(request.floorPlanVariantId) : undefined)
   return {
     ...card,
     estimatedCostLabel: quoteLabel(analysis),
@@ -79,7 +86,11 @@ export function requestToContractorDetail(
     },
     selectedItems: request.requestedItems?.split(',').map((value) => value.trim()).filter(Boolean) ?? [],
     lightingNotice: '조명은 현장 전기 배선 확인 후 최종 견적이 확정됩니다.',
-    floorPlanImage: floorPlan ? resolveApiAssetUrl(floorPlan.imageUrl) || floorPlanFallback : floorPlanFallback,
+    floorPlanImage: linkedFloorPlanImage || floorPlanFallback,
+    hasLinkedFloorPlan: Boolean(linkedFloorPlanImage),
+    beforeImage: resolveImage(photos[0]),
+    afterImage: resolveImage(generatedImages[0]),
+    selectedTheme: request.selectedTheme || undefined,
     photos: photos.map((photo, index) => ({
       id: String(photo.id), label: `공간 사진 ${index + 1}`,
       image: resolveApiAssetUrl(photo.imageUrl) || photo.imageUrl,

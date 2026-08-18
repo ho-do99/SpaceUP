@@ -35,6 +35,7 @@ export default function ContractorChatPage({
   const [liveMessages, setLiveMessages] = useState<ContractorChatMessage[]>([])
   const [liveThread, setLiveThread] = useState<ChatThread | null>(null)
   const [liveError, setLiveError] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
   const messages = liveRequestId ? liveMessages : mockMessages
 
   useEffect(() => {
@@ -82,6 +83,11 @@ export default function ContractorChatPage({
       addMockMessage(content)
       return
     }
+    if (!liveThread?.contactable || sending) {
+      setLiveError('종료된 채팅방에는 메시지를 보낼 수 없습니다.')
+      return
+    }
+    setSending(true)
     try {
       const message = await sendChatMessage(numericRequestId, content)
       setLiveMessages((current) => current.some((item) => item.id === String(message.id)) ? current : [...current, {
@@ -89,8 +95,10 @@ export default function ContractorChatPage({
         timeLabel: message.createdAt?.slice(11, 16) || '',
       }])
       setLiveError(null)
-    } catch {
-      setLiveError('메시지를 보내지 못했습니다. 종료된 채팅방인지 확인해주세요.')
+    } catch (sendError) {
+      setLiveError(sendError instanceof Error ? sendError.message : '메시지를 보내지 못했습니다.')
+    } finally {
+      setSending(false)
     }
   }
 
@@ -202,6 +210,8 @@ export default function ContractorChatPage({
 
       <ContractorChatComposer
         onSend={(message) => void addMessage(message)}
+        enabled={!liveRequestId || liveThread?.contactable === true}
+        sending={sending}
       />
     </ContractorMobileShell>
   )

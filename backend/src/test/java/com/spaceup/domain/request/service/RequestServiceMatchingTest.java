@@ -20,6 +20,7 @@ import com.spaceup.domain.analysis.repository.AnalysisJobRepository;
 import com.spaceup.domain.analysis.service.AnalysisJobService;
 import com.spaceup.domain.contractor.entity.ContractorProfile;
 import com.spaceup.domain.contractor.repository.ContractorProfileRepository;
+import com.spaceup.domain.floorplan.repository.FloorPlanVariantRepository;
 import com.spaceup.domain.matching.dto.MatchingScoreResult;
 import com.spaceup.domain.matching.service.MatchingScoreCalculator;
 import com.spaceup.domain.material.repository.MaterialProductRepository;
@@ -61,6 +62,8 @@ class RequestServiceMatchingTest {
 	@Mock
 	private ContractorProfileRepository contractorProfileRepository;
 	@Mock
+	private FloorPlanVariantRepository floorPlanVariantRepository;
+	@Mock
 	private AnalysisJobService analysisJobService;
 	@Mock
 	private AnalysisJobRepository analysisJobRepository;
@@ -85,7 +88,7 @@ class RequestServiceMatchingTest {
 	})
 	void roundsMatchScoreHalfUpBeforeSaving(String matchScoreValue, int expectedScore) {
 		requestService = new RequestService(quoteRequestRepository, requestContractorRepository, propertyRepository, memberRepository,
-				matchingScoreCalculator, contractorProfileRepository, analysisJobService, analysisJobRepository,
+				matchingScoreCalculator, contractorProfileRepository, floorPlanVariantRepository, analysisJobService, analysisJobRepository,
 				contractorQuoteRepository, notificationService, siteVisitService, materialProductRepository);
 
 		QuoteRequest request = requestWithLandlordOwner();
@@ -105,7 +108,7 @@ class RequestServiceMatchingTest {
 	@Test
 	void savesZeroScoreWhenContractorHasNoProfileYet() {
 		requestService = new RequestService(quoteRequestRepository, requestContractorRepository, propertyRepository, memberRepository,
-				matchingScoreCalculator, contractorProfileRepository, analysisJobService, analysisJobRepository,
+				matchingScoreCalculator, contractorProfileRepository, floorPlanVariantRepository, analysisJobService, analysisJobRepository,
 				contractorQuoteRepository, notificationService, siteVisitService, materialProductRepository);
 
 		QuoteRequest request = requestWithLandlordOwner();
@@ -123,7 +126,7 @@ class RequestServiceMatchingTest {
 	@Test
 	void storesOnlyAnActiveMaterialWithTheExpectedThemeAndWorkType() {
 		requestService = new RequestService(quoteRequestRepository, requestContractorRepository, propertyRepository, memberRepository,
-				matchingScoreCalculator, contractorProfileRepository, analysisJobService, analysisJobRepository,
+				matchingScoreCalculator, contractorProfileRepository, floorPlanVariantRepository, analysisJobService, analysisJobRepository,
 				contractorQuoteRepository, notificationService, siteVisitService, materialProductRepository);
 		QuoteRequest request = requestWithLandlordOwner();
 		MaterialProduct flooring = org.mockito.Mockito.mock(MaterialProduct.class);

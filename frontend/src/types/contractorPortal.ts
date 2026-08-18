@@ -362,6 +362,10 @@ export interface ContractorRequestDetail extends ContractorRequest {
   selectedItems: readonly string[]
   lightingNotice: string
   floorPlanImage: string
+  hasLinkedFloorPlan?: boolean
+  beforeImage?: string
+  afterImage?: string
+  selectedTheme?: string
   photos: readonly {
     id: string
     label: string

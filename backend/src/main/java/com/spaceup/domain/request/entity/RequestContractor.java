@@ -58,6 +58,9 @@ public class RequestContractor extends BaseTimeEntity {
 	private Integer matchingScore;
 
 	public void approve() {
+		if (status == RequestContractorStatus.APPROVED) {
+			return;
+		}
 		validateStatus(RequestContractorStatus.INVITED);
 		this.status = RequestContractorStatus.APPROVED;
 	}
