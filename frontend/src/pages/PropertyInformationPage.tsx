@@ -35,6 +35,7 @@ interface InputFieldProps {
   label: string
   value: string
   onChange: (event: ChangeEvent<HTMLInputElement>) => void
+  type?: 'text' | 'date'
   unit?: string
   inputMode?: 'text' | 'decimal' | 'numeric'
 }
@@ -53,9 +54,17 @@ const propertyOptions: ReadonlyArray<{
   },
 ]
 
+const getTodayDate = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const initialFormState: PropertyFormState = {
   budget: '1,500',
-  desiredDate: '2025-07-31',
+  desiredDate: getTodayDate(),
 
   // 기존 의뢰 생성 로직 호환용
   region: '광주광역시',
@@ -68,6 +77,7 @@ function InputField({
   label,
   value,
   onChange,
+  type = 'text',
   unit,
   inputMode = 'text',
 }: InputFieldProps) {
@@ -87,6 +97,7 @@ function InputField({
       >
         <input
           id={id}
+          type={type}
           value={value}
           inputMode={inputMode}
           className="min-w-0 flex-1 bg-white px-[9px] text-[10px] font-bold text-[#425068] outline-none"
@@ -310,6 +321,7 @@ export default function PropertyInformationPage() {
             <InputField
               id="desired-date"
               label="일정"
+              type="date"
               value={formState.desiredDate}
               onChange={updateField('desiredDate')}
             />
