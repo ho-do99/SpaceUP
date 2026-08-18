@@ -139,32 +139,30 @@ export default function SpaceInformationPage() {
             <p className="mt-2 text-[10px] leading-[17px] text-[#657187]">AI 분석 결과를 확인하고 층고를 수정할 수 있습니다.</p>
           </section>
 
-          <section className="mt-[17px] grid grid-cols-[176px_minmax(0,1fr)] items-start gap-2">
+          <section className="mt-[17px] flex flex-col gap-3">
             <FloorPlanPreviewTabs requestId={requestId} floorPlanPreviewUrl={floorPlanPreviewUrl} spaces={spaces} />
 
-            <div className="h-[248px] overflow-hidden rounded-[7px] border border-[#d5dfed] bg-white">
+            <div role="region" aria-label="공간 정보" className="w-full overflow-hidden rounded-[7px] border border-[#d5dfed] bg-white">
               <h2 className="flex h-7 items-center px-[7px] text-[11px] font-bold text-[#1e293b]">공간 정보</h2>
-              <dl>
+              <dl className="grid grid-cols-2 px-[7px] pb-2">
                 {summary.map((item) => {
                   const isCeilingHeight = item.id === 'ceiling-height'
                   return (
-                    <div key={item.id} className="grid h-11 grid-cols-[minmax(0,1fr)_47px] items-center gap-1 px-[7px]">
-                      <div className="grid min-w-0 grid-cols-[55px_minmax(0,1fr)] items-center gap-[2px]">
-                        <dt className="truncate text-[10px] leading-4 text-[#475569]">{item.label}</dt>
-                        <dd className="min-w-0 text-[10px] font-bold leading-4 text-[#1e293b]">
-                          {isCeilingHeight && isEditingCeilingHeight ? (
-                            <div className="flex items-center">
-                              <input type="number" min="1" max="5" step="0.1" value={ceilingHeight} aria-label="층고" className="h-7 w-[45px] rounded-[4px] border border-[#93c5fd] bg-white px-1 text-right text-[10px] font-bold text-[#1e293b] outline-none focus:border-[#2563eb]" onChange={(event) => setCeilingHeight(event.target.value)} />
-                              <span className="ml-0.5">m</span>
-                            </div>
-                          ) : <span className="whitespace-nowrap">{item.value}</span>}
-                        </dd>
-                      </div>
-                      {isCeilingHeight ? (
-                        <button type="button" className="h-5 rounded-[4px] border border-[#2563eb] bg-white text-[10px] leading-4 text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#2563eb]" onClick={() => setIsEditingCeilingHeight((current) => !current)}>
-                          {isEditingCeilingHeight ? '완료' : '수정'}
-                        </button>
-                      ) : <span aria-hidden="true" />}
+                    <div key={item.id} className={`grid h-11 grid-cols-[55px_minmax(0,1fr)] items-center gap-2 px-1 ${isCeilingHeight ? 'col-span-2' : ''}`}>
+                      <dt className="truncate text-[10px] leading-4 text-[#475569]">{item.label}</dt>
+                      <dd className={`min-w-0 text-[10px] font-bold leading-4 text-[#1e293b] ${isCeilingHeight ? 'flex items-center justify-between gap-2' : ''}`}>
+                        {isCeilingHeight && isEditingCeilingHeight ? (
+                          <div className="flex items-center">
+                            <input type="number" min="1" max="5" step="0.1" value={ceilingHeight} aria-label="층고" className="h-7 w-[45px] rounded-[4px] border border-[#93c5fd] bg-white px-1 text-right text-[10px] font-bold text-[#1e293b] outline-none focus:border-[#2563eb]" onChange={(event) => setCeilingHeight(event.target.value)} />
+                            <span className="ml-0.5">m</span>
+                          </div>
+                        ) : <span className="whitespace-nowrap">{item.value}</span>}
+                        {isCeilingHeight ? (
+                          <button type="button" className="h-5 w-[47px] shrink-0 rounded-[4px] border border-[#2563eb] bg-white text-[10px] leading-4 text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#2563eb]" onClick={() => setIsEditingCeilingHeight((current) => !current)}>
+                            {isEditingCeilingHeight ? '완료' : '수정'}
+                          </button>
+                        ) : null}
+                      </dd>
                     </div>
                   )
                 })}

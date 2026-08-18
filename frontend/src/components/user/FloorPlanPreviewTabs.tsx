@@ -52,7 +52,7 @@ export default function FloorPlanPreviewTabs({ requestId, floorPlanPreviewUrl, s
   }
 
   return (
-    <section className="w-[176px] overflow-hidden rounded-[7px] border border-[#cbd5e1] bg-white">
+    <section aria-label="평면도 분석 결과" className="w-full overflow-hidden rounded-[7px] border border-[#cbd5e1] bg-white">
       <div role="tablist" aria-label="평면도 보기 방식" className="grid grid-cols-2 border-b border-[#cbd5e1]">
         <button type="button" role="tab" aria-selected={tab === 'original'} className={`h-8 text-[10px] font-bold ${tab === 'original' ? 'bg-[#2563eb] text-white' : 'bg-white text-[#475569]'}`} onClick={() => setTab('original')}>원본</button>
         <button type="button" role="tab" aria-selected={tab === '3d'} className={`h-8 text-[10px] font-bold ${tab === '3d' ? 'bg-[#2563eb] text-white' : 'bg-white text-[#475569]'}`} onClick={() => setTab('3d')}>3D 분석</button>
