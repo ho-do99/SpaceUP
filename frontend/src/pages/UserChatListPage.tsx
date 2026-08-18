@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { getChatThreads } from '@/api/chatApi'
 import type { ChatThread } from '@/types/backendContractor'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import useRealtime from '@/contexts/useRealtime'
 
 interface UserChatListItem {
   requestId: string
@@ -106,27 +107,24 @@ export default function UserChatListPage() {
     )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const { latestEvent } = useRealtime()
 
-  useEffect(() => {
-    let active = true
-
-    getChatThreads()
-      .then((threads) => {
-        if (!active) return
-
-        setChats(
-          threads.map((thread) =>
-            normalizeChatThread(thread),
-          ),
-        )
-        setLoading(false)
-      })
-      .catch((loadError) => { if (active) { setLoading(false); setError(loadError instanceof Error ? loadError.message : '채팅 목록을 불러오지 못했습니다.') } })
-
-    return () => {
-      active = false
+  const loadChats = useCallback(async () => {
+    try {
+      const threads = await getChatThreads()
+      setChats(threads.map((thread) => normalizeChatThread(thread)))
+      setError('')
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : '채팅 목록을 불러오지 못했습니다.')
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  useEffect(() => { void loadChats() }, [loadChats])
+  useEffect(() => {
+    if (latestEvent?.type === 'CHAT_MESSAGE') void loadChats()
+  }, [latestEvent, loadChats])
 
   const filteredChats = useMemo(() => {
     const keyword = query.trim().toLowerCase()

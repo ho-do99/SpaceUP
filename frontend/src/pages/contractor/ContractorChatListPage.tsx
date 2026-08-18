@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getChatThreads } from '@/api/chatApi'
 
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
+import useRealtime from '@/contexts/useRealtime'
 
 type ChatFilter =
   | 'ALL'
@@ -52,11 +53,11 @@ export default function ContractorChatListPage() {
   const [usingLiveData, setUsingLiveData] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const { latestEvent } = useRealtime()
 
-  useEffect(() => {
-    let active = true
-    getChatThreads().then((liveThreads) => {
-      if (!active) return
+  const loadThreads = useCallback(async () => {
+    try {
+      const liveThreads = await getChatThreads()
       setThreads(liveThreads.map((thread) => {
         const completed = thread.requestStatus === 'COMPLETED'
         return {
@@ -76,11 +77,17 @@ export default function ContractorChatListPage() {
       }))
       setUsingLiveData(true)
       setLoading(false)
-    }).catch(() => {
-      if (active) { setUsingLiveData(false); setLoading(false); setError('채팅 목록을 불러오지 못했습니다.') }
-    })
-    return () => { active = false }
+      setError('')
+    } catch {
+      setUsingLiveData(false)
+      setLoading(false)
+      setError('채팅 목록을 불러오지 못했습니다.')
+    }
   }, [])
+  useEffect(() => { void loadThreads() }, [loadThreads])
+  useEffect(() => {
+    if (latestEvent?.type === 'CHAT_MESSAGE') void loadThreads()
+  }, [latestEvent, loadThreads])
 
   const [searchKeyword, setSearchKeyword] =
     useState('')
