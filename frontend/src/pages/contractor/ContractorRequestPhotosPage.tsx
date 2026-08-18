@@ -16,10 +16,14 @@ export default function ContractorRequestPhotosPage() {
   const liveRequest = useContractorRequest(requestId)
   const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
   const [rejectOpen, setRejectOpen] = useState(false)
+  const [preview, setPreview] = useState<{ src: string; label: string } | null>(null)
   const [rejectedReason, setRejectedReason] = useState('')
   const [actionError, setActionError] = useState('')
 
   if (!request) return <ContractorRequestNotFound />
+
+  const beforeSrc = request.beforeImage || beforeImage
+  const afterSrc = request.afterImage || afterImage
 
   return (
     <>
@@ -32,20 +36,32 @@ export default function ContractorRequestPhotosPage() {
               <span aria-hidden="true" className="absolute left-1/2 top-[41px] h-[168px] w-px -translate-x-1/2 bg-[#d9e3f0]" />
               <figure>
                 <figcaption className="mb-3 px-1.5 text-xs font-bold text-[#64748b]">Before</figcaption>
-                <img src={beforeImage} alt="AI 인테리어 시뮬레이션 전" className="h-[168px] w-[164px] rounded-[10px]" />
+                <button type="button" onClick={() => setPreview({ src: beforeSrc, label: '시뮬레이션 전 원본 사진' })} className="block rounded-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]">
+                  <img src={beforeSrc} alt="AI 인테리어 시뮬레이션 전" className="h-[168px] w-[164px] rounded-[10px] object-cover" />
+                </button>
               </figure>
               <figure>
                 <figcaption className="mb-3 px-1.5 text-xs font-bold text-[#2563eb]">After</figcaption>
-                <img src={afterImage} alt="모던 스타일 AI 인테리어 시뮬레이션 후" className="h-[168px] w-[164px] rounded-[10px]" />
+                <button type="button" onClick={() => setPreview({ src: afterSrc, label: 'AI 인테리어 시뮬레이션 결과 사진' })} className="block rounded-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]">
+                  <img src={afterSrc} alt="AI 인테리어 시뮬레이션 후" className="h-[168px] w-[164px] rounded-[10px] object-cover" />
+                </button>
               </figure>
             </div>
             <div className="mt-2.5 flex items-start justify-between gap-2">
-              <span className="flex h-7 shrink-0 items-center rounded-[14px] bg-[#eff6ff] px-3 text-[11px] font-bold text-[#2563eb]">선택 스타일 · 모던</span>
+              <span className="flex h-7 shrink-0 items-center rounded-[14px] bg-[#eff6ff] px-3 text-[11px] font-bold text-[#2563eb]">선택 스타일 · {request.selectedTheme || '모던'}</span>
               <p className="max-w-[199px] text-right text-[9px] leading-[15px] text-[#64748b]">※ AI 생성 이미지로 실제 시공 결과와 차이가 있을 수 있습니다.</p>
             </div>
           </div>
         </section>
       </ContractorRequestDetailLayout>
+      {preview ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]/70 p-4" onMouseDown={(event) => event.target === event.currentTarget && setPreview(null)}>
+          <section role="dialog" aria-modal="true" aria-label={preview.label} className="w-full max-w-[720px] rounded-xl bg-white p-4">
+            <div className="flex justify-end"><button type="button" aria-label="사진 닫기" onClick={() => setPreview(null)} className="rounded-md px-2 py-1 text-xl text-[#64748b]">×</button></div>
+            <img src={preview.src} alt={preview.label} className="max-h-[76dvh] w-full object-contain" />
+          </section>
+        </div>
+      ) : null}
       <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={(reason) => { void rejectContractorRequest(request.requestId, reason).then(() => { setRejectedReason(reason); setRejectOpen(false) }).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.')) }} />
     </>
   )

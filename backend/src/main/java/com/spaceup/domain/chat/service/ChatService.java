@@ -12,6 +12,8 @@ import com.spaceup.domain.chat.dto.ChatThreadResponse;
 import com.spaceup.domain.chat.entity.ChatMessage;
 import com.spaceup.domain.chat.entity.ChatSenderType;
 import com.spaceup.domain.chat.repository.ChatMessageRepository;
+import com.spaceup.domain.contractor.entity.ContractorProfile;
+import com.spaceup.domain.contractor.repository.ContractorProfileRepository;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.entity.MemberRole;
 import com.spaceup.domain.member.repository.MemberRepository;
@@ -34,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 public class ChatService {
 
 	private final ChatMessageRepository chatMessageRepository;
+	private final ContractorProfileRepository contractorProfileRepository;
 	private final QuoteRequestRepository quoteRequestRepository;
 	private final RequestContractorRepository requestContractorRepository;
 	private final MemberRepository memberRepository;
@@ -106,9 +109,14 @@ public class ChatService {
 		ChatMessage last = messages.isEmpty() ? null : messages.get(messages.size() - 1);
 		long unread = messages.stream().filter(message -> !message.isRead() && !isSentBy(message, viewer)).count();
 		String counterpart = viewer.getRole() == MemberRole.CONTRACTOR
-				? participation.getRequest().getOwner().getName() : participation.getContractor().getName();
+				? participation.getRequest().getOwner().getName()
+				: contractorProfileRepository.findByMemberId(participation.getContractor().getId())
+						.map(ContractorProfile::getCompanyName)
+						.filter(name -> name != null && !name.isBlank())
+						.orElse(participation.getContractor().getName());
 		return new ChatThreadResponse(participation.getRequest().getId(), participation.getContractor().getId(),
 				participation.getRequest().getRequestCode(), counterpart, participation.getRequest().getStatus(),
+				participation.getStatus(), participation.canContact(),
 				last != null ? last.getContent() : null, last != null ? last.getCreatedAt() : null, unread);
 	}
 

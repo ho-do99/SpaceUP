@@ -6,8 +6,9 @@ export type AssignedRequest = RequestResponse
 export interface QuoteItemInput { category: string; description?: string; amount: number }
 export interface QuoteInput { requestId: number; title?: string; startDate?: string; durationDays?: number; materialCost?: number; laborCost?: number; vat?: number; discount?: number; detailContent?: string; items: QuoteItemInput[] }
 export type QuoteStatus = 'DRAFT' | 'SUBMITTED' | 'ACCEPTED' | 'REJECTED'
-export interface QuoteResponse { id: number; requestId: number; contractorId: number; contractorName: string; title?: string | null; startDate?: string | null; durationDays?: number | null; totalAmount: number; status: QuoteStatus; validUntil?: string | null; revisionRequestNote?: string | null; revisionCount: number; items: QuoteItemInput[] }
-export interface ChatThread { requestId: number; contractorId: number; requestCode: string; counterpartName: string; requestStatus: string; lastMessage?: string | null; lastMessageAt?: string | null; unreadCount: number }
+export type QuotePhase = 'PRELIMINARY' | 'FINAL'
+export interface QuoteResponse { id: number; requestId: number; contractorId: number; contractorName: string; title?: string | null; startDate?: string | null; durationDays?: number | null; totalAmount: number; status: QuoteStatus; phase: QuotePhase; validUntil?: string | null; revisionRequestNote?: string | null; revisionCount: number; items: QuoteItemInput[] }
+export interface ChatThread { requestId: number; contractorId: number; requestCode: string; counterpartName: string; requestStatus: string; participationStatus: string; contactable: boolean; lastMessage?: string | null; lastMessageAt?: string | null; unreadCount: number }
 export interface ChatMessage { id: number; senderType: 'LANDLORD' | 'CONTRACTOR' | 'SYSTEM'; senderName: string; content: string; read: boolean; createdAt: string }
 export type SiteVisitStatus = 'UNSCHEDULED' | 'SCHEDULED' | 'CHANGE_REQUESTED' | 'COMPLETED'
 export interface SiteVisit { id: number; requestId: number; status: SiteVisitStatus; visitDate?: string | null; visitTime?: string | null; address?: string | null; managerName?: string | null; note?: string | null; completedAt?: string | null; requestedDate?: string | null; requestedTime?: string | null; requestReason?: string | null }

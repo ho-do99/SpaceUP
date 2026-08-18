@@ -12,6 +12,7 @@ import {
 
 import {
   getChatMessages,
+  getChatThreads,
   readChat,
   sendChatMessage,
 } from '@/api/chatApi'
@@ -19,6 +20,7 @@ import {
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import useRealtime from '@/contexts/useRealtime'
+import type { ChatThread } from '@/types/backendContractor'
 
 interface DisplayMessage {
   id: string | number
@@ -30,105 +32,6 @@ interface DisplayMessage {
   createdAt?: string
   emphasis?: boolean
 }
-
-interface StoredVisitSchedule {
-  visitDate: string
-  visitTime: string
-  address: string
-  requestMessage: string
-  status?: string
-}
-
-const consultationFallbackMessages: DisplayMessage[] = [
-  {
-    id: 'consultation-1',
-    senderType: 'CONTRACTOR',
-    content:
-      '안녕하세요. 공간디자인 인테리어입니다.\n요청하신 시공 상담 내용을 확인했습니다.',
-    createdAt: '2026-07-21T09:42:00',
-  },
-  {
-    id: 'consultation-2',
-    senderType: 'LANDLORD',
-    content:
-      '안녕하세요. 정확한 견적을 받으려면\n현장 방문이 필요한가요?',
-    createdAt: '2026-07-21T09:45:00',
-  },
-  {
-    id: 'consultation-3',
-    senderType: 'CONTRACTOR',
-    content:
-      '네. 현장에서 공간 상태와 실제 치수를 확인한 뒤\n정확한 견적서를 작성해드립니다.',
-    createdAt: '2026-07-21T09:46:00',
-  },
-  {
-    id: 'consultation-4',
-    senderType: 'CONTRACTOR',
-    content:
-      '방문 가능한 날짜와 시간을 알려주세요.',
-    createdAt: '2026-07-21T09:47:00',
-  },
-  {
-    id: 'consultation-5',
-    senderType: 'LANDLORD',
-    content:
-      '이번 주 토요일 오후 3시가 가능합니다.',
-    createdAt: '2026-07-21T09:50:00',
-  },
-  {
-    id: 'consultation-6',
-    senderType: 'CONTRACTOR',
-    content:
-      '확인했습니다.\n7월 25일 토요일 오후 3시에 방문드리겠습니다.',
-    createdAt: '2026-07-21T09:52:00',
-  },
-]
-
-const constructionFallbackMessages: DisplayMessage[] = [
-  {
-    id: 'construction-1',
-    senderType: 'CONTRACTOR',
-    content:
-      '안녕하세요. 하우스업 인테리어입니다.\n오늘 예정대로 시공을 진행하고 있습니다.',
-    createdAt: '2026-07-24T09:10:00',
-  },
-  {
-    id: 'construction-2',
-    senderType: 'LANDLORD',
-    content:
-      '현재 진행 상황을 확인할 수 있을까요?',
-    createdAt: '2026-07-24T11:25:00',
-  },
-  {
-    id: 'construction-3',
-    senderType: 'CONTRACTOR',
-    content:
-      '거실 장판 시공을 완료했고,\n지금은 침실 벽지 시공을 진행 중입니다.',
-    createdAt: '2026-07-24T11:27:00',
-  },
-  {
-    id: 'construction-4',
-    senderType: 'CONTRACTOR',
-    content:
-      '전체 공정의 약 65%가 완료되었습니다.',
-    createdAt: '2026-07-24T11:28:00',
-  },
-  {
-    id: 'construction-5',
-    senderType: 'LANDLORD',
-    content:
-      '확인했습니다. 남은 일정도 잘 부탁드립니다.',
-    createdAt: '2026-07-24T11:31:00',
-    emphasis: true,
-  },
-  {
-    id: 'construction-6',
-    senderType: 'CONTRACTOR',
-    content:
-      '내일 마감과 최종 검수를 진행한 뒤\n완료 내용을 다시 안내드리겠습니다.',
-    createdAt: '2026-07-24T11:33:00',
-  },
-]
 
 function CompanyIcon({
   size = 36,
@@ -284,104 +187,31 @@ function formatMessageTime(value?: string) {
   return `${period} ${displayHour}:${minute}`
 }
 
-function formatMessageDate(
-  value: string | undefined,
-  constructionMode: boolean,
-) {
-  if (!value) {
-    return constructionMode
-      ? '2026년 7월 24일'
-      : '2026년 7월 21일'
-  }
+function formatMessageDate(value?: string) {
+  if (!value) return '오늘'
 
   const datePart = value.slice(0, 10)
-  const [year, month, day] =
-    datePart.split('-')
+  const [year, month, day] = datePart.split('-')
 
-  if (!year || !month || !day) {
-    return constructionMode
-      ? '2026년 7월 24일'
-      : '2026년 7월 21일'
-  }
+  if (!year || !month || !day) return '오늘'
 
   return `${Number(year)}년 ${Number(month)}월 ${Number(day)}일`
-}
-
-function formatVisitSchedule(
-  date: string,
-  time: string,
-) {
-  const [year, month, day] =
-    date.split('-')
-
-  const [hourText, minute = '00'] =
-    time.split(':')
-
-  const hour = Number(hourText)
-
-  if (
-    !year ||
-    !month ||
-    !day ||
-    !Number.isFinite(hour)
-  ) {
-    return `${date} ${time}`
-  }
-
-  const period =
-    hour < 12 ? '오전' : '오후'
-
-  const displayHour =
-    hour % 12 === 0 ? 12 : hour % 12
-
-  return `${year}.${month}.${day} ${period} ${displayHour}:${minute}`
-}
-
-function getStoredVisitSchedule(
-  requestId?: string,
-  contractorId?: string,
-): StoredVisitSchedule | null {
-  if (!requestId || !contractorId) {
-    return null
-  }
-
-  const raw = sessionStorage.getItem(
-    `spaceup-visit-${requestId}-${contractorId}`,
-  )
-
-  if (!raw) return null
-
-  try {
-    const parsed = JSON.parse(
-      raw,
-    ) as StoredVisitSchedule
-
-    if (
-      typeof parsed.visitDate !==
-        'string' ||
-      typeof parsed.visitTime !==
-        'string'
-    ) {
-      return null
-    }
-
-    return parsed
-  } catch {
-    return null
-  }
 }
 
 function LandlordChatComposer({
   onSend,
   sending,
+  enabled,
 }: {
   onSend: (message: string) => void
   sending: boolean
+  enabled: boolean
 }) {
   const [message, setMessage] =
     useState('')
 
   const canSend =
+    enabled &&
     message.trim().length > 0 &&
     !sending
 
@@ -442,7 +272,8 @@ function LandlordChatComposer({
               setMessage(event.target.value)
             }
             onKeyDown={handleKeyDown}
-            placeholder="메시지를 입력하세요."
+            disabled={!enabled}
+            placeholder={enabled ? '메시지를 입력하세요.' : '종료된 채팅방입니다.'}
             className="h-10 w-full resize-none overflow-hidden rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-[13px] py-[9px] text-[12px] leading-5 text-[#1e293b] outline-none placeholder:text-[#94a3b8] focus:border-[#2563eb]"
           />
         </label>
@@ -499,111 +330,58 @@ export default function LandlordChatPage() {
   const numericContractorId =
     Number(contractorId)
 
-  const defaultContractorName =
-    numericContractorId === 2
-      ? '하우스업 인테리어'
-      : numericContractorId === 3
-        ? '더 좋은 집 인테리어'
-        : '공간디자인 인테리어'
-
-  const [contractorName, setContractorName] =
-    useState(defaultContractorName)
-
-  const constructionMode =
-    numericContractorId === 2 ||
-    contractorName.includes('하우스업')
-
-  const [messages, setMessages] =
-    useState<DisplayMessage[]>(
-      numericContractorId === 2
-        ? constructionFallbackMessages
-        : consultationFallbackMessages,
-    )
-
-  const [error, setError] =
-    useState<string | null>(null)
-
-  const [sending, setSending] =
-    useState(false)
+  const [thread, setThread] = useState<ChatThread | null>(null)
+  const [contractorName, setContractorName] = useState('')
+  const [messages, setMessages] = useState<DisplayMessage[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(true)
 
-  const containerRef =
-    useRef<HTMLDivElement | null>(null)
-
-  const storedVisitSchedule =
-    !constructionMode
-      ? getStoredVisitSchedule(
-          requestId,
-          contractorId,
-        )
-      : null
-
+  const containerRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
-    if (
-      !Number.isInteger(
-        numericRequestId,
-      ) ||
-      !Number.isInteger(
-        numericContractorId,
-      )
-    ) {
-      setError(
-        '잘못된 채팅방 주소입니다.',
-      )
+    if (!Number.isInteger(numericRequestId) || !Number.isInteger(numericContractorId)) {
+      setError('잘못된 채팅방 주소입니다.')
       return
     }
 
     let active = true
-
     setError(null)
-
-    setContractorName(
-      defaultContractorName,
-    )
-
+    setThread(null)
+    setContractorName('')
     setMessages([])
     setLoadingMessages(true)
 
-    getChatMessages(
-      numericRequestId,
-      numericContractorId,
-    )
-      .then((chatMessages) => {
+    Promise.all([
+      getChatMessages(numericRequestId, numericContractorId),
+      getChatThreads(),
+    ])
+      .then(([chatMessages, threads]) => {
         if (!active) return
-
-        setMessages(
-            chatMessages.map(
-              (message) => ({
-                id: message.id,
-                senderType:
-                  message.senderType,
-                content:
-                  message.content,
-                createdAt:
-                  message.createdAt,
-              }),
-            ),
-          )
-        setLoadingMessages(false)
-
-        void readChat(
-          numericRequestId,
-          numericContractorId,
-        ).catch(
-          () => undefined,
+        const matchingThread = threads.find((item) =>
+          item.requestId === numericRequestId && item.contractorId === numericContractorId,
         )
+        if (!matchingThread) {
+          throw new Error('해당 시공사와 연결된 채팅방을 찾을 수 없습니다.')
+        }
+        setThread(matchingThread)
+        setContractorName(matchingThread.counterpartName)
+        setMessages(chatMessages.map((message) => ({
+          id: message.id,
+          senderType: message.senderType,
+          content: message.content,
+          createdAt: message.createdAt,
+        })))
+        setLoadingMessages(false)
+        void readChat(numericRequestId, numericContractorId).catch(() => undefined)
       })
-      .catch((loadError) => { if (active) { setLoadingMessages(false); setError(loadError instanceof Error ? loadError.message : '채팅 내용을 불러오지 못했습니다.') } })
+      .catch((loadError) => {
+        if (!active) return
+        setLoadingMessages(false)
+        setError(loadError instanceof Error ? loadError.message : '채팅 내용을 불러오지 못했습니다.')
+      })
 
-    return () => {
-      active = false
-    }
-  }, [
-    defaultContractorName,
-    numericContractorId,
-    numericRequestId,
-  ])
-
+    return () => { active = false }
+  }, [numericContractorId, numericRequestId])
   useEffect(() => {
     if (
       latestEvent?.type !== 'CHAT_MESSAGE' ||
@@ -665,31 +443,20 @@ export default function LandlordChatPage() {
           behavior: 'smooth',
         })
       })
-    } catch {
-      setError(
-        '메시지를 보내지 못했습니다. 시공사가 이미 확정된 의뢰인지 확인해주세요.',
-      )
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : '메시지를 보내지 못했습니다.')
     } finally {
       setSending(false)
     }
   }
 
-  const companyMeta =
-    constructionMode
-      ? '광주 서구 · 장판·벽지 전문'
-      : '광주 북구 · 리모델링 전문'
-
-  const dateLabel =
-    formatMessageDate(
-      messages[0]?.createdAt,
-      constructionMode,
-    )
-
+  const companyMeta = thread?.contactable ? '견적 의뢰 채팅' : '종료된 채팅방'
+  const dateLabel = formatMessageDate(messages[0]?.createdAt)
   return (
     <UserScreenShell className="h-dvh">
       <UserHeader
         variant="detail"
-        title={contractorName}
+        title={contractorName || '채팅'}
         onBack={() =>
           navigate('/chats')
         }
@@ -711,12 +478,10 @@ export default function LandlordChatPage() {
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
-            <span className="size-[7px] rounded-full bg-[#22c55e]" />
+            <span className={`size-[7px] rounded-full ${thread?.contactable ? 'bg-[#22c55e]' : 'bg-[#94a3b8]'}`} />
 
-            <span className="text-[10px] text-[#16a34a]">
-              {constructionMode
-                ? '시공 중'
-                : '상담 가능'}
+            <span className={`text-[10px] ${thread?.contactable ? 'text-[#16a34a]' : 'text-[#64748b]'}`}>
+              {thread?.contactable ? '채팅 가능' : '채팅 종료'}
             </span>
           </div>
         </section>
@@ -739,94 +504,27 @@ export default function LandlordChatPage() {
             </p>
           </article>
 
-          {constructionMode ? (
-            <article className="rounded-[12px] border border-[#e2e8f0] bg-white p-4">
-              <div className="flex items-center gap-2">
-                <CheckIcon />
+          <article className="rounded-[12px] border border-[#e2e8f0] bg-white p-4">
+            <div className="flex items-center gap-2">
+              <CheckIcon />
+              <h2 className="text-[16px] font-bold leading-[22px] text-[#1e293b]">
+                {thread?.contactable ? '방문 일정 조율 중' : '채팅이 종료되었습니다'}
+              </h2>
+            </div>
+            <p className="mt-[6px] text-[12px] leading-[18px] text-[#64748b]">
+              {thread?.contactable ? '시공업체와 현장 방문 날짜와 시간을 조율해주세요.' : '최종 선택되지 않은 시공사와의 채팅은 종료됩니다.'}
+            </p>
+          </article>
 
-                <h2 className="text-[16px] font-bold leading-[22px] text-[#1e293b]">
-                  시공 진행 중 · 벽지 시공 단계
-                </h2>
-              </div>
-
-              <p className="mt-[6px] text-[12px] leading-[18px] text-[#64748b]">
-                현재 전체 공정의 65%가 완료되었습니다.
-              </p>
-
-              <div className="mt-3 flex items-center justify-between text-[11px]">
-                <span className="text-[#64748b]">
-                  진행률
-                </span>
-
-                <strong className="text-[#2563eb]">
-                  65%
-                </strong>
-              </div>
-
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#e2e8f0]">
-                <div className="h-full w-[65%] rounded-full bg-[#2563eb]" />
-              </div>
-
-              <p className="mt-3 text-[11px] leading-[18px] text-[#64748b]">
-                시공 기간&nbsp;&nbsp;
-                2026.07.23 ~ 2026.07.26
-              </p>
-
-              <p className="mt-1 text-[11px] leading-[18px] text-[#334155]">
-                오늘&nbsp;&nbsp;벽지 시공 중
-                &nbsp;&nbsp;·&nbsp;&nbsp;
-                다음&nbsp;&nbsp;마감 및 검수
-              </p>
-            </article>
-          ) : (
-            <article className="rounded-[12px] border border-[#e2e8f0] bg-white p-4">
-              <div className="flex items-center gap-2">
-                <CheckIcon />
-
-                <h2 className="text-[16px] font-bold leading-[22px] text-[#1e293b]">
-                  {storedVisitSchedule
-                    ? '방문 일정 요청 완료 · 시공사 확인 대기'
-                    : '의뢰 승인 완료 · 방문 일정 조율 중'}
-                </h2>
-              </div>
-
-              <p className="mt-[6px] text-[12px] leading-[18px] text-[#64748b]">
-                {storedVisitSchedule
-                  ? `${formatVisitSchedule(
-                      storedVisitSchedule.visitDate,
-                      storedVisitSchedule.visitTime,
-                    )} 방문을 요청했습니다.`
-                  : '시공업체와 현장 방문 날짜와 시간을 조율해주세요.'}
-              </p>
-            </article>
-          )}
-
-          <button
+          {thread?.contactable ? <button
             type="button"
-            onClick={() => {
-              if (constructionMode) {
-                navigate(
-                  `/mypage/requests/${requestId}/schedule/${contractorId}`,
-                )
-                return
-              }
-
-              navigate(
-                `/mypage/requests/${requestId}/visit/${contractorId}`,
-              )
-            }}
+            onClick={() => navigate(`/mypage/requests/${requestId}/visit/${contractorId}`)}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[#2563eb] text-[14px] font-bold text-white"
           >
             <CalendarIcon />
-
-            {constructionMode
-              ? '시공 일정 확인'
-              : storedVisitSchedule
-                ? '방문 일정 확인 · 변경'
-                : '현장 방문 일정 잡기'}
-          </button>
+            현장 방문 일정 잡기
+          </button> : null}
         </section>
-
         {/* 메시지 영역 */}
         <main
           ref={containerRef}
@@ -837,30 +535,6 @@ export default function LandlordChatPage() {
               {dateLabel}
             </span>
           </div>
-
-          {!constructionMode &&
-          storedVisitSchedule ? (
-            <div className="mb-4 rounded-[12px] border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-center">
-              <div className="flex items-center justify-center gap-1.5">
-                <CheckIcon />
-
-                <p className="text-[11px] font-bold text-[#2563eb]">
-                  현장 방문 일정 요청이 완료되었습니다.
-                </p>
-              </div>
-
-              <p className="mt-2 text-[11px] font-bold text-[#1e293b]">
-                {formatVisitSchedule(
-                  storedVisitSchedule.visitDate,
-                  storedVisitSchedule.visitTime,
-                )}
-              </p>
-
-              <p className="mt-1 text-[10px] leading-[16px] text-[#64748b]">
-                시공사 확인을 기다리고 있습니다.
-              </p>
-            </div>
-          ) : null}
 
           <div className="space-y-[5px]">
             {loadingMessages ? <p className="py-10 text-center text-xs text-[#64748b]">메시지를 불러오는 중입니다.</p> : null}
@@ -930,6 +604,7 @@ export default function LandlordChatPage() {
 
         <LandlordChatComposer
           sending={sending}
+          enabled={thread?.contactable === true}
           onSend={(message) =>
             void send(message)
           }

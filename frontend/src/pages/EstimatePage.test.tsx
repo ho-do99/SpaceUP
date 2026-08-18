@@ -38,6 +38,7 @@ describe('EstimatePage quote revision identity', () => {
       contractorName: '스페이스업 인테리어',
       totalAmount: 5_000_000,
       status: 'SUBMITTED',
+      phase: 'PRELIMINARY',
       revisionCount: 0,
       items: [],
     })

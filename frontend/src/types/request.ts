@@ -29,6 +29,7 @@ export interface RequestResponse extends RequestCreateInput {
   requestCode?: string
   landlordId?: number
   landlordName?: string
+  selectedTheme?: MaterialTheme | null
   contractorId?: number | null
   status?: string
   rejectReason?: string | null
@@ -36,6 +37,8 @@ export interface RequestResponse extends RequestCreateInput {
   matchingScore?: number | null
   acceptedQuoteAmount?: number | null
   participationStatus?: 'INVITED' | 'APPROVED' | 'REJECTED' | 'SELECTED' | 'CLOSED' | null
+	floorPlanVariantId?: number | null
+	contractorNames?: string[]
   createdAt?: string
   lastActivityAt?: string
 }

@@ -1,6 +1,7 @@
 package com.spaceup.domain.request.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.entity.RejectReason;
@@ -45,18 +46,25 @@ public class RequestResponse {
 	// 아직 없으면 null. matchingScore와 같은 방식으로 RequestService가 조회해 주입합니다.
 	private final Long acceptedQuoteAmount;
 	private final RequestContractorStatus participationStatus;
+	private final Long floorPlanVariantId;
+	private final List<String> contractorNames;
 	private final LocalDateTime createdAt;
 
 	public RequestResponse(QuoteRequest request) {
-		this(request, null, null, null);
+		this(request, null, null, null, null, List.of());
 	}
 
 	public RequestResponse(QuoteRequest request, Integer matchingScore, Long acceptedQuoteAmount) {
-		this(request, matchingScore, acceptedQuoteAmount, null);
+		this(request, matchingScore, acceptedQuoteAmount, null, null, List.of());
 	}
 
 	public RequestResponse(QuoteRequest request, Integer matchingScore, Long acceptedQuoteAmount,
 			RequestContractorStatus participationStatus) {
+		this(request, matchingScore, acceptedQuoteAmount, participationStatus, null, List.of());
+	}
+
+	public RequestResponse(QuoteRequest request, Integer matchingScore, Long acceptedQuoteAmount,
+			RequestContractorStatus participationStatus, Long floorPlanVariantId, List<String> contractorNames) {
 		this.id = request.getId();
 		this.requestCode = request.getRequestCode();
 		this.landlordId = request.getOwner().getId();
@@ -87,6 +95,8 @@ public class RequestResponse {
 		this.matchingScore = matchingScore;
 		this.acceptedQuoteAmount = acceptedQuoteAmount;
 		this.participationStatus = participationStatus;
+		this.floorPlanVariantId = floorPlanVariantId;
+		this.contractorNames = List.copyOf(contractorNames);
 		this.createdAt = request.getCreatedAt();
 	}
 }
