@@ -7,6 +7,7 @@ import {
 import backIcon from '@/assets/user/icons/back.svg'
 import menuIcon from '@/assets/user/icons/menu.svg'
 import UserMenuDrawer from '@/components/user/UserMenuDrawer'
+import useRealtime from '@/contexts/useRealtime'
 
 interface HeaderIconProps {
   className?: string
@@ -62,6 +63,7 @@ export default function UserHeader({
 }: UserHeaderProps) {
   const isMain = variant === 'main'
   const { pathname } = useLocation()
+  const { unreadNotificationCount } = useRealtime()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const wasMenuOpenRef = useRef(false)
@@ -151,12 +153,12 @@ export default function UserHeader({
           >
             <BellIcon className="size-5 shrink-0" />
 
-            {pathname !== '/notifications' ? (
+            {pathname !== '/notifications' && unreadNotificationCount > 0 ? (
               <span
-                aria-label="읽지 않은 알림 3개"
-                className="absolute left-3.5 top-[3px] flex size-2.5 items-center justify-center rounded-full bg-[#ef4444] text-[6px] font-bold leading-2 text-white"
+                aria-label={`읽지 않은 알림 ${unreadNotificationCount}개`}
+                className="absolute left-3 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-white bg-[#ef4444] px-[3px] text-[8px] font-bold leading-3 text-white"
               >
-                3
+                {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
               </span>
             ) : null}
           </Link>

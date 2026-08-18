@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorEmptyState from '@/components/contractor/ContractorEmptyState'
@@ -6,6 +6,7 @@ import ContractorMobileShell from '@/components/contractor/ContractorMobileShell
 import ContractorNotificationCard from '@/components/contractor/ContractorNotificationCard'
 import type { ContractorNotification, ContractorNotificationFilter } from '@/types/contractorPortal'
 import { getNotifications, readAllNotifications, readNotification } from '@/api/notificationApi'
+import useRealtime from '@/contexts/useRealtime'
 
 const filters: readonly { id: ContractorNotificationFilter; label: string }[] = [
   { id: 'all', label: '전체' }, { id: 'request', label: '의뢰' }, { id: 'estimate', label: '견적' }, { id: 'visit', label: '일정' }, { id: 'settlement', label: '정산' },
@@ -17,32 +18,39 @@ export default function ContractorNotificationPage() {
   const [notifications, setNotifications] = useState<ContractorNotification[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  useEffect(() => {
-    let active = true
-    getNotifications({ size: 50 }).then((page) => {
-      if (!active) return
+  const { latestEvent, refreshUnreadNotificationCount } = useRealtime()
+  const loadNotifications = useCallback(async () => {
+    try {
+      const page = await getNotifications({ size: 50 })
       const today = new Date().toISOString().slice(0, 10)
       setNotifications(page.content.map((item) => ({
         notificationId: String(item.id), type: item.type === 'QUOTE' ? 'ESTIMATE' : item.type === 'SCHEDULE' ? 'VISIT' : item.type,
         title: item.title, message: item.content, createdAtLabel: item.createdAt.slice(0, 16).replace('T', ' '),
         section: item.createdAt.startsWith(today) ? 'TODAY' : 'PREVIOUS', isRead: item.read, destination: '',
       })))
-    }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : '알림을 불러오지 못했습니다.') })
-      .finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
+      setError('')
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : '알림을 불러오지 못했습니다.')
+    } finally {
+      setLoading(false)
+    }
   }, [])
+  useEffect(() => { void loadNotifications() }, [loadNotifications])
+  useEffect(() => {
+    if (latestEvent?.type === 'NOTIFICATION_CHANGED') void loadNotifications()
+  }, [latestEvent, loadNotifications])
   const [filter, setFilter] = useState<ContractorNotificationFilter>('all')
   const filtered = useMemo(() => filter === 'all' ? notifications : notifications.filter((item) => item.type === filterTypes[filter]), [filter, notifications])
   const unreadCount = notifications.filter((item) => !item.isRead).length
   const openNotification = async (notification: ContractorNotification) => {
     if (!notification.isRead) {
-      try { await readNotification(Number(notification.notificationId)); setNotifications((items) => items.map((item) => item.notificationId === notification.notificationId ? { ...item, isRead: true } : item)) }
+      try { await readNotification(Number(notification.notificationId)); setNotifications((items) => items.map((item) => item.notificationId === notification.notificationId ? { ...item, isRead: true } : item)); await refreshUnreadNotificationCount() }
       catch (readError) { setError(readError instanceof Error ? readError.message : '읽음 처리에 실패했습니다.'); return }
     }
     if (notification.destination) navigate(notification.destination)
   }
   const markAllNotificationsRead = async () => {
-    try { await readAllNotifications(); setNotifications((items) => items.map((item) => ({ ...item, isRead: true }))) }
+    try { await readAllNotifications(); setNotifications((items) => items.map((item) => ({ ...item, isRead: true }))); await refreshUnreadNotificationCount() }
     catch (readError) { setError(readError instanceof Error ? readError.message : '읽음 처리에 실패했습니다.') }
   }
   const today = filtered.filter((item) => item.section === 'TODAY')

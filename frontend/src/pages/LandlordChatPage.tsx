@@ -18,6 +18,7 @@ import {
 
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import useRealtime from '@/contexts/useRealtime'
 
 interface DisplayMessage {
   id: string | number
@@ -482,6 +483,7 @@ function LandlordChatComposer({
 
 export default function LandlordChatPage() {
   const navigate = useNavigate()
+  const { latestEvent } = useRealtime()
 
   const {
     requestId,
@@ -602,6 +604,29 @@ export default function LandlordChatPage() {
     numericRequestId,
   ])
 
+  useEffect(() => {
+    if (
+      latestEvent?.type !== 'CHAT_MESSAGE' ||
+      latestEvent.requestId !== numericRequestId ||
+      latestEvent.contractorId !== numericContractorId
+    ) return
+
+    let active = true
+    getChatMessages(numericRequestId, numericContractorId)
+      .then((chatMessages) => {
+        if (!active) return
+        setMessages(chatMessages.map((message) => ({
+          id: message.id,
+          senderType: message.senderType,
+          content: message.content,
+          createdAt: message.createdAt,
+        })))
+        void readChat(numericRequestId, numericContractorId).catch(() => undefined)
+      })
+      .catch(() => undefined)
+    return () => { active = false }
+  }, [latestEvent, numericContractorId, numericRequestId])
+
   const send = async (
     content: string,
   ) => {
@@ -618,9 +643,8 @@ export default function LandlordChatPage() {
           numericContractorId,
         )
 
-      setMessages((current) => [
-        ...current,
-        {
+      setMessages((current) => current.some((item) => item.id === message.id) ? current : [
+        ...current, {
           id: message.id,
           senderType:
             message.senderType,

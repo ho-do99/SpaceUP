@@ -4,6 +4,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.spaceup.domain.chat.dto.ChatMessageResponse;
@@ -23,6 +24,7 @@ import com.spaceup.domain.request.repository.RequestContractorRepository;
 import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.MemberNotFoundException;
 import com.spaceup.global.error.RequestNotFoundException;
+import com.spaceup.global.realtime.RealtimeDomainEvent;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,6 +38,7 @@ public class ChatService {
 	private final RequestContractorRepository requestContractorRepository;
 	private final MemberRepository memberRepository;
 	private final NotificationService notificationService;
+	private final ApplicationEventPublisher eventPublisher;
 
 	public List<ChatThreadResponse> getThreads(Long memberId) {
 		Member member = findMemberOrThrow(memberId);
@@ -80,6 +83,10 @@ public class ChatService {
 		Long receiverId = landlord ? participation.getContractor().getId() : request.getOwner().getId();
 		notificationService.notify(receiverId, NotificationType.CHAT, "새 채팅 메시지가 도착했습니다",
 				String.format("%s: %s", sender.getName(), truncate(content)));
+		eventPublisher.publishEvent(RealtimeDomainEvent.chatMessage(memberId, requestId,
+				participation.getContractor().getId(), message.getId()));
+		eventPublisher.publishEvent(RealtimeDomainEvent.chatMessage(receiverId, requestId,
+				participation.getContractor().getId(), message.getId()));
 		return new ChatMessageResponse(message);
 	}
 

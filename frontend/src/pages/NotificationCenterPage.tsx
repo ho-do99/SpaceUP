@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import NotificationCard from '@/components/user/NotificationCard'
 import UserHeader from '@/components/user/UserHeader'
@@ -10,6 +10,7 @@ import {
 } from '@/mocks/notifications'
 import { getNotifications, readAllNotifications, readNotification } from '@/api/notificationApi'
 import { mapNotification } from './notificationMapper'
+import useRealtime from '@/contexts/useRealtime'
 
 export default function NotificationCenterPage() {
   const navigate = useNavigate()
@@ -17,8 +18,9 @@ export default function NotificationCenterPage() {
   const [notifications, setNotifications] = useState<readonly UserNotification[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { latestEvent, refreshUnreadNotificationCount } = useRealtime()
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -29,9 +31,12 @@ export default function NotificationCenterPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  useEffect(() => { void loadNotifications() }, [])
+  useEffect(() => { void loadNotifications() }, [loadNotifications])
+  useEffect(() => {
+    if (latestEvent?.type === 'NOTIFICATION_CHANGED') void loadNotifications()
+  }, [latestEvent, loadNotifications])
 
   const visibleNotifications = useMemo(
     () =>
@@ -50,6 +55,7 @@ export default function NotificationCenterPage() {
     try {
       await readAllNotifications()
       setNotifications((current) => current.map((notification) => ({ ...notification, isRead: true })))
+      await refreshUnreadNotificationCount()
     } catch (readError) {
       setError(readError instanceof Error ? readError.message : '읽음 처리에 실패했습니다.')
     }
@@ -59,6 +65,7 @@ export default function NotificationCenterPage() {
     if (!selected.isRead) {
       try {
         await readNotification(Number(selected.id))
+        await refreshUnreadNotificationCount()
       } catch (readError) {
         setError(readError instanceof Error ? readError.message : '읽음 처리에 실패했습니다.')
         return

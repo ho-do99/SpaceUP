@@ -6,21 +6,16 @@ import {
   useLocation,
 } from 'react-router-dom'
 
-import useContractorPortalFlow from './useContractorPortalFlow'
+import useRealtime from '@/contexts/useRealtime'
 
 interface ContractorHeaderActionsProps {
   mode?: 'all' | 'chat'
 }
 
 export default function ContractorHeaderActions({ mode = 'all' }: ContractorHeaderActionsProps) {
-  const { notifications } =
-    useContractorPortalFlow()
+  const { unreadNotificationCount: unreadCount } = useRealtime()
 
   const location = useLocation()
-
-  const unreadCount = notifications.filter(
-    (notification) => !notification.isRead,
-  ).length
 
   const isChatActive =
     location.pathname === '/contractor/chats' ||
@@ -109,7 +104,7 @@ export default function ContractorHeaderActions({ mode = 'all' }: ContractorHead
             aria-hidden="true"
             className="absolute right-0 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-white bg-[#ef4444] px-[3px] text-[9px] font-bold leading-[10px] text-white"
           >
-            {unreadCount}
+            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         ) : null}
       </Link> : null}
