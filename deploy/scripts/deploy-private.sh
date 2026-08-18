@@ -31,6 +31,7 @@ read -r -a floorplan_healthcheck_variant_ids <<< "$FLOORPLAN_HEALTHCHECK_VARIANT
 [[ "$AI_BIND_HOST" != "0.0.0.0" ]] || die "AI must not bind to every interface"
 [[ -r "$SPACEUP_SECRET_ENV" ]] || die "application secret file is not readable"
 grep -Eq '^DB_PORT=3307$' "$SPACEUP_SECRET_ENV" || die "application secret DB_PORT must be 3307"
+require_env_file_key "$SPACEUP_SECRET_ENV" "GEMINI_API_KEY"
 for key in NCP_OBJECT_STORAGE_ENDPOINT NCP_OBJECT_STORAGE_REGION NCP_OBJECT_STORAGE_BUCKET NCP_OBJECT_STORAGE_ACCESS_KEY NCP_OBJECT_STORAGE_SECRET_KEY; do
   require_env_file_key "$SPACEUP_SECRET_ENV" "$key"
 done

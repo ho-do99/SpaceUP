@@ -40,12 +40,9 @@ function FloorPlanLabel({
   return (
     <>
       <span className="block">
-        전용 {option.exclusiveAreaM2}m² · 공급 {option.supplyAreaM2 ?? '-'}m²
+        전용 {option.exclusiveAreaM2}m²
       </span>
-
-      <span className="block">
-        {option.exclusivePyeong ?? '-'}평(전용) / {option.supplyPyeong ?? '-'}평(공급)
-      </span>
+      <span className="block">{option.exclusivePyeong ?? '-'}평(전용)</span>
     </>
   )
 }
@@ -418,11 +415,7 @@ export default function ApartmentAddressSearchPage() {
                           </span>
 
                           <span className="block text-[11px] text-[#64748b]">
-                            {matchedFloorPlan.exclusivePyeong}평(전용)
-                            {' / '}
-                            {matchedFloorPlan.supplyPyeong}평(공급)
-                            {' · '}
-                            공급 {matchedFloorPlan.supplyAreaM2 ?? '-'}m²
+                            {matchedFloorPlan.exclusivePyeong ?? '-'}평(전용)
                           </span>
                         </span>
                       </label>

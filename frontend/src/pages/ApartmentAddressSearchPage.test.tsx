@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { searchApartmentFloorPlans } from '@/api/apartmentFloorPlanApi'
@@ -56,6 +56,24 @@ describe('ApartmentAddressSearchPage storage floor plan flow', () => {
     expect(createJob).toHaveBeenCalledWith(77)
     expect(await screen.findByText('analysis loading')).toBeInTheDocument()
     expect(JSON.parse(sessionStorage.getItem('spaceup.floorPlanStorageAnalysis') ?? '{}')).toEqual({ mode: 'storage', floorPlanVariantId: 1, analysisJobId: 88 })
+  })
+
+  it('shows only the exclusive area and its pyeong value after selecting a floor plan', async () => {
+    search.mockResolvedValue(page([apartment('floorplans/floorplan1.png')]))
+    renderPage(); await searchAndSelect()
+
+    fireEvent.click(screen.getByRole('button', { name: '면적을 선택해주세요' }))
+    const areaOptions = document.querySelector('#apartment-area-options')
+    expect(areaOptions).not.toBeNull()
+    expect(within(areaOptions as HTMLElement).getByText('전용 59m²')).toBeInTheDocument()
+    expect(within(areaOptions as HTMLElement).getByText('17.8평(전용)')).toBeInTheDocument()
+    expect(within(areaOptions as HTMLElement).queryAllByText(/공급/)).toHaveLength(0)
+
+    fireEvent.click(screen.getByRole('radio'))
+
+    expect(screen.getByText('전용 59m²')).toBeInTheDocument()
+    expect(screen.getByText('17.8평(전용)')).toBeInTheDocument()
+    expect(screen.queryAllByText(/공급/)).toHaveLength(0)
   })
 
   it('routes a null image variant to the existing direct upload flow without storage analysis', async () => {

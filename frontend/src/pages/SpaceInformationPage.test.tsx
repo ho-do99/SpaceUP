@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import SpaceInformationPage from './SpaceInformationPage'
@@ -78,6 +78,21 @@ describe('SpaceInformationPage', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: '원본' }))
     expect(screen.getByRole('img', { name: '분석한 평면도' })).toHaveAttribute('src', '/api/floorplans/variants/1/image')
+
+    const previewRegion = screen.getByRole('region', { name: '평면도 분석 결과' })
+    const summaryRegion = screen.getByRole('region', { name: '공간 정보' })
+    expect(previewRegion).toHaveClass('w-full')
+    expect(previewRegion.parentElement).toHaveClass('flex', 'flex-col')
+    expect(summaryRegion).toHaveClass('w-full')
+    expect(previewRegion.compareDocumentPosition(summaryRegion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(summaryRegion.querySelector('dl')).toHaveClass('grid', 'grid-cols-2')
+
+    const ceilingTerm = screen.getByText('층고')
+    const ceilingItem = ceilingTerm.parentElement
+    const ceilingDefinition = ceilingTerm.nextElementSibling
+    expect(ceilingItem).toHaveClass('col-span-2')
+    expect(ceilingDefinition?.tagName).toBe('DD')
+    expect(within(ceilingDefinition as HTMLElement).getByRole('button', { name: '수정' })).toBeInTheDocument()
   })
   it('loads the saved AI geometry and selects the 3D result by default', async () => {
     renderPage()
