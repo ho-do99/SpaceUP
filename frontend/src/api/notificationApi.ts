@@ -20,6 +20,13 @@ export async function getNotifications(params: { page?: number; size?: number } 
   return unwrapApiResponse<PageResponse<NotificationResponse>>(response, '알림 목록 조회에 실패했습니다.')
 }
 
+export async function getUnreadNotificationCount() {
+  const response = await apiRequest<ApiResponse<number>>({
+    method: 'GET', url: '/api/notifications/unread-count', authenticated: true,
+  })
+  return unwrapApiResponse<number>(response, '읽지 않은 알림 개수 조회에 실패했습니다.')
+}
+
 export async function readNotification(id: number) {
   const response = await apiRequest<ApiResponse<null>>({ method: 'POST', url: `/api/notifications/${id}/read`, authenticated: true })
   return unwrapEmptyApiResponse(response, '알림 읽음 처리에 실패했습니다.')

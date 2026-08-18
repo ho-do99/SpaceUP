@@ -14,4 +14,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
 	// ⭐ "모두 읽음" 처리는 페이지네이션 없이 전체가 필요해서 List 버전을 따로 둡니다.
 	java.util.List<Notification> findByReceiverIdAndReadFalse(Long receiverId);
+
+	long countByReceiverIdAndReadFalse(Long receiverId);
 }

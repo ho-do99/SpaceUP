@@ -32,6 +32,12 @@ public class NotificationController {
 				.ok(ApiResponse.success("알림 목록 조회 완료", notificationService.getMyNotifications(receiverId, pageable)));
 	}
 
+	@GetMapping("/unread-count")
+	public ResponseEntity<ApiResponse<Long>> getUnreadCount(Authentication authentication) {
+		return ResponseEntity.ok(ApiResponse.success("읽지 않은 알림 개수 조회 완료",
+				notificationService.getUnreadCount(getMemberId(authentication))));
+	}
+
 	// ⭐ 본인 알림만 읽음 처리 가능
 	@PostMapping("/{notificationId}/read")
 	public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable Long notificationId,

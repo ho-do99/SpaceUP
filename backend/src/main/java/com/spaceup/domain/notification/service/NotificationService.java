@@ -2,6 +2,7 @@ package com.spaceup.domain.notification.service;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,7 @@ import com.spaceup.domain.notification.repository.NotificationRepository;
 import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.MemberNotFoundException;
 import com.spaceup.global.error.NotificationNotFoundException;
+import com.spaceup.global.realtime.RealtimeDomainEvent;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,6 +26,7 @@ public class NotificationService {
 
 	private final NotificationRepository notificationRepository;
 	private final MemberRepository memberRepository;
+	private final ApplicationEventPublisher eventPublisher;
 
 	private static final int TITLE_MAX_LENGTH = 100;
 	private static final int CONTENT_MAX_LENGTH = 300;
@@ -44,6 +47,7 @@ public class NotificationService {
 				.title(truncate(title, TITLE_MAX_LENGTH)).content(truncate(content, CONTENT_MAX_LENGTH)).build();
 
 		notificationRepository.save(notification);
+		eventPublisher.publishEvent(RealtimeDomainEvent.notificationChanged(receiverId, notification.getId()));
 		return notification.getId();
 	}
 
@@ -60,6 +64,10 @@ public class NotificationService {
 				.map(NotificationResponse::new);
 	}
 
+	public long getUnreadCount(Long receiverId) {
+		return notificationRepository.countByReceiverIdAndReadFalse(receiverId);
+	}
+
 	// ⭐ 본인 알림만 읽음 처리 가능
 	@Transactional
 	public void markAsRead(Long notificationId, Long receiverId) {
@@ -68,12 +76,14 @@ public class NotificationService {
 			throw new ForbiddenAccessException("본인 알림만 읽음 처리할 수 있습니다.");
 		}
 		notification.markAsRead();
+		eventPublisher.publishEvent(RealtimeDomainEvent.notificationChanged(receiverId, notificationId));
 	}
 
 	// ⭐ PDF "알림센터" 화면의 "모두 읽음" 버튼. 안 읽은 것만 조회해서 처리하므로 전체를 다 긁어오지 않습니다.
 	@Transactional
 	public void markAllAsRead(Long receiverId) {
 		notificationRepository.findByReceiverIdAndReadFalse(receiverId).forEach(Notification::markAsRead);
+		eventPublisher.publishEvent(RealtimeDomainEvent.notificationChanged(receiverId, null));
 	}
 
 	private Notification findNotificationOrThrow(Long notificationId) {

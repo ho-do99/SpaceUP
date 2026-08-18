@@ -10,6 +10,7 @@ import useContractorPortalFlow from '@/components/contractor/useContractorPortal
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import type { ContractorChatMessage } from '@/types/contractorPortal'
 import type { ChatThread } from '@/types/backendContractor'
+import useRealtime from '@/contexts/useRealtime'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 
@@ -22,6 +23,7 @@ export default function ContractorChatPage({
 }: ContractorChatPageProps) {
   const { requestId } = useParams()
   const navigate = useNavigate()
+  const { latestEvent } = useRealtime()
   const numericRequestId = Number(requestId)
   const liveRequestId = Number.isInteger(numericRequestId) && numericRequestId > 0
 
@@ -56,6 +58,25 @@ export default function ContractorChatPage({
     return () => { active = false }
   }, [liveRequestId, numericRequestId])
 
+  useEffect(() => {
+    if (!liveRequestId || latestEvent?.type !== 'CHAT_MESSAGE' || latestEvent.requestId !== numericRequestId) return
+    let active = true
+    Promise.all([getChatMessages(numericRequestId), getChatThreads()])
+      .then(([chatMessages, threads]) => {
+        if (!active) return
+        setLiveMessages(chatMessages.map((message) => ({
+          id: String(message.id),
+          sender: message.senderType === 'SYSTEM' ? 'system' : message.senderType === 'CONTRACTOR' ? 'contractor' : 'customer',
+          text: message.content,
+          timeLabel: message.createdAt?.slice(11, 16) || '',
+        })))
+        setLiveThread(threads.find((thread) => thread.requestId === numericRequestId) ?? null)
+        void readChat(numericRequestId).catch(() => undefined)
+      })
+      .catch(() => undefined)
+    return () => { active = false }
+  }, [latestEvent, liveRequestId, numericRequestId])
+
   const addMessage = async (content: string) => {
     if (!liveRequestId) {
       addMockMessage(content)
@@ -63,7 +84,7 @@ export default function ContractorChatPage({
     }
     try {
       const message = await sendChatMessage(numericRequestId, content)
-      setLiveMessages((current) => [...current, {
+      setLiveMessages((current) => current.some((item) => item.id === String(message.id)) ? current : [...current, {
         id: String(message.id), sender: 'contractor', text: message.content,
         timeLabel: message.createdAt?.slice(11, 16) || '',
       }])

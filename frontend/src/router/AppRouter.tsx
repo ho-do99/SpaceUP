@@ -7,6 +7,7 @@ import {
 import { useCallback, useState, type ReactNode } from 'react'
 
 import EstimateFlowProvider from '@/contexts/EstimateFlowProvider'
+import RealtimeProvider from '@/contexts/RealtimeProvider'
 
 import HomePage from '@/pages/HomePage'
 import LoginPage from '@/pages/LoginPage'
@@ -110,6 +111,7 @@ export default function AppRouter() {
   return (
     <BrowserRouter>
       <AuthSessionExpirationHandler />
+      <RealtimeProvider>
       <InitialLandingGate>
         <Routes>
         <Route element={<RequireRole role="LANDLORD" />}>
@@ -529,6 +531,7 @@ export default function AppRouter() {
         </Route>
         </Routes>
       </InitialLandingGate>
+      </RealtimeProvider>
     </BrowserRouter>
   )
 }
