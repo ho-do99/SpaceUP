@@ -255,7 +255,7 @@ CREATE TABLE notifications (
     created_at  DATETIME(6),
     updated_at  DATETIME(6),
     receiver_id BIGINT NOT NULL,
-    type        ENUM('REQUEST','QUOTE','SCHEDULE','SETTLEMENT') NOT NULL,
+    type        ENUM('REQUEST','QUOTE','SCHEDULE','SETTLEMENT','CHAT','VISIT','REVIEW','PROJECT') NOT NULL,
     title       VARCHAR(100) NOT NULL,
     content     VARCHAR(300),
     is_read     BIT(1) NOT NULL,
