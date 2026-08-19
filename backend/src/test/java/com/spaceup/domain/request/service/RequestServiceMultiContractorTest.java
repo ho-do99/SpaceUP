@@ -104,6 +104,23 @@ class RequestServiceMultiContractorTest {
 		assertEquals(activityBefore, request.getLastActivityAt());
 	}
 
+	@Test
+	void firstApprovalCreatesOneVisitAndSendsAContextualChatNotification() {
+		Member contractor = Member.builder().id(20L).build();
+		RequestContractor participation = RequestContractor.builder().request(request).contractor(contractor)
+				.status(RequestContractorStatus.INVITED).build();
+		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
+		when(requestContractorRepository.findByRequestIdAndContractorId(1L, 20L))
+				.thenReturn(Optional.of(participation));
+
+		service.approve(1L, 20L);
+
+		verify(siteVisitService).createIfAbsent(request, contractor);
+		verify(notificationService).notifyForRequest(10L,
+				com.spaceup.domain.notification.entity.NotificationType.REQUEST,
+				"의뢰가 승인되었습니다", "REQ-TEST-000001 의뢰를 시공사가 승인했습니다. 채팅에서 방문 일정을 조율해 주세요.",
+				1L, 20L);
+	}
 	private RequestContractor selectedParticipation() {
 		return RequestContractor.builder().request(request).contractor(Member.builder().id(20L).build())
 				.status(RequestContractorStatus.SELECTED).build();

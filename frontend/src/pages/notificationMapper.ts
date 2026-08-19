@@ -1,5 +1,6 @@
 import type { NotificationResponse, NotificationType } from '@/api/notificationApi'
 import type { NotificationCategory, UserNotification } from '@/mocks/notifications'
+import type { ChatThread } from '@/types/backendContractor'
 
 const categoryByType: Record<NotificationType, NotificationCategory> = {
   QUOTE: 'estimate', SCHEDULE: 'schedule', REQUEST: 'estimate', SETTLEMENT: 'system',
@@ -15,7 +16,21 @@ function isSameDay(left: Date, right: Date) {
     && left.getDate() === right.getDate()
 }
 
-export function mapNotification(value: NotificationResponse, now = new Date()): UserNotification {
+function destinationFor(value: NotificationResponse, threads: readonly ChatThread[]) {
+  const thread = value.requestId && value.contractorId
+    ? threads.find((candidate) => candidate.requestId === value.requestId && candidate.contractorId === value.contractorId)
+    : threads.find((candidate) => `${value.title} ${value.content}`.includes(candidate.requestCode))
+  const requestId = value.requestId ?? thread?.requestId
+  const contractorId = value.contractorId ?? thread?.contractorId
+  if (!requestId || !contractorId) return undefined
+  if (value.type === 'VISIT') return `/mypage/requests/${requestId}/visit/${contractorId}`
+  if (value.type === 'CHAT' || (value.type === 'REQUEST' && value.title.includes('승인'))) {
+    return `/mypage/requests/${requestId}/chat/${contractorId}`
+  }
+  return `/mypage/requests/${requestId}`
+}
+
+export function mapNotification(value: NotificationResponse, now = new Date(), threads: readonly ChatThread[] = []): UserNotification {
   const createdAt = new Date(value.createdAt)
   const category = categoryByType[value.type]
   return {
@@ -25,5 +40,6 @@ export function mapNotification(value: NotificationResponse, now = new Date()): 
     occurredAtLabel: isSameDay(createdAt, now)
       ? createdAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
       : createdAt.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }),
+    destination: destinationFor(value, threads),
   }
 }

@@ -11,7 +11,10 @@ import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.notification.entity.NotificationType;
 import com.spaceup.domain.notification.service.NotificationService;
 import com.spaceup.domain.request.entity.QuoteRequest;
+import com.spaceup.domain.request.entity.RequestContractor;
+import com.spaceup.domain.request.entity.RequestContractorStatus;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
+import com.spaceup.domain.request.repository.RequestContractorRepository;
 import com.spaceup.domain.visit.dto.SiteVisitResponse;
 import com.spaceup.domain.visit.entity.SiteVisit;
 import com.spaceup.domain.visit.repository.SiteVisitRepository;
@@ -28,6 +31,7 @@ public class SiteVisitService {
 
 	private final SiteVisitRepository siteVisitRepository;
 	private final QuoteRequestRepository quoteRequestRepository;
+	private final RequestContractorRepository requestContractorRepository;
 	private final NotificationService notificationService;
 
 	@Transactional
@@ -38,23 +42,34 @@ public class SiteVisitService {
 		siteVisitRepository.save(SiteVisit.builder().request(request).contractor(contractor).build());
 	}
 
+	@Transactional
 	public SiteVisitResponse getByRequest(Long requestId, Long contractorId, Long memberId) {
 		QuoteRequest request = quoteRequestRepository.findById(requestId)
 				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + requestId));
 		if (request.getOwner().getId().equals(memberId)) {
 			if (contractorId != null) {
-				return new SiteVisitResponse(findByRequestOrThrow(requestId, contractorId));
+				return new SiteVisitResponse(findOrCreateForApprovedParticipation(request, contractorId));
 			}
-			List<SiteVisit> visits = siteVisitRepository.findByRequestId(requestId);
-			if (visits.size() != 1) {
+			List<SiteVisit> existingVisits = siteVisitRepository.findByRequestId(requestId);
+			if (existingVisits.size() > 1) {
 				throw new IllegalArgumentException("여러 시공사의 방문 일정이 있으면 contractorId가 필요합니다.");
 			}
-			return new SiteVisitResponse(visits.get(0));
+			if (existingVisits.size() == 1) {
+				return new SiteVisitResponse(existingVisits.get(0));
+			}
+			List<RequestContractor> participations = requestContractorRepository.findByRequestId(requestId).stream()
+					.filter(participation -> participation.getStatus() == RequestContractorStatus.APPROVED
+							|| participation.getStatus() == RequestContractorStatus.SELECTED).toList();
+			if (participations.size() != 1) {
+				throw new IllegalArgumentException("여러 시공사의 방문 일정이 있으면 contractorId가 필요합니다.");
+			}
+			return new SiteVisitResponse(findOrCreateForApprovedParticipation(request,
+					participations.get(0).getContractor().getId()));
 		}
 		if (contractorId != null && !contractorId.equals(memberId)) {
 			throw new ForbiddenAccessException("다른 시공사의 방문 일정에는 접근할 수 없습니다.");
 		}
-		return new SiteVisitResponse(findByRequestOrThrow(requestId, memberId));
+		return new SiteVisitResponse(findOrCreateForApprovedParticipation(request, memberId));
 	}
 
 	@Transactional
@@ -139,6 +154,23 @@ public class SiteVisitService {
 	private SiteVisit findOrThrow(Long visitId) {
 		return siteVisitRepository.findById(visitId)
 				.orElseThrow(() -> new SiteVisitNotFoundException("존재하지 않는 방문 일정입니다: " + visitId));
+	}
+
+	private SiteVisit findOrCreateForApprovedParticipation(QuoteRequest request, Long contractorId) {
+		SiteVisit existing = siteVisitRepository.findByRequestIdAndContractorId(request.getId(), contractorId)
+				.orElse(null);
+		if (existing != null) {
+			return existing;
+		}
+		RequestContractor participation = requestContractorRepository
+				.findByRequestIdAndContractorId(request.getId(), contractorId)
+				.orElseThrow(() -> new ForbiddenAccessException("승인된 시공사만 방문 일정을 이용할 수 있습니다."));
+		if (participation.getStatus() != RequestContractorStatus.APPROVED
+				&& participation.getStatus() != RequestContractorStatus.SELECTED) {
+			throw new ForbiddenAccessException("의뢰 승인 후 방문 일정을 이용할 수 있습니다.");
+		}
+		return siteVisitRepository.save(SiteVisit.builder().request(request)
+				.contractor(participation.getContractor()).build());
 	}
 
 	private SiteVisit findByRequestOrThrow(Long requestId, Long contractorId) {

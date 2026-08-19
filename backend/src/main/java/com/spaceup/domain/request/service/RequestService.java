@@ -217,9 +217,11 @@ public class RequestService {
 		}
 		request.markQuoteRequested();
 		request.touch();
+		siteVisitService.createIfAbsent(request, participation.getContractor());
 
-		notificationService.notify(request.getOwner().getId(), NotificationType.REQUEST, "의뢰가 승인되었습니다",
-				String.format("%s 의뢰를 시공사가 승인했습니다. 견적을 확인해 주세요.", request.getRequestCode()));
+		notificationService.notifyForRequest(request.getOwner().getId(), NotificationType.REQUEST, "의뢰가 승인되었습니다",
+				String.format("%s 의뢰를 시공사가 승인했습니다. 채팅에서 방문 일정을 조율해 주세요.", request.getRequestCode()),
+				requestId, contractorId);
 	}
 
 	// ⭐ PDF "의뢰 상세" 화면의 "의뢰 거절" 버튼 - 배정받은 시공사 본인만 가능

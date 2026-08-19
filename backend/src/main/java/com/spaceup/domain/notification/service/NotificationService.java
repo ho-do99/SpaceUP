@@ -40,11 +40,18 @@ public class NotificationService {
 	// 하나에서 안전하게 잘라내 모든 호출부를 한 번에 보호합니다.
 	@Transactional
 	public Long notify(Long receiverId, NotificationType type, String title, String content) {
+		return notifyForRequest(receiverId, type, title, content, null, null);
+	}
+
+	@Transactional
+	public Long notifyForRequest(Long receiverId, NotificationType type, String title, String content,
+			Long requestId, Long contractorId) {
 		Member receiver = memberRepository.findById(receiverId)
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원 번호입니다: " + receiverId));
 
 		Notification notification = Notification.builder().receiver(receiver).type(type)
-				.title(truncate(title, TITLE_MAX_LENGTH)).content(truncate(content, CONTENT_MAX_LENGTH)).build();
+				.title(truncate(title, TITLE_MAX_LENGTH)).content(truncate(content, CONTENT_MAX_LENGTH))
+				.requestId(requestId).contractorId(contractorId).build();
 
 		notificationRepository.save(notification);
 		eventPublisher.publishEvent(RealtimeDomainEvent.notificationChanged(receiverId, notification.getId()));
