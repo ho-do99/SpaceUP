@@ -61,7 +61,7 @@ describe('ContractorChatPage live threads', () => {
     readChatMock.mockReset().mockResolvedValue(undefined)
     sendChatMessageMock.mockReset()
     realtimeState.latestEvent = null
-    getVisitMock.mockReset().mockResolvedValue({ id: 1, requestId: 99, status: 'UNSCHEDULED' })
+    getVisitMock.mockReset().mockResolvedValue({ id: 1, requestId: 99, contractorId: 5, status: 'UNSCHEDULED' })
     useContractorRequestMock.mockReset().mockReturnValue({
       request: {
         requestId: '99',
@@ -108,7 +108,7 @@ describe('ContractorChatPage live threads', () => {
   })
 
   it('offers quote writing when the live visit is completed', async () => {
-    getVisitMock.mockResolvedValue({ id: 1, requestId: 99, status: 'COMPLETED' })
+    getVisitMock.mockResolvedValue({ id: 1, requestId: 99, contractorId: 5, status: 'COMPLETED' })
 
     renderChat('/contractor/requests/99/chat')
 

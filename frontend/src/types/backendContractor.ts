@@ -11,7 +11,7 @@ export interface QuoteResponse { id: number; requestId: number; contractorId: nu
 export interface ChatThread { requestId: number; contractorId: number; requestCode: string; counterpartName: string; requestStatus: string; participationStatus: string; contactable: boolean; lastMessage?: string | null; lastMessageAt?: string | null; unreadCount: number }
 export interface ChatMessage { id: number; senderType: 'LANDLORD' | 'CONTRACTOR' | 'SYSTEM'; senderName: string; content: string; read: boolean; createdAt: string }
 export type SiteVisitStatus = 'UNSCHEDULED' | 'SCHEDULED' | 'CHANGE_REQUESTED' | 'COMPLETED'
-export interface SiteVisit { id: number; requestId: number; status: SiteVisitStatus; visitDate?: string | null; visitTime?: string | null; address?: string | null; managerName?: string | null; note?: string | null; completedAt?: string | null; requestedDate?: string | null; requestedTime?: string | null; requestReason?: string | null }
+export interface SiteVisit { id: number; requestId: number; contractorId: number; status: SiteVisitStatus; visitDate?: string | null; visitTime?: string | null; address?: string | null; managerName?: string | null; note?: string | null; completedAt?: string | null; requestedDate?: string | null; requestedTime?: string | null; requestReason?: string | null }
 export interface VisitScheduleInput { visitDate: string; visitTime: string; managerName: string; note: string }
 export interface VisitChangeRequestInput { requestedDate: string; requestedTime: string; reason: string }
 export type ProjectStatus = 'VISIT_SCHEDULED' | 'START_SCHEDULED' | 'IN_PROGRESS' | 'COMPLETION_REQUESTED' | 'COMPLETED'
