@@ -31,6 +31,7 @@ export default function ContractorRequestDetailPage() {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectedReason, setRejectedReason] = useState('')
   const [actionError, setActionError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (live.loading && !resolvedRequest) return <ContractorRequestNotFound />
   if (!resolvedRequest) return <ContractorRequestNotFound />
@@ -66,6 +67,9 @@ export default function ContractorRequestDetailPage() {
 
   if (!isRequestDetail(resolvedRequest)) return <ContractorRequestNotFound />
   const request = resolvedRequest
+  const isLiveRequest = /^\d+$/.test(request.requestId)
+  const canDecide = request.participationStatus === 'INVITED' || !isLiveRequest
+  const canContinueChat = request.participationStatus === 'APPROVED' || request.participationStatus === 'SELECTED'
 
   if (rejectedReason) {
     return (
@@ -97,23 +101,35 @@ export default function ContractorRequestDetailPage() {
   }
 
   const approve = async () => {
-    if (/^\d+$/.test(request.requestId)) {
-      try { await approveRequest(Number(request.requestId)) } catch (error) {
-        setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.'); return
-      }
+    if (isSubmitting) return
+    setActionError('')
+    setIsSubmitting(true)
+    try {
+      if (isLiveRequest) await approveRequest(Number(request.requestId))
+      navigate(`/contractor/requests/${request.requestId}/approved`)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.')
+    } finally {
+      setIsSubmitting(false)
     }
-    navigate(`/contractor/requests/${request.requestId}/approved`)
   }
 
   const reject = async (reason: string) => {
-    if (/^\d+$/.test(request.requestId)) {
-      const code = rejectReasonCodes[reason] ?? 'OTHER'
-      try { await rejectRequest(Number(request.requestId), code, code === 'OTHER' ? reason : undefined) } catch (error) {
-        setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.'); return
+    if (isSubmitting) return
+    setActionError('')
+    setIsSubmitting(true)
+    try {
+      if (isLiveRequest) {
+        const code = rejectReasonCodes[reason] ?? 'OTHER'
+        await rejectRequest(Number(request.requestId), code, code === 'OTHER' ? reason : undefined)
       }
+      setRejectedReason(reason)
+      setRejectOpen(false)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.')
+    } finally {
+      setIsSubmitting(false)
     }
-    setRejectedReason(reason)
-    setRejectOpen(false)
   }
 
   return (
@@ -122,7 +138,11 @@ export default function ContractorRequestDetailPage() {
         request={request}
         activeTab="summary"
         statusMessage={actionError || (rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined)}
-        actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={approve} />}
+        actions={canContinueChat
+          ? <ContractorRequestActions chatHref={`/contractor/requests/${request.requestId}/chat`} />
+          : canDecide
+            ? <ContractorRequestActions disabled={isSubmitting || Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={approve} />
+            : null}
       >
         <ContractorSectionCard className="p-[14px] shadow-none">
           <h2 className="mb-[7px] text-sm font-bold leading-5 text-[#1e293b]">공간 분석 요약</h2>

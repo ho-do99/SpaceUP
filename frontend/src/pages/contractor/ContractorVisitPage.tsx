@@ -43,7 +43,7 @@ export default function ContractorVisitPage() {
   const liveRequest = useContractorRequest(requestId)
   const isLive = /^\d+$/.test(requestId ?? '')
   const request = isLive ? liveRequest.request : findContractorRequestDetail(requestId)
-  const linkedProject = findContractorProjectByRequestId(requestId)
+  const linkedProject = isLive ? null : findContractorProjectByRequestId(requestId)
   const [liveVisit, setLiveVisit] = useState<SiteVisit | null>(null)
 
   const {
@@ -59,11 +59,15 @@ export default function ContractorVisitPage() {
   } = useContractorPortalFlow()
 
   const [date, setDate] = useState(
-    contractorDefaultVisitSchedule.date,
+    isLive ? '' : contractorDefaultVisitSchedule.date,
   )
 
   const [time, setTime] = useState(
-    contractorDefaultVisitSchedule.time,
+    isLive ? '' : contractorDefaultVisitSchedule.time,
+  )
+
+  const [managerName, setManagerName] = useState(
+    isLive ? '' : contractorDefaultVisitSchedule.managerName,
   )
 
   const [note, setNote] = useState('')
@@ -82,8 +86,31 @@ export default function ContractorVisitPage() {
 
   useEffect(() => {
     if (!isLive || !requestId) return
-    getVisit(Number(requestId)).then(setLiveVisit).catch(() => setLiveVisit(null))
+    let active = true
+    setLiveVisit(null)
+    setDate('')
+    setTime('')
+    setManagerName('')
+    setNote('')
+    setErrorMessage('')
+    void getVisit(Number(requestId))
+      .then((visit) => {
+        if (!active) return
+        setLiveVisit(visit)
+        setDate(visit.visitDate ?? '')
+        setTime(visit.visitTime?.slice(0, 5) ?? '')
+        setManagerName(visit.managerName ?? '')
+        setNote(visit.note ?? '')
+      })
+      .catch((error: unknown) => {
+        if (active) setErrorMessage(error instanceof Error ? error.message : '방문 일정을 불러오지 못했습니다.')
+      })
+    return () => { active = false }
   }, [isLive, requestId])
+
+  if (isLive && liveRequest.loading) {
+    return <ContractorMobileShell><main className="flex min-h-dvh items-center justify-center text-sm text-[#64748b]">방문 일정을 불러오는 중입니다.</main></ContractorMobileShell>
+  }
 
   if (!request) {
     return <ContractorRequestNotFound />
@@ -105,12 +132,13 @@ export default function ContractorVisitPage() {
         }
       : null
 
-  const effectiveVisitStatus: ContractorVisitStatus =
-    isCompletedView
+  const effectiveVisitStatus: ContractorVisitStatus = isLive
+    ? (liveVisit?.status as ContractorVisitStatus | undefined) ?? 'UNSCHEDULED'
+    : isCompletedView
       ? 'COMPLETED'
       : projectVisitSchedule
         ? 'SCHEDULED'
-        : (liveVisit?.status as ContractorVisitStatus | undefined) ?? visitStatus
+        : visitStatus
 
   const completedPreviewSchedule: ContractorVisitSchedule =
     {
@@ -133,13 +161,29 @@ export default function ContractorVisitPage() {
     completedAt: liveVisit.completedAt ?? undefined,
   } : null
 
-  const currentSchedule =
-    isCompletedView
-      ? (liveSchedule?.completedAt || visitSchedule?.completedAt)
-        ? (liveSchedule ?? visitSchedule!)
+  const emptyLiveSchedule: ContractorVisitSchedule = {
+    date: '', time: '', address: request.property.address,
+    managerName: '', note: '',
+  }
+
+  const currentSchedule = isLive
+    ? liveSchedule ?? emptyLiveSchedule
+    : isCompletedView
+      ? visitSchedule?.completedAt
+        ? visitSchedule
         : completedPreviewSchedule
-      : liveSchedule ?? projectVisitSchedule ?? visitSchedule ??
-        contractorDefaultVisitSchedule
+      : projectVisitSchedule ?? visitSchedule ?? contractorDefaultVisitSchedule
+
+  const currentChangeRequest = isLive
+    ? {
+        requestedBy: 'customer' as const,
+        previousDate: liveVisit?.visitDate ?? '',
+        previousTime: liveVisit?.visitTime?.slice(0, 5) ?? '',
+        requestedDate: liveVisit?.requestedDate ?? '',
+        requestedTime: liveVisit?.requestedTime?.slice(0, 5) ?? '',
+        reason: liveVisit?.requestReason ?? '',
+      }
+    : changeRequest
 
   const register = async (
     event: FormEvent<HTMLFormElement>,
@@ -155,11 +199,11 @@ export default function ContractorVisitPage() {
 
     setErrorMessage('')
 
-    const schedule = {
-      ...contractorDefaultVisitSchedule,
+    const schedule: ContractorVisitSchedule = {
       date,
       time,
       address: request.property.address,
+      managerName: isLive ? managerName.trim() : contractorDefaultVisitSchedule.managerName,
       note: note.trim(),
     }
     if (isLive && requestId) {
@@ -346,10 +390,9 @@ export default function ContractorVisitPage() {
 
                 <input
                   type="text"
-                  readOnly
-                  value={
-                    contractorDefaultVisitSchedule.managerName
-                  }
+                  readOnly={!isLive}
+                  value={managerName}
+                  onChange={(event) => setManagerName(event.target.value)}
                   className="mt-1 h-12 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-xs font-normal text-[#64748b]"
                 />
               </label>
@@ -447,11 +490,11 @@ export default function ContractorVisitPage() {
                 </h2>
 
                 <p className="mt-3 text-xs text-[#64748b]">
-                  {changeRequest.previousDate.replace(
+                  {currentChangeRequest.previousDate.replace(
                     /-/g,
                     '.',
                   )}{' '}
-                  · {changeRequest.previousTime}
+                  · {currentChangeRequest.previousTime}
                 </p>
 
                 <p className="mt-1 break-words text-xs text-[#64748b]">
@@ -466,7 +509,7 @@ export default function ContractorVisitPage() {
 
                 <p className="mt-3 text-xs text-[#64748b]">
                   요청 날짜{' '}
-                  {changeRequest.requestedDate.replace(
+                  {currentChangeRequest.requestedDate.replace(
                     /-/g,
                     '.',
                   )}
@@ -474,11 +517,11 @@ export default function ContractorVisitPage() {
 
                 <p className="mt-1 text-xs text-[#64748b]">
                   요청 시간{' '}
-                  {changeRequest.requestedTime}
+                  {currentChangeRequest.requestedTime}
                 </p>
 
                 <p className="mt-1 break-words text-xs leading-5 text-[#64748b]">
-                  {changeRequest.reason}
+                  {currentChangeRequest.reason}
                 </p>
               </section>
 
