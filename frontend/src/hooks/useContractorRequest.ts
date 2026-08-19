@@ -12,10 +12,20 @@ export default function useContractorRequest(requestId?: string) {
   )
   const [loading, setLoading] = useState(liveId)
   const [error, setError] = useState('')
+  const [resolvedRequestId, setResolvedRequestId] = useState(requestId)
 
   useEffect(() => {
-    if (!requestId || !/^\d+$/.test(requestId)) return
+    if (!liveId) {
+      setRequest(findContractorRequestDetail(requestId) ?? null)
+      setLoading(false)
+      setError('')
+      setResolvedRequestId(requestId)
+      return
+    }
     let active = true
+    setRequest(null)
+    setError('')
+    setResolvedRequestId(requestId)
     const id = Number(requestId)
     setLoading(true)
     Promise.all([
@@ -33,7 +43,8 @@ export default function useContractorRequest(requestId?: string) {
       if (active) setLoading(false)
     })
     return () => { active = false }
-  }, [requestId])
+  }, [requestId, liveId])
 
+  if (resolvedRequestId !== requestId) return { request: null, loading: liveId, error: '' }
   return { request, loading, error }
 }
