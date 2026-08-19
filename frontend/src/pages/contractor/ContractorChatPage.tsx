@@ -7,10 +7,12 @@ import ContractorChatBubble from '@/components/contractor/ContractorChatBubble'
 import ContractorChatComposer from '@/components/contractor/ContractorChatComposer'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import useContractorPortalFlow from '@/components/contractor/useContractorPortalFlow'
+import useContractorRequest from '@/hooks/useContractorRequest'
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import type { ContractorChatMessage } from '@/types/contractorPortal'
-import type { ChatThread } from '@/types/backendContractor'
+import type { ChatThread, SiteVisit } from '@/types/backendContractor'
 import useRealtime from '@/contexts/useRealtime'
+import { getVisit } from '@/api/visitApi'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 
@@ -26,14 +28,16 @@ export default function ContractorChatPage({
   const { latestEvent } = useRealtime()
   const numericRequestId = Number(requestId)
   const liveRequestId = Number.isInteger(numericRequestId) && numericRequestId > 0
-
-  const request =
-    findContractorRequestDetail(requestId)
+  const liveRequest = useContractorRequest(requestId)
+  const request = liveRequestId
+    ? liveRequest.request
+    : findContractorRequestDetail(requestId)
 
   const { messages: mockMessages, addMessage: addMockMessage } =
     useContractorPortalFlow()
   const [liveMessages, setLiveMessages] = useState<ContractorChatMessage[]>([])
   const [liveThread, setLiveThread] = useState<ChatThread | null>(null)
+  const [liveVisit, setLiveVisit] = useState<SiteVisit | null>(null)
   const [liveError, setLiveError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const messages = liveRequestId ? liveMessages : mockMessages
@@ -55,6 +59,19 @@ export default function ContractorChatPage({
       })
       .catch(() => {
         if (active) setLiveError('채팅 내용을 불러오지 못했습니다.')
+      })
+    return () => { active = false }
+  }, [liveRequestId, numericRequestId])
+
+  useEffect(() => {
+    if (!liveRequestId) return
+    let active = true
+    getVisit(numericRequestId)
+      .then((visit) => {
+        if (active) setLiveVisit(visit)
+      })
+      .catch(() => {
+        if (active) setLiveVisit(null)
       })
     return () => { active = false }
   }, [liveRequestId, numericRequestId])
@@ -118,16 +135,25 @@ export default function ContractorChatPage({
     return <ContractorRequestNotFound />
   }
 
-  const visitPagePath = completed
-    ? `/contractor/requests/${request?.requestId}/visit?mode=completed`
-    : `/contractor/requests/${request?.requestId}/visit`
+  const hasCompletedVisit = liveRequestId
+    ? liveVisit?.status === 'COMPLETED'
+    : completed
+  const visitPagePath = liveRequestId
+    ? `/contractor/requests/${requestId}/visit`
+    : hasCompletedVisit
+      ? `/contractor/requests/${request?.requestId}/visit?mode=completed`
+      : `/contractor/requests/${request?.requestId}/visit`
+  const estimatePagePath = liveRequestId
+    ? `/contractor/requests/${requestId}/estimate-ready`
+    : `/contractor/requests/${request?.requestId}/estimate-ready?mode=completed`
+  const showActions = !liveRequestId || liveThread !== null
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
       <header className="relative flex h-14 shrink-0 items-center border-b border-[#e2e8f0] bg-white px-4">
         <button type="button" aria-label="뒤로가기" onClick={() => navigate(-1)} className="mr-2 flex h-10 w-3 items-center justify-center"><img src={backIcon} alt="" className="h-5 w-5 max-w-none" /></button>
-        <h1 className="text-[17px] font-bold leading-[25px] text-[#1e293b]">{request?.customerName ?? liveThread?.counterpartName ?? '채팅'} 사용자</h1>
-        <p className="ml-auto text-[10px] font-bold text-[#64748b]">{request?.requestId ?? liveThread?.requestCode ?? requestId}</p>
+        <h1 className="text-[17px] font-bold leading-[25px] text-[#1e293b]">{liveRequestId ? liveThread?.counterpartName ?? '채팅' : request?.customerName ?? '채팅'} 사용자</h1>
+        <p className="ml-auto text-[10px] font-bold text-[#64748b]">{liveRequestId ? liveThread?.requestCode ?? requestId : request?.requestId}</p>
       </header>
 
       <div
@@ -140,8 +166,8 @@ export default function ContractorChatPage({
           <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">안전한 거래와 개인정보 보호를 위해 사용자와의 소통은 이 채팅 안에서 진행해 주세요.</p>
         </section>
         <section className="mb-3 rounded-xl border border-[#e2e8f0] bg-white p-[13px]">
-          <h2 className="text-sm font-bold text-[#2563eb]">{completed ? '현장 확인 완료 · 견적 작성 가능' : '의뢰 승인 완료 · 실시간 채팅 중'}</h2>
-          <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">{completed ? '실제 현장 방문 완료 · 2026.07.24 15:40' : '사용자와 현장 방문 일정을 조율해 주세요.'}</p>
+          <h2 className="text-sm font-bold text-[#2563eb]">{hasCompletedVisit ? '현장 확인 완료 · 견적 작성 가능' : '의뢰 승인 완료 · 실시간 채팅 중'}</h2>
+          <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">{hasCompletedVisit ? '실제 현장 방문 완료 · 2026.07.24 15:40' : '사용자와 현장 방문 일정을 조율해 주세요.'}</p>
         </section>
         <section className="mb-4 rounded-xl border border-[#e2e8f0] bg-white p-[13px]">
           <h2 className="text-sm font-bold text-[#ef4444]">7일 자동 취소 안내</h2>
@@ -164,7 +190,7 @@ export default function ContractorChatPage({
 
         {liveError ? <p role="alert" className="mt-4 text-center text-xs font-bold text-[#dc2626]">{liveError}</p> : null}
 
-        {completed ? (
+        {hasCompletedVisit ? (
           <div className="mt-4 rounded-xl border border-[#a7f3d0] bg-[#ecfdf5] p-3 text-xs leading-5 text-[#047857]">
             <p className="font-bold">
               현장 방문 완료
@@ -178,19 +204,19 @@ export default function ContractorChatPage({
         ) : null}
       </div>
 
-      {!liveRequestId ? <div className="grid shrink-0 grid-cols-2 gap-2 bg-[#f8fafc] px-4 py-3">
+      {showActions ? <div className="grid shrink-0 grid-cols-2 gap-2 bg-[#f8fafc] px-4 py-3">
         <Link
           to={visitPagePath}
           className="flex h-11 items-center justify-center rounded-lg border border-[#2563eb] bg-white text-xs font-bold text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]"
         >
-          {completed
+          {hasCompletedVisit
             ? '방문 일정 확인'
             : '현장 방문 일정 잡기'}
         </Link>
 
-        {completed ? (
+        {hasCompletedVisit ? (
           <Link
-            to={`/contractor/requests/${request?.requestId}/estimate-ready?mode=completed`}
+            to={estimatePagePath}
             className="flex h-11 items-center justify-center rounded-lg bg-[#2563eb] text-xs font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
           >
             견적서 작성
@@ -205,7 +231,7 @@ export default function ContractorChatPage({
             견적서 작성
           </button>
         )}
-        {!completed ? <p className="col-span-2 text-[10px] leading-4 text-[#64748b]">실제 현장 방문 완료 처리 후 견적서를 작성할 수 있습니다.</p> : null}
+        {!hasCompletedVisit ? <p className="col-span-2 text-[10px] leading-4 text-[#64748b]">실제 현장 방문 완료 처리 후 견적서를 작성할 수 있습니다.</p> : null}
       </div> : <div className="shrink-0 bg-[#f8fafc] px-4 py-2 text-center text-[10px] text-[#64748b]">현장방문·견적 작성 화면은 기존 흐름을 유지하며 다음 단계에서 연결합니다.</div>}
 
       <ContractorChatComposer
