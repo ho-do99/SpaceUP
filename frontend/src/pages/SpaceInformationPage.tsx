@@ -34,7 +34,7 @@ export default function SpaceInformationPage() {
   const floorPlanPreviewUrl = useMemo(() => getFloorPlanPreviewUrl(state), [state])
   const requestId = getActiveRequestId()
   const [analysis, setAnalysis] = useState<AnalysisJobResponse | null>(null)
-  const [ceilingHeight, setCeilingHeight] = useState('')
+  const [ceilingHeight, setCeilingHeight] = useState('2.4')
   const [isEditingCeilingHeight, setIsEditingCeilingHeight] = useState(false)
   const [spaces, setSpaces] = useState<AnalysisSpaceResponse[]>([])
   const [loading, setLoading] = useState(false)
@@ -55,7 +55,7 @@ export default function SpaceInformationPage() {
         if (!active) return
         setAnalysis(liveAnalysis)
         setSpaces(liveSpaces)
-        setCeilingHeight(liveAnalysis.ceilingHeightM == null ? '' : String(liveAnalysis.ceilingHeightM))
+        setCeilingHeight(liveAnalysis.ceilingHeightM == null ? '2.4' : String(liveAnalysis.ceilingHeightM))
       })
       .catch((error) => {
         if (active) setApiError(error instanceof Error ? error.message : '공간 정보를 불러오지 못했습니다.')

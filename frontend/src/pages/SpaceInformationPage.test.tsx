@@ -94,6 +94,23 @@ describe('SpaceInformationPage', () => {
     expect(ceilingDefinition?.tagName).toBe('DD')
     expect(within(ceilingDefinition as HTMLElement).getByRole('button', { name: '수정' })).toBeInTheDocument()
   })
+  it('uses 2.4m as the editable default when AI analysis has no ceiling height', async () => {
+    api.getAnalysis.mockResolvedValueOnce({
+      requestId: 77,
+      status: 'COMPLETED',
+      ceilingHeightM: null,
+    })
+    renderPage()
+
+    expect(await screen.findByText('2.4m')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '수정' }))
+    const input = screen.getByRole('spinbutton', { name: '층고' })
+    expect(input).toHaveValue(2.4)
+    fireEvent.change(input, { target: { value: '2.7' } })
+    fireEvent.click(screen.getByRole('button', { name: '다음' }))
+
+    await waitFor(() => expect(api.updateAnalysis).toHaveBeenCalledWith(77, { ceilingHeightM: 2.7 }))
+  })
   it('loads the saved AI geometry and selects the 3D result by default', async () => {
     renderPage()
 

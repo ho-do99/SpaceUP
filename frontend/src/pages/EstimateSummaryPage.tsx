@@ -15,7 +15,8 @@ import type { MaterialProduct } from '@/mocks/estimateMaterials'
 import type { RecommendedProduct } from '@/types/analysis'
 import type { MaterialTheme } from '@/types/materialCatalog'
 import { getMaterialTheme } from '@/utils/materialTheme'
-import { groupRecommendedProducts, sumRecommendationAmounts } from '@/utils/materialRecommendation'
+import { groupRecommendedProducts } from '@/utils/materialRecommendation'
+import { calculatePreliminaryEstimate } from '@/utils/preliminaryEstimate'
 import { getActiveRequestId } from '@/utils/requestFlow'
 
 const themeLabels: Record<MaterialTheme, string> = {
@@ -82,9 +83,10 @@ export default function EstimateSummaryPage() {
   const floorRecommendation = selectedRecommendation(groups.FLOORING, selectedFloor)
   const wallpaperRecommendation = selectedRecommendation(groups.WALLPAPER, selectedWallpaper)
   const lightingRecommendation = selectedRecommendation(groups.LIGHTING, selectedLighting)
-  const recommendationTotal = sumRecommendationAmounts([floorRecommendation, wallpaperRecommendation, lightingRecommendation])
-  const estimateMin = Math.floor(recommendationTotal * 0.9 / 10_000)
-  const estimateMax = Math.ceil(recommendationTotal * 1.1 / 10_000)
+  const estimate = calculatePreliminaryEstimate([floorRecommendation, wallpaperRecommendation, lightingRecommendation])
+  const estimateMin = Math.floor(estimate.estimateMin / 10_000)
+  const estimateMax = Math.ceil(estimate.estimateMax / 10_000)
+  const formatWon = (amount: number) => `${amount.toLocaleString('ko-KR')}원`
   const loading = recommendationLoading || floorCatalog.loading || wallpaperCatalog.loading || lightingCatalog.loading
   const loadError = recommendationError || floorCatalog.error || wallpaperCatalog.error || lightingCatalog.error
   const hasRequiredMaterials = Boolean(selectedFloor && selectedWallpaper && selectedLighting && floorRecommendation && wallpaperRecommendation && lightingRecommendation)
@@ -145,13 +147,19 @@ export default function EstimateSummaryPage() {
             <section className="mt-8 rounded-[7px] border border-[#d5dfed] bg-[#f4f8ff] px-4 py-[14px] text-center">
               <p className="text-[9px] leading-4 text-[#15284c]">총 예상 비용</p>
               <p className="mt-1 text-[22px] font-bold leading-7 text-[#2563eb]">{estimateMin} ~ {estimateMax}<span className="ml-1 text-[14px]">만원</span></p>
-              <p className="mt-1 text-[9px] leading-4 text-[#15284c]">바닥재 · 벽지 · 조명</p>
+              <p className="mt-1 text-[9px] leading-4 text-[#15284c]">자재비 · 철거비 · 인건비 포함</p>
+              <dl className="mt-3 space-y-1.5 border-t border-[#bfdbfe] pt-3 text-[11px]">
+                <div className="flex justify-between"><dt>자재비</dt><dd>{formatWon(estimate.materialCost)}</dd></div>
+                <div className="flex justify-between"><dt>철거비</dt><dd>{formatWon(estimate.demolitionCost)}</dd></div>
+                <div className="flex justify-between"><dt>인건비</dt><dd>{formatWon(estimate.laborCost)}</dd></div>
+                <div className="flex justify-between border-t border-[#bfdbfe] pt-1.5 font-bold text-[#2563eb]"><dt>총액</dt><dd>{formatWon(estimate.totalCost)}</dd></div>
+              </dl>
             </section>
             <section className="mt-3 space-y-2.5 pb-6" aria-label="추천 자재 목록">
               <MaterialSummaryCard title="바닥재 교체" product={selectedFloor!} recommendation={floorRecommendation} onSelect={() => navigate('/estimate/materials/floor')} />
               <MaterialSummaryCard title="벽지 교체" product={selectedWallpaper!} recommendation={wallpaperRecommendation} onSelect={() => navigate('/estimate/materials/wallpaper')} />
               <MaterialSummaryCard title="조명 교체" product={selectedLighting!} recommendation={lightingRecommendation} onSelect={() => navigate('/estimate/materials/lighting')} />
-              <div className="rounded-[8px] border border-[#fdba74] bg-[#fff7ed] p-3 text-[11px] leading-4 text-[#9a3412]"><p>※ 부자재비·철거비·폐기비는 제외된 금액이며, 현장 상황에 따라 추가될 수 있습니다.</p><p className="mt-1.5">※ 본 금액은 예상 견적이며, 현장 방문 후 실제 견적서와 금액 차이가 발생할 수 있습니다.</p></div>
+              <div className="rounded-[8px] border border-[#fdba74] bg-[#fff7ed] p-3 text-[11px] leading-4 text-[#9a3412]"><p>※ 철거비와 인건비는 추천 자재비를 기준으로 한 표준 예상 금액이며, 현장 상황에 따라 달라질 수 있습니다.</p><p className="mt-1.5">※ 본 금액은 예상 견적이며, 현장 방문 후 실제 견적서와 금액 차이가 발생할 수 있습니다.</p></div>
             </section>
           </> : null}
           {saveError ? <p role="alert" className="mb-3 text-center text-[11px] font-semibold text-[#dc2626]">{saveError}</p> : null}

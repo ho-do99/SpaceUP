@@ -6,6 +6,7 @@ import ContractorMobileShell from '@/components/contractor/ContractorMobileShell
 import ContractorNotificationCard from '@/components/contractor/ContractorNotificationCard'
 import type { ContractorNotification, ContractorNotificationFilter } from '@/types/contractorPortal'
 import { getNotifications, readAllNotifications, readNotification } from '@/api/notificationApi'
+import { getAssignedRequests } from '@/api/contractorApi'
 import useRealtime from '@/contexts/useRealtime'
 
 const filters: readonly { id: ContractorNotificationFilter; label: string }[] = [
@@ -19,15 +20,29 @@ export default function ContractorNotificationPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const { latestEvent, refreshUnreadNotificationCount } = useRealtime()
+
   const loadNotifications = useCallback(async () => {
     try {
       const page = await getNotifications({ size: 50 })
+      const assignedRequests = await getAssignedRequests({ size: 100 })
+        .then((response) => response.content)
+        .catch(() => [])
       const today = new Date().toISOString().slice(0, 10)
-      setNotifications(page.content.map((item) => ({
-        notificationId: String(item.id), type: item.type === 'QUOTE' ? 'ESTIMATE' : item.type === 'SCHEDULE' ? 'VISIT' : item.type,
-        title: item.title, message: item.content, createdAtLabel: item.createdAt.slice(0, 16).replace('T', ' '),
-        section: item.createdAt.startsWith(today) ? 'TODAY' : 'PREVIOUS', isRead: item.read, destination: '',
-      })))
+      setNotifications(page.content.map((item) => {
+        const request = item.type === 'REQUEST'
+          ? assignedRequests.find((candidate) => candidate.requestCode && `${item.title} ${item.content}`.includes(candidate.requestCode))
+          : undefined
+        return {
+          notificationId: String(item.id),
+          type: item.type === 'QUOTE' ? 'ESTIMATE' : item.type === 'SCHEDULE' ? 'VISIT' : item.type,
+          title: item.title,
+          message: item.content,
+          createdAtLabel: item.createdAt.slice(0, 16).replace('T', ' '),
+          section: item.createdAt.startsWith(today) ? 'TODAY' : 'PREVIOUS',
+          isRead: item.read,
+          destination: request ? `/contractor/requests/${request.id}` : '',
+        }
+      }))
       setError('')
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : '알림을 불러오지 못했습니다.')
@@ -35,24 +50,40 @@ export default function ContractorNotificationPage() {
       setLoading(false)
     }
   }, [])
+
   useEffect(() => { void loadNotifications() }, [loadNotifications])
   useEffect(() => {
     if (latestEvent?.type === 'NOTIFICATION_CHANGED') void loadNotifications()
   }, [latestEvent, loadNotifications])
+
   const [filter, setFilter] = useState<ContractorNotificationFilter>('all')
   const filtered = useMemo(() => filter === 'all' ? notifications : notifications.filter((item) => item.type === filterTypes[filter]), [filter, notifications])
   const unreadCount = notifications.filter((item) => !item.isRead).length
+
   const openNotification = async (notification: ContractorNotification) => {
     if (!notification.isRead) {
-      try { await readNotification(Number(notification.notificationId)); setNotifications((items) => items.map((item) => item.notificationId === notification.notificationId ? { ...item, isRead: true } : item)); await refreshUnreadNotificationCount() }
-      catch (readError) { setError(readError instanceof Error ? readError.message : '읽음 처리에 실패했습니다.'); return }
+      try {
+        await readNotification(Number(notification.notificationId))
+        setNotifications((items) => items.map((item) => item.notificationId === notification.notificationId ? { ...item, isRead: true } : item))
+        await refreshUnreadNotificationCount()
+      } catch (readError) {
+        setError(readError instanceof Error ? readError.message : '읽음 처리에 실패했습니다.')
+        return
+      }
     }
     if (notification.destination) navigate(notification.destination)
   }
+
   const markAllNotificationsRead = async () => {
-    try { await readAllNotifications(); setNotifications((items) => items.map((item) => ({ ...item, isRead: true }))); await refreshUnreadNotificationCount() }
-    catch (readError) { setError(readError instanceof Error ? readError.message : '읽음 처리에 실패했습니다.') }
+    try {
+      await readAllNotifications()
+      setNotifications((items) => items.map((item) => ({ ...item, isRead: true })))
+      await refreshUnreadNotificationCount()
+    } catch (readError) {
+      setError(readError instanceof Error ? readError.message : '읽음 처리에 실패했습니다.')
+    }
   }
+
   const today = filtered.filter((item) => item.section === 'TODAY')
   const previous = filtered.filter((item) => item.section === 'PREVIOUS')
   return (

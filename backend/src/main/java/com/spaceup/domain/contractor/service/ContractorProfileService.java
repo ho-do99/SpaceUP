@@ -16,8 +16,8 @@ import com.spaceup.domain.member.entity.MemberRole;
 import com.spaceup.domain.member.repository.MemberRepository;
 import com.spaceup.domain.quote.entity.QuoteStatus;
 import com.spaceup.domain.quote.repository.ContractorQuoteRepository;
-import com.spaceup.domain.request.entity.RequestStatus;
-import com.spaceup.domain.request.repository.QuoteRequestRepository;
+import com.spaceup.domain.request.entity.RequestContractorStatus;
+import com.spaceup.domain.request.repository.RequestContractorRepository;
 import com.spaceup.domain.settlement.entity.SettlementStatus;
 import com.spaceup.domain.settlement.repository.SettlementRepository;
 import com.spaceup.global.error.InvalidRoleException;
@@ -32,7 +32,7 @@ public class ContractorProfileService {
 
 	private final ContractorProfileRepository contractorProfileRepository;
 	private final MemberRepository memberRepository;
-	private final QuoteRequestRepository quoteRequestRepository;
+	private final RequestContractorRepository requestContractorRepository;
 	private final ContractorQuoteRepository contractorQuoteRepository;
 	private final SettlementRepository settlementRepository;
 
@@ -76,9 +76,10 @@ public class ContractorProfileService {
 
 	// ⭐ [Figma 반영] "시공사 대시보드" 상단 요약 카드. 정확한 단계 매핑은 API 명세서 비고 참고.
 	public ContractorDashboardResponse getDashboard(Long memberId) {
-		long newLeads = quoteRequestRepository.countByContractorIdAndStatus(memberId, RequestStatus.REVIEWING);
-		long quoteRequested = quoteRequestRepository.countByContractorIdAndStatus(memberId,
-				RequestStatus.QUOTE_REQUESTED);
+		long newLeads = requestContractorRepository.countByContractorIdAndStatus(memberId,
+				RequestContractorStatus.INVITED);
+		long quoteRequested = requestContractorRepository.countByContractorIdAndStatus(memberId,
+				RequestContractorStatus.APPROVED);
 		long quoteSent = contractorQuoteRepository.countByContractorIdAndStatus(memberId, QuoteStatus.SUBMITTED);
 		long contractPending = contractorQuoteRepository.countByContractorIdAndStatus(memberId, QuoteStatus.ACCEPTED);
 		Long pendingAmount = settlementRepository.sumPayoutAmountByPartnerIdAndStatus(memberId,

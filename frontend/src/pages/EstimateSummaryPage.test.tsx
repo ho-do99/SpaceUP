@@ -69,7 +69,11 @@ describe('EstimateSummaryPage', () => {
     renderPage()
 
     expect(await screen.findByText('선택 스타일 · 우드')).toBeInTheDocument()
-    expect(screen.getByText('432 ~ 528')).toBeInTheDocument()
+    expect(screen.getByText('614 ~ 750')).toBeInTheDocument()
+    expect(screen.getByText('자재비').nextElementSibling).toHaveTextContent('4,800,000원')
+    expect(screen.getByText('철거비').nextElementSibling).toHaveTextContent('580,000원')
+    expect(screen.getByText('인건비').nextElementSibling).toHaveTextContent('1,440,000원')
+    expect(screen.getByText('총액').nextElementSibling).toHaveTextContent('6,820,000원')
     expect(screen.getByText(/우드 스타일과 바닥 면적 기준/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '추천 자재 선택 완료' }))

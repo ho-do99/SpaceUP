@@ -23,4 +23,6 @@ public interface RequestContractorRepository extends JpaRepository<RequestContra
 	List<RequestContractor> findByRequestId(Long requestId);
 
 	List<RequestContractor> findByRequestIdAndStatusIn(Long requestId, List<RequestContractorStatus> statuses);
+
+	long countByContractorIdAndStatus(Long contractorId, RequestContractorStatus status);
 }
