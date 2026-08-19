@@ -8,10 +8,11 @@ import EstimateSummaryPage from './EstimateSummaryPage'
 
 const api = vi.hoisted(() => ({
   getRecommendedProducts: vi.fn(),
+  getAnalysis: vi.fn(),
   updateRequest: vi.fn(),
 }))
 
-vi.mock('@/api/analysisApi', () => ({ getRecommendedProducts: api.getRecommendedProducts }))
+vi.mock('@/api/analysisApi', () => ({ getRecommendedProducts: api.getRecommendedProducts, getAnalysis: api.getAnalysis }))
 vi.mock('@/api/requestApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/requestApi')>()
   return { ...actual, updateRequest: api.updateRequest }
@@ -60,6 +61,10 @@ describe('EstimateSummaryPage', () => {
     sessionStorage.setItem('spaceup.activeRequestId', '77')
     sessionStorage.setItem('spaceup-material-theme', 'WOOD')
     api.getRecommendedProducts.mockReset().mockResolvedValue(recommendations)
+    api.getAnalysis.mockReset().mockResolvedValue({
+      requestId: 77, status: 'COMPLETED', totalFloorAreaM2: 30, totalWallpaperAreaM2: 70,
+      ceilingHeightM: 2.4,
+    })
     api.updateRequest.mockReset().mockResolvedValue(undefined)
   })
 
@@ -69,11 +74,12 @@ describe('EstimateSummaryPage', () => {
     renderPage()
 
     expect(await screen.findByText('선택 스타일 · 우드')).toBeInTheDocument()
-    expect(screen.getByText('614 ~ 750')).toBeInTheDocument()
+    expect(screen.getByText('626 ~ 765')).toBeInTheDocument()
+    expect(screen.getByText(/선택 공간 30㎡ · 약 9.1평 기준/)).toBeInTheDocument()
     expect(screen.getByText('자재비').nextElementSibling).toHaveTextContent('4,800,000원')
-    expect(screen.getByText('철거비').nextElementSibling).toHaveTextContent('580,000원')
-    expect(screen.getByText('인건비').nextElementSibling).toHaveTextContent('1,440,000원')
-    expect(screen.getByText('총액').nextElementSibling).toHaveTextContent('6,820,000원')
+    expect(screen.getByText('철거비').nextElementSibling).toHaveTextContent('640,000원')
+    expect(screen.getByText('인건비').nextElementSibling).toHaveTextContent('1,510,000원')
+    expect(screen.getByText('총액').nextElementSibling).toHaveTextContent('6,950,000원')
     expect(screen.getByText(/우드 스타일과 바닥 면적 기준/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '추천 자재 선택 완료' }))

@@ -71,6 +71,13 @@ public class AiFloorplanAnalysisService {
 	public AnalysisJobResponse analyzeFromStorage(Long requestId, Long landlordId, Long floorPlanVariantId) {
 		FloorPlanVariant variant = floorPlanVariantRepository.findById(floorPlanVariantId)
 				.orElseThrow(() -> new FileNotFoundException("존재하지 않는 평면도입니다: " + floorPlanVariantId));
+		QuoteRequest request = quoteRequestRepository.findById(requestId)
+				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + requestId));
+		if (!request.getOwner().getId().equals(landlordId)) {
+			throw new ForbiddenAccessException("본인이 등록한 의뢰만 평면도를 연결할 수 있습니다.");
+		}
+		request.linkFloorPlanVariant(variant);
+		quoteRequestRepository.save(request);
 		String objectKey = variant.getFloorPlanImageUrl();
 		if (objectKey == null || objectKey.isBlank()) {
 			throw new FileNotFoundException("등록된 평면도 이미지가 없습니다: " + floorPlanVariantId);

@@ -33,6 +33,7 @@ export default function SimulationPhotoUploadPage() {
   const navigate = useNavigate()
   const { state } = useLocation()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const photosRef = useRef<UploadedPhoto[]>([])
   const [photos, setPhotos] = useState<UploadedPhoto[]>([])
@@ -168,13 +169,17 @@ export default function SimulationPhotoUploadPage() {
             </div>
 
             <input ref={fileInputRef} id="simulation-photo" type="file" multiple accept="image/jpeg,image/png,.jpg,.jpeg,.png" className="sr-only" aria-label="현재 집 사진 선택" onChange={handleFileChange} />
+            <input ref={cameraInputRef} type="file" accept="image/jpeg,image/png" capture="environment" className="sr-only" aria-label="카메라로 현재 집 사진 촬영" onChange={handleFileChange} />
 
             {photos.length === 0 ? (
               <div className="mt-4 flex h-[252px] w-full flex-col items-center rounded-[12px] border border-dashed border-[#bfdbfe] bg-[#f8fafc]">
                 <img src={simulationImageUploadIcon} alt="" className="mt-[33px] size-9" />
                 <p className="mt-4 text-[15px] font-medium leading-5 text-[#0f172a]">현재 집 사진을 선택해주세요</p>
                 <p className="mt-[10px] text-[12px] leading-5 text-[#64748b]">JPG, PNG · 장당 최대 10MB</p>
-                <button type="button" disabled={isUploading} className="mt-[20px] flex h-10 w-[110px] items-center justify-center rounded-[8px] bg-[#eff6ff] text-[14px] font-medium text-[#2563eb] disabled:opacity-60" onClick={() => fileInputRef.current?.click()}>사진 선택</button>
+                <div className="mt-[20px] grid w-full max-w-[238px] grid-cols-2 gap-2 px-2">
+                  <button type="button" disabled={isUploading} className="flex h-10 items-center justify-center rounded-[8px] bg-[#eff6ff] text-[13px] font-medium text-[#2563eb] disabled:opacity-60" onClick={() => fileInputRef.current?.click()}>사진 선택</button>
+                  <button type="button" disabled={isUploading} className="flex h-10 items-center justify-center rounded-[8px] bg-[#2563eb] text-[13px] font-medium text-white disabled:opacity-60" onClick={() => cameraInputRef.current?.click()}>사진 촬영</button>
+                </div>
               </div>
             ) : (
               <div className="mt-4 rounded-[12px] border border-[#bfdbfe] bg-white p-3">

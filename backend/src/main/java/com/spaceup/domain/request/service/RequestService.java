@@ -255,10 +255,12 @@ public class RequestService {
 	private RequestResponse toResponse(QuoteRequest request, RequestContractorStatus participationStatus,
 			Integer matchingScore, boolean includeContractorNames) {
 		Long requestId = request.getId();
-		Long floorPlanVariantId = floorPlanVariantRepository
-				.findFirstByApartmentRoadAddressAndExclusiveAreaM2AndFloorPlanImageUrlIsNotNull(
-						request.getProperty().getRegion(), request.getProperty().getExclusiveAreaM2())
-				.map(FloorPlanVariant::getId).orElse(null);
+		Long floorPlanVariantId = request.getFloorPlanVariant() != null
+				? request.getFloorPlanVariant().getId()
+				: floorPlanVariantRepository
+						.findFirstByApartmentRoadAddressAndExclusiveAreaM2AndFloorPlanImageUrlIsNotNull(
+								request.getProperty().getRegion(), request.getProperty().getExclusiveAreaM2())
+						.map(FloorPlanVariant::getId).orElse(null);
 		List<String> contractorNames = includeContractorNames
 				? requestContractorRepository.findByRequestId(requestId).stream()
 						.map(RequestContractor::getContractor)

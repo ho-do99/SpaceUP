@@ -14,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import com.spaceup.domain.floorplan.entity.FloorPlanVariant;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.material.entity.MaterialProduct;
 import com.spaceup.domain.material.entity.MaterialTheme;
@@ -59,6 +60,10 @@ public class QuoteRequest extends BaseTimeEntity {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "property_id", nullable = false)
 	private Property property; // 이 견적요청이 대상으로 하는 매물
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "floor_plan_variant_id")
+	private FloorPlanVariant floorPlanVariant;
 
 	// ⭐ 특정 시공사를 지정해서 견적을 요청한 경우(PDF 08 견적 요청 화면). 아직 매칭 전이면 null일 수 있습니다.
 	@ManyToOne(fetch = FetchType.LAZY)
@@ -202,6 +207,10 @@ public class QuoteRequest extends BaseTimeEntity {
 		if (requestedItems != null) {
 			this.requestedItems = requestedItems;
 		}
+	}
+
+	public void linkFloorPlanVariant(FloorPlanVariant variant) {
+		this.floorPlanVariant = variant;
 	}
 
 	public void updateMaterialSelection(MaterialTheme selectedTheme, MaterialProduct wallpaper,

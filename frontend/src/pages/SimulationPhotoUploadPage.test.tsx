@@ -37,6 +37,10 @@ describe('SimulationPhotoUploadPage', () => {
       </MemoryRouter>,
     )
 
+    expect(screen.getByRole('button', { name: '사진 촬영' })).toBeInTheDocument()
+    expect(screen.getByLabelText('카메라로 현재 집 사진 촬영')).toHaveAttribute('capture', 'environment')
+    expect(screen.getByLabelText('카메라로 현재 집 사진 촬영')).toHaveAttribute('accept', 'image/jpeg,image/png')
+
     const input = screen.getByLabelText('현재 집 사진 선택')
     const first = new File(['first'], 'living-1.jpg', { type: 'image/jpeg' })
     const second = new File(['second'], 'living-2.png', { type: 'image/png' })

@@ -145,6 +145,7 @@ class AiFloorplanAnalysisServiceTest {
 				.floorPlanImageUrl("floorplans/99.jpg").build();
 
 		when(floorPlanVariantRepository.findById(99L)).thenReturn(Optional.of(variant));
+		when(quoteRequestRepository.findById(7L)).thenReturn(Optional.of(quoteRequest));
 
 		// Object Storage가 꺼져 있으면 fetchFromObjectStorage()가 바로 IllegalStateException을 던져야
 		// 합니다(존재하지 않는 설정으로 실제 S3 호출을 시도하면 안 됨).
@@ -181,6 +182,8 @@ class AiFloorplanAnalysisServiceTest {
 
 		service.analyzeFromStorage(7L, 1L, 99L);
 
+		assertThat(quoteRequest.getFloorPlanVariant()).isSameAs(variant);
+		verify(quoteRequestRepository).save(quoteRequest);
 		verify(aiFloorplanAnalysisClient).analyze(storedImage, "floorplan1.png", "image/png");
 		verify(analysisJobService).submitResult(org.mockito.ArgumentMatchers.eq(7L), any());
 		verify(analysisJobService).saveVisualization(7L, 1L, "{\"image_width\":100}");

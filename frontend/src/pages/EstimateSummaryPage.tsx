@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getRecommendedProducts } from '@/api/analysisApi'
+import { getAnalysis, getRecommendedProducts } from '@/api/analysisApi'
 import { updateRequest } from '@/api/requestApi'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
@@ -12,7 +12,7 @@ import useEstimateFlow from '@/contexts/useEstimateFlow'
 import { useLightingProducts, useMaterialProducts } from '@/hooks/useMaterialCatalog'
 import { getMaterialProduct } from '@/mocks/estimateMaterials'
 import type { MaterialProduct } from '@/mocks/estimateMaterials'
-import type { RecommendedProduct } from '@/types/analysis'
+import type { AnalysisJobResponse, RecommendedProduct } from '@/types/analysis'
 import type { MaterialTheme } from '@/types/materialCatalog'
 import { getMaterialTheme } from '@/utils/materialTheme'
 import { groupRecommendedProducts } from '@/utils/materialRecommendation'
@@ -43,6 +43,7 @@ export default function EstimateSummaryPage() {
   const theme = getMaterialTheme()
   const requestId = getActiveRequestId()
   const [recommendations, setRecommendations] = useState<RecommendedProduct[]>([])
+  const [analysis, setAnalysis] = useState<AnalysisJobResponse | null>(null)
   const [recommendationLoading, setRecommendationLoading] = useState(true)
   const [recommendationError, setRecommendationError] = useState('')
   const [recommendationRetry, setRecommendationRetry] = useState(0)
@@ -58,8 +59,11 @@ export default function EstimateSummaryPage() {
     let active = true
     setRecommendationLoading(true)
     setRecommendationError('')
-    getRecommendedProducts(requestId, theme)
-      .then((products) => { if (active) setRecommendations(products) })
+    Promise.all([getRecommendedProducts(requestId, theme), getAnalysis(requestId)])
+      .then(([products, liveAnalysis]) => { if (active) {
+        setRecommendations(products)
+        setAnalysis(liveAnalysis)
+      } })
       .catch((error) => { if (active) setRecommendationError(error instanceof Error ? error.message : '추천 자재를 불러오지 못했습니다.') })
       .finally(() => { if (active) setRecommendationLoading(false) })
     return () => { active = false }
@@ -83,7 +87,14 @@ export default function EstimateSummaryPage() {
   const floorRecommendation = selectedRecommendation(groups.FLOORING, selectedFloor)
   const wallpaperRecommendation = selectedRecommendation(groups.WALLPAPER, selectedWallpaper)
   const lightingRecommendation = selectedRecommendation(groups.LIGHTING, selectedLighting)
-  const estimate = calculatePreliminaryEstimate([floorRecommendation, wallpaperRecommendation, lightingRecommendation])
+  const estimate = calculatePreliminaryEstimate(
+    [floorRecommendation, wallpaperRecommendation, lightingRecommendation],
+    {
+      floorAreaM2: analysis?.totalFloorAreaM2 ?? 0,
+      wallpaperAreaM2: analysis?.totalWallpaperAreaM2 ?? 0,
+      lightingQuantity: lightingRecommendation?.quantity ?? 0,
+    },
+  )
   const estimateMin = Math.floor(estimate.estimateMin / 10_000)
   const estimateMax = Math.ceil(estimate.estimateMax / 10_000)
   const formatWon = (amount: number) => `${amount.toLocaleString('ko-KR')}원`
@@ -148,6 +159,7 @@ export default function EstimateSummaryPage() {
               <p className="text-[9px] leading-4 text-[#15284c]">총 예상 비용</p>
               <p className="mt-1 text-[22px] font-bold leading-7 text-[#2563eb]">{estimateMin} ~ {estimateMax}<span className="ml-1 text-[14px]">만원</span></p>
               <p className="mt-1 text-[9px] leading-4 text-[#15284c]">자재비 · 철거비 · 인건비 포함</p>
+              <p className="mt-1 text-[10px] font-semibold text-[#475569]">선택 공간 {Number(estimate.floorAreaM2.toFixed(1))}㎡ · 약 {(estimate.floorAreaM2 / 3.3058).toFixed(1)}평 기준</p>
               <dl className="mt-3 space-y-1.5 border-t border-[#bfdbfe] pt-3 text-[11px]">
                 <div className="flex justify-between"><dt>자재비</dt><dd>{formatWon(estimate.materialCost)}</dd></div>
                 <div className="flex justify-between"><dt>철거비</dt><dd>{formatWon(estimate.demolitionCost)}</dd></div>
@@ -159,7 +171,7 @@ export default function EstimateSummaryPage() {
               <MaterialSummaryCard title="바닥재 교체" product={selectedFloor!} recommendation={floorRecommendation} onSelect={() => navigate('/estimate/materials/floor')} />
               <MaterialSummaryCard title="벽지 교체" product={selectedWallpaper!} recommendation={wallpaperRecommendation} onSelect={() => navigate('/estimate/materials/wallpaper')} />
               <MaterialSummaryCard title="조명 교체" product={selectedLighting!} recommendation={lightingRecommendation} onSelect={() => navigate('/estimate/materials/lighting')} />
-              <div className="rounded-[8px] border border-[#fdba74] bg-[#fff7ed] p-3 text-[11px] leading-4 text-[#9a3412]"><p>※ 철거비와 인건비는 추천 자재비를 기준으로 한 표준 예상 금액이며, 현장 상황에 따라 달라질 수 있습니다.</p><p className="mt-1.5">※ 본 금액은 예상 견적이며, 현장 방문 후 실제 견적서와 금액 차이가 발생할 수 있습니다.</p></div>
+              <div className="rounded-[8px] border border-[#fdba74] bg-[#fff7ed] p-3 text-[11px] leading-4 text-[#9a3412]"><p>※ 자재비는 선택 공간 면적과 자재별 시공 가능 면적으로 수량을 산정하며, 철거비·인건비는 선택 공간의 바닥/벽 면적과 조명 수량에 표준 단가를 적용합니다.</p><p className="mt-1.5">※ 본 금액은 예상 견적이며, 현장 방문 후 실제 견적서와 금액 차이가 발생할 수 있습니다.</p></div>
             </section>
           </> : null}
           {saveError ? <p role="alert" className="mb-3 text-center text-[11px] font-semibold text-[#dc2626]">{saveError}</p> : null}

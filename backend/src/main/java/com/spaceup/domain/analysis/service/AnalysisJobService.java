@@ -37,6 +37,9 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class AnalysisJobService {
 
+	private static final double DEFAULT_CEILING_HEIGHT_M = 2.4;
+	private static final double WALL_OPENING_ALLOWANCE = 0.85;
+
 	private final AnalysisJobRepository analysisJobRepository;
 	private final AnalysisSpaceRepository analysisSpaceRepository;
 	private final QuoteRequestRepository quoteRequestRepository;
@@ -95,19 +98,34 @@ public class AnalysisJobService {
 		double totalWallpaperArea = 0;
 		int sortOrder = 0;
 		for (AnalysisSpaceRequest spaceRequest : spaceRequests) {
+			Double floorAreaM2 = firstPositive(spaceRequest.getFloorAreaM2(), spaceRequest.getSpaceAreaM2());
+			Double wallpaperAreaM2 = resolveWallpaperArea(spaceRequest, analysis.getCeilingHeightM());
 			AnalysisSpace space = AnalysisSpace.builder().analysisJob(analysis).spaceName(spaceRequest.getSpaceName())
-					.spaceAreaM2(spaceRequest.getSpaceAreaM2()).floorAreaM2(spaceRequest.getFloorAreaM2())
-					.wallpaperAreaM2(spaceRequest.getWallpaperAreaM2())
+					.spaceAreaM2(spaceRequest.getSpaceAreaM2()).floorAreaM2(floorAreaM2)
+					.wallpaperAreaM2(wallpaperAreaM2)
 					.selectedForConstruction(spaceRequest.isSelectedForConstruction()).sortOrder(sortOrder++).build();
 			analysisSpaceRepository.save(space);
 
 			if (spaceRequest.isSelectedForConstruction()) {
-				totalFloorArea += spaceRequest.getFloorAreaM2() != null ? spaceRequest.getFloorAreaM2() : 0;
-				totalWallpaperArea += spaceRequest.getWallpaperAreaM2() != null ? spaceRequest.getWallpaperAreaM2()
-						: 0;
+				totalFloorArea += floorAreaM2 != null ? floorAreaM2 : 0;
+				totalWallpaperArea += wallpaperAreaM2 != null ? wallpaperAreaM2 : 0;
 			}
 		}
 		analysis.applyTotalConstructionArea(totalFloorArea, totalWallpaperArea);
+	}
+
+	private Double resolveWallpaperArea(AnalysisSpaceRequest space, Double ceilingHeightM) {
+		if (space.getWallpaperAreaM2() != null && space.getWallpaperAreaM2() > 0) return space.getWallpaperAreaM2();
+		Double floorAreaM2 = firstPositive(space.getFloorAreaM2(), space.getSpaceAreaM2());
+		if (floorAreaM2 == null) return null;
+		double height = ceilingHeightM != null && ceilingHeightM > 0 ? ceilingHeightM : DEFAULT_CEILING_HEIGHT_M;
+		double estimatedWallArea = 4 * Math.sqrt(floorAreaM2) * height * WALL_OPENING_ALLOWANCE;
+		return Math.round(estimatedWallArea * 10.0) / 10.0;
+	}
+
+	private Double firstPositive(Double preferred, Double fallback) {
+		if (preferred != null && preferred > 0) return preferred;
+		return fallback != null && fallback > 0 ? fallback : null;
 	}
 
 	@Transactional
