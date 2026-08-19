@@ -9,6 +9,13 @@ export type ContractorRequestStatus =
   | 'auto_canceled'
   | 'expired'
 
+export type RequestContractorStatus =
+  | 'INVITED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SELECTED'
+  | 'CLOSED'
+
 export type ContractorRequestFilter = 'all' | 'in_progress' | 'matched' | 'unmatched'
 
 export type ContractorUnsuccessfulReason =
@@ -346,6 +353,7 @@ export interface ContractorRequest {
   desiredSchedule: string
   status: ContractorRequestStatus
   statusLabel: string
+  participationStatus?: RequestContractorStatus
   lastActivityLabel: string
   deadlineLabel?: string
   terminationReason?: string
@@ -361,8 +369,8 @@ export interface ContractorRequestDetail extends ContractorRequest {
   analysis: AnalysisSummary
   selectedItems: readonly string[]
   lightingNotice: string
-  floorPlanImage: string
-  hasLinkedFloorPlan?: boolean
+  floorPlanImage?: string
+  hasLinkedFloorPlan: boolean
   beforeImage?: string
   afterImage?: string
   selectedTheme?: string

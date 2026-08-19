@@ -6,8 +6,11 @@ import type { ContractorRequestDetail } from '@/types/contractorPortal'
 import { requestToContractorDetail } from '@/utils/contractorRequestAdapter'
 
 export default function useContractorRequest(requestId?: string) {
-  const [request, setRequest] = useState<ContractorRequestDetail | null>(() => findContractorRequestDetail(requestId) ?? null)
-  const [loading, setLoading] = useState(Boolean(requestId && /^\d+$/.test(requestId)))
+  const liveId = Boolean(requestId && /^\d+$/.test(requestId))
+  const [request, setRequest] = useState<ContractorRequestDetail | null>(
+    () => liveId ? null : findContractorRequestDetail(requestId) ?? null,
+  )
+  const [loading, setLoading] = useState(liveId)
   const [error, setError] = useState('')
 
   useEffect(() => {

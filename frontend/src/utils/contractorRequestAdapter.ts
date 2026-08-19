@@ -1,4 +1,3 @@
-import floorPlanFallback from '@/assets/user/images/floor-plan-preview.png'
 import type { AnalysisJobResponse } from '@/types/analysis'
 import type { ContractorRequest, ContractorRequestDetail, ContractorRequestStatus } from '@/types/contractorPortal'
 import type { RequestImageResponse, RequestResponse } from '@/types/request'
@@ -56,6 +55,7 @@ export function requestToContractorCard(request: RequestResponse): ContractorReq
     desiredSchedule: request.desiredDate || '협의',
     status,
     statusLabel: labels[status],
+    participationStatus: request.participationStatus ?? undefined,
     lastActivityLabel: request.lastActivityAt?.slice(0, 10) || request.createdAt?.slice(0, 10) || '-',
   }
 }
@@ -86,7 +86,7 @@ export function requestToContractorDetail(
     },
     selectedItems: request.requestedItems?.split(',').map((value) => value.trim()).filter(Boolean) ?? [],
     lightingNotice: '조명은 현장 전기 배선 확인 후 최종 견적이 확정됩니다.',
-    floorPlanImage: linkedFloorPlanImage || floorPlanFallback,
+    floorPlanImage: linkedFloorPlanImage,
     hasLinkedFloorPlan: Boolean(linkedFloorPlanImage),
     beforeImage: resolveImage(photos[0]),
     afterImage: resolveImage(generatedImages[0]),

@@ -1,0 +1,32 @@
+import { describe, expect, it } from 'vitest'
+import type { RequestResponse } from '@/types/request'
+import { requestToContractorCard, requestToContractorDetail } from './contractorRequestAdapter'
+
+const requestFixture: RequestResponse = {
+  id: 1,
+  region: '광주광역시 서구',
+  propertyType: 'APARTMENT',
+  areaM2: 84,
+  budget: 10_000_000,
+}
+
+describe('contractor request adapter', () => {
+  it('preserves the landlord nickname and participation status', () => {
+    const result = requestToContractorCard({
+      ...requestFixture,
+      id: 99,
+      landlordName: '시연 임대인',
+      participationStatus: 'APPROVED',
+    })
+
+    expect(result.customerName).toBe('시연 임대인')
+    expect(result.participationStatus).toBe('APPROVED')
+  })
+
+  it('does not inject the bundled floor plan when a live request has no image', () => {
+    const result = requestToContractorDetail({ ...requestFixture, floorPlanVariantId: null }, [], null)
+
+    expect(result.floorPlanImage).toBeUndefined()
+    expect(result.hasLinkedFloorPlan).toBe(false)
+  })
+})
