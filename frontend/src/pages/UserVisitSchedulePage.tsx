@@ -6,8 +6,10 @@ import {
 
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
+import { ApiClientError } from '@/api/axiosInstance'
+import { getContractor } from '@/api/contractorApi'
 import { getVisit, requestVisitChange } from '@/api/visitApi'
-import type { SiteVisit } from '@/types/backendContractor'
+import type { ContractorProfile, SiteVisit } from '@/types/backendContractor'
 
 function toApiTime(value: string) {
   return /^\d{2}:\d{2}$/.test(value) ? `${value}:00` : value
@@ -97,13 +99,14 @@ export default function UserVisitSchedulePage() {
 
   const [visitDate, setVisitDate] = useState('')
   const [visitTime, setVisitTime] = useState('')
-  const [address, setAddress] =
-    useState('광주광역시 서구')
+  const [address, setAddress] = useState('')
   const [requestMessage, setRequestMessage] =
     useState('')
   const [submitted, setSubmitted] =
     useState(false)
   const [visit, setVisit] = useState<SiteVisit | null>(null)
+  const [contractor, setContractor] = useState<ContractorProfile | null>(null)
+  const [visitMissing, setVisitMissing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -111,14 +114,33 @@ export default function UserVisitSchedulePage() {
   const numericRequestId = requestId && /^\d+$/.test(requestId)
     ? Number(requestId)
     : null
+  const numericContractorId = contractorId && /^\d+$/.test(contractorId)
+    ? Number(contractorId)
+    : null
 
   useEffect(() => {
-    if (!numericRequestId) return
+    if (!numericContractorId) return
+    let active = true
+    setContractor(null)
+    void getContractor(numericContractorId)
+      .then((profile) => {
+        if (active) setContractor(profile)
+      })
+      .catch((error: unknown) => {
+        if (active) setErrorMessage(error instanceof Error ? error.message : '시공사 정보를 불러오지 못했습니다.')
+      })
+    return () => { active = false }
+  }, [numericContractorId])
+
+  useEffect(() => {
+    if (!numericRequestId || !numericContractorId) return
     let active = true
     setIsLoading(true)
+    setVisit(null)
+    setVisitMissing(false)
     setErrorMessage('')
 
-    void getVisit(numericRequestId)
+    void getVisit(numericRequestId, numericContractorId)
       .then((currentVisit) => {
         if (!active) return
         setVisit(currentVisit)
@@ -128,7 +150,12 @@ export default function UserVisitSchedulePage() {
         setRequestMessage(currentVisit.requestReason ?? currentVisit.note ?? '')
       })
       .catch((error: unknown) => {
-        if (active) setErrorMessage(error instanceof Error ? error.message : '방문 일정을 불러오지 못했습니다.')
+        if (!active) return
+        if (error instanceof ApiClientError && error.status === 404) {
+          setVisitMissing(true)
+        } else {
+          setErrorMessage(error instanceof Error ? error.message : '방문 일정을 불러오지 못했습니다.')
+        }
       })
       .finally(() => {
         if (active) setIsLoading(false)
@@ -137,7 +164,7 @@ export default function UserVisitSchedulePage() {
     return () => {
       active = false
     }
-  }, [numericRequestId])
+  }, [numericContractorId, numericRequestId])
 
   const canSubmit =
     visitDate.trim().length > 0 &&
@@ -169,18 +196,7 @@ export default function UserVisitSchedulePage() {
         setIsSubmitting(false)
         return
       }
-    } else {
-      sessionStorage.setItem(
-        `spaceup-visit-${requestId}-${contractorId}`,
-        JSON.stringify({
-          visitDate,
-          visitTime,
-          address,
-          requestMessage,
-          status: 'REQUESTED',
-        }),
-      )
-    }
+    } else return
 
     setIsSubmitting(false)
     setSubmitted(true)
@@ -244,26 +260,35 @@ export default function UserVisitSchedulePage() {
 
               <div className="ml-3 min-w-0 flex-1">
                 <h2 className="truncate text-[14px] font-bold leading-5 text-[#1e293b]">
-                  공간디자인 인테리어
+                  {contractor?.companyName ?? contractor?.memberName ?? (numericContractorId ? '시공사 정보 불러오는 중' : '시공사')}
                 </h2>
 
                 <p className="mt-1 text-[10px] leading-4 text-[#64748b]">
-                  광주 북구 · 리모델링 전문
+                  {[contractor?.activityRegions, contractor?.specialties].filter(Boolean).join(' · ') || '업체 정보를 확인하고 있습니다.'}
                 </p>
               </div>
 
               <div className="flex shrink-0 items-center gap-1">
-                <span className="size-[7px] rounded-full bg-[#22c55e]" />
+                <span className={`size-[7px] rounded-full ${contractor?.availableForConsult ? 'bg-[#22c55e]' : 'bg-[#94a3b8]'}`} />
 
-                <span className="text-[10px] text-[#16a34a]">
-                  상담 가능
+                <span className={`text-[10px] ${contractor?.availableForConsult ? 'text-[#16a34a]' : 'text-[#64748b]'}`}>
+                  {contractor?.availableForConsult ? '상담 가능' : '상담 여부 확인 필요'}
                 </span>
               </div>
             </div>
           </section>
 
+          {visitMissing ? (
+            <section className="mt-5 rounded-[10px] border border-[#bfdbfe] bg-[#eff6ff] px-4 py-4">
+              <h2 className="text-[12px] font-bold text-[#1e40af]">등록된 방문 일정이 없습니다.</h2>
+              <p className="mt-2 text-[10px] leading-[17px] text-[#475569]">
+                채팅에서 시공사와 일정을 먼저 협의해 주세요. 시공사가 일정을 등록하면 이 화면에서 변경을 요청할 수 있습니다.
+              </p>
+            </section>
+          ) : null}
+
           {/* 일정 입력 */}
-          <section className="mt-5">
+          {visit ? <section className="mt-5">
             <label className="block">
               <span className="text-[11px] font-bold text-[#1e293b]">
                 방문 날짜 *
@@ -346,7 +371,7 @@ export default function UserVisitSchedulePage() {
               </p>
             </label>
             {errorMessage ? <p role="alert" className="mt-2 text-center text-[10px] leading-[17px] text-[#ef4444]">{errorMessage}</p> : null}
-          </section>
+          </section> : null}
 
           <section className="mt-5 rounded-[10px] bg-[#f8fafc] px-4 py-3">
             <p className="text-[10px] leading-[17px] text-[#64748b]">
@@ -356,17 +381,17 @@ export default function UserVisitSchedulePage() {
           </section>
         </main>
 
-        <footer className="grid shrink-0 grid-cols-[1fr_1.4fr] gap-3 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))] pt-2">
+        <footer className={`grid shrink-0 gap-3 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))] pt-2 ${visit ? 'grid-cols-[1fr_1.4fr]' : 'grid-cols-1'}`}>
           <button
             type="button"
             disabled={submitted || isSubmitting}
             onClick={returnToChat}
             className="h-12 rounded-[5px] border border-[#2563eb] bg-white text-[12px] font-bold text-[#2563eb] disabled:border-[#cbd5e1] disabled:text-[#94a3b8]"
           >
-            취소
+            {visit ? '취소' : '채팅으로 돌아가기'}
           </button>
 
-          <button
+          {visit ? <button
             type="button"
             disabled={!canSubmit || submitted || isLoading || isSubmitting}
             onClick={() => { void submitSchedule() }}
@@ -377,7 +402,7 @@ export default function UserVisitSchedulePage() {
               : isSubmitting
                 ? '요청 중'
               : '방문 일정 요청하기'}
-          </button>
+          </button> : null}
         </footer>
       </div>
     </UserScreenShell>

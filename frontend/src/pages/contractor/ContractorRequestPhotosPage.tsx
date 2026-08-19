@@ -3,8 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import ContractorConfirmDialog from '@/components/contractor/ContractorConfirmDialog'
 import ContractorRequestActions from '@/components/contractor/ContractorRequestActions'
 import ContractorRequestDetailLayout from '@/components/contractor/ContractorRequestDetailLayout'
-import beforeImage from '@/assets/contractor/request-detail/ai-before.svg'
-import afterImage from '@/assets/contractor/request-detail/ai-after.svg'
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 import useContractorRequest from '@/hooks/useContractorRequest'
@@ -19,41 +17,79 @@ export default function ContractorRequestPhotosPage() {
   const [preview, setPreview] = useState<{ src: string; label: string } | null>(null)
   const [rejectedReason, setRejectedReason] = useState('')
   const [actionError, setActionError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (!request) return <ContractorRequestNotFound />
+  const isLiveRequest = /^\d+$/.test(request.requestId)
+  const canDecide = request.participationStatus === 'INVITED' || !isLiveRequest
+  const canContinueChat = request.participationStatus === 'APPROVED' || request.participationStatus === 'SELECTED'
 
-  const beforeSrc = request.beforeImage || beforeImage
-  const afterSrc = request.afterImage || afterImage
+  const approve = async () => {
+    if (isSubmitting) return
+    setActionError('')
+    setIsSubmitting(true)
+    try {
+      await approveContractorRequest(request.requestId)
+      navigate(`/contractor/requests/${request.requestId}/approved`)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const reject = async (reason: string) => {
+    if (isSubmitting) return
+    setActionError('')
+    setIsSubmitting(true)
+    try {
+      await rejectContractorRequest(request.requestId, reason)
+      setRejectedReason(reason)
+      setRejectOpen(false)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const beforeSrc = request.beforeImage
+  const afterSrc = request.afterImage
 
   return (
     <>
-      <ContractorRequestDetailLayout request={request} activeTab="photos" statusMessage={actionError || (rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined)} actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={() => { void approveContractorRequest(request.requestId).then(() => navigate(`/contractor/requests/${request.requestId}/approved`)).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.')) }} />}>
+      <ContractorRequestDetailLayout request={request} activeTab="photos" statusMessage={actionError || (rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined)} actions={canContinueChat
+        ? <ContractorRequestActions chatHref={`/contractor/requests/${request.requestId}/chat`} />
+        : canDecide
+          ? <ContractorRequestActions disabled={isSubmitting || Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={approve} />
+          : null}>
         <section>
-          <h2 className="text-[15px] font-bold leading-normal text-[#1e293b]">AI 인테리어 시뮬레이션 결과</h2>
-          <p className="mt-2 text-[11px] leading-[17px] text-[#64748b]">사용자가 선택한 스타일로 생성한 Before / After 이미지입니다.</p>
-          <div className="mt-7 rounded-xl border border-[#d9e3f0] bg-white p-[11px] pb-3">
-            <div className="relative grid grid-cols-[164px_164px] justify-center gap-[9px]">
-              <span aria-hidden="true" className="absolute left-1/2 top-[41px] h-[168px] w-px -translate-x-1/2 bg-[#d9e3f0]" />
-              <figure>
-                <figcaption className="mb-3 px-1.5 text-xs font-bold text-[#64748b]">Before</figcaption>
-                <button type="button" onClick={() => setPreview({ src: beforeSrc, label: '시뮬레이션 전 원본 사진' })} className="block rounded-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]">
-                  <img src={beforeSrc} alt="AI 인테리어 시뮬레이션 전" className="h-[168px] w-[164px] rounded-[10px] object-cover" />
+          <h2 className="text-[15px] font-bold leading-normal text-[#1e293b]">사용자 공간 사진</h2>
+          <p className="mt-2 text-[11px] leading-[17px] text-[#64748b]">사용자가 의뢰에 직접 등록한 현장 사진입니다.</p>
+          {request.photos.length > 0 ? (
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {request.photos.map((photo) => (
+                <button key={photo.id} type="button" onClick={() => setPreview({ src: photo.image, label: photo.label })} className="rounded-[10px] border border-[#d9e3f0] bg-white p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]">
+                  <img src={photo.image} alt={photo.label} className="h-[150px] w-full rounded-[8px] object-cover" />
                 </button>
-              </figure>
-              <figure>
-                <figcaption className="mb-3 px-1.5 text-xs font-bold text-[#2563eb]">After</figcaption>
-                <button type="button" onClick={() => setPreview({ src: afterSrc, label: 'AI 인테리어 시뮬레이션 결과 사진' })} className="block rounded-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]">
-                  <img src={afterSrc} alt="AI 인테리어 시뮬레이션 후" className="h-[168px] w-[164px] rounded-[10px] object-cover" />
-                </button>
-              </figure>
+              ))}
             </div>
-            <div className="mt-2.5 flex items-start justify-between gap-2">
-              <span className="flex h-7 shrink-0 items-center rounded-[14px] bg-[#eff6ff] px-3 text-[11px] font-bold text-[#2563eb]">선택 스타일 · {request.selectedTheme || '모던'}</span>
-              <p className="max-w-[199px] text-right text-[9px] leading-[15px] text-[#64748b]">※ AI 생성 이미지로 실제 시공 결과와 차이가 있을 수 있습니다.</p>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-[#cbd5e1] bg-white px-4 py-8 text-center">
+              <p className="text-[12px] font-bold text-[#475569]">사용자가 등록한 공간 사진이 없습니다.</p>
             </div>
-          </div>
+          )}
         </section>
-      </ContractorRequestDetailLayout>
+        {beforeSrc && afterSrc ? (
+          <section>
+            <h2 className="text-[15px] font-bold leading-normal text-[#1e293b]">AI 인테리어 시뮬레이션 결과</h2>
+            <p className="mt-2 text-[11px] leading-[17px] text-[#64748b]">사용자 원본 사진과 실제 생성 결과입니다.</p>
+            <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-[#d9e3f0] bg-white p-3">
+              <figure><figcaption className="mb-2 text-xs font-bold text-[#64748b]">Before</figcaption><button type="button" onClick={() => setPreview({ src: beforeSrc, label: '시뮬레이션 전 원본 사진' })}><img src={beforeSrc} alt="AI 인테리어 시뮬레이션 전" className="h-[168px] w-full rounded-[10px] object-cover" /></button></figure>
+              <figure><figcaption className="mb-2 text-xs font-bold text-[#2563eb]">After</figcaption><button type="button" onClick={() => setPreview({ src: afterSrc, label: 'AI 인테리어 시뮬레이션 결과 사진' })}><img src={afterSrc} alt="AI 인테리어 시뮬레이션 후" className="h-[168px] w-full rounded-[10px] object-cover" /></button></figure>
+            </div>
+          </section>
+        ) : null}      </ContractorRequestDetailLayout>
       {preview ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]/70 p-4" onMouseDown={(event) => event.target === event.currentTarget && setPreview(null)}>
           <section role="dialog" aria-modal="true" aria-label={preview.label} className="w-full max-w-[720px] rounded-xl bg-white p-4">
@@ -62,7 +98,7 @@ export default function ContractorRequestPhotosPage() {
           </section>
         </div>
       ) : null}
-      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={(reason) => { void rejectContractorRequest(request.requestId, reason).then(() => { setRejectedReason(reason); setRejectOpen(false) }).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.')) }} />
+      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={reject} />
     </>
   )
 }

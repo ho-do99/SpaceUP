@@ -70,9 +70,7 @@ export default function ContractorChatListPage() {
           timeLabel: thread.lastMessageAt?.slice(5, 16).replace('T', ' ') || '-',
           unreadCount: thread.unreadCount,
           status: completed ? 'COMPLETED' : 'IN_PROGRESS',
-          href: completed
-            ? `/contractor/requests/${thread.requestId}/chat/completed`
-            : `/contractor/requests/${thread.requestId}/chat`,
+          href: `/contractor/requests/${thread.requestId}/chat`,
         }
       }))
       setUsingLiveData(true)

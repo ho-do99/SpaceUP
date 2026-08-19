@@ -16,12 +16,49 @@ export default function ContractorRequestAnalysisPage() {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectedReason, setRejectedReason] = useState('')
   const [actionError, setActionError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (!request) return <ContractorRequestNotFound />
+  const isLiveRequest = /^\d+$/.test(request.requestId)
+  const canDecide = request.participationStatus === 'INVITED' || !isLiveRequest
+  const canContinueChat = request.participationStatus === 'APPROVED' || request.participationStatus === 'SELECTED'
+
+  const approve = async () => {
+    if (isSubmitting) return
+    setActionError('')
+    setIsSubmitting(true)
+    try {
+      await approveContractorRequest(request.requestId)
+      navigate(`/contractor/requests/${request.requestId}/approved`)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const reject = async (reason: string) => {
+    if (isSubmitting) return
+    setActionError('')
+    setIsSubmitting(true)
+    try {
+      await rejectContractorRequest(request.requestId, reason)
+      setRejectedReason(reason)
+      setRejectOpen(false)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <>
-      <ContractorRequestDetailLayout request={request} activeTab="analysis" statusMessage={actionError || (rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined)} actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={() => { void approveContractorRequest(request.requestId).then(() => navigate(`/contractor/requests/${request.requestId}/approved`)).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.')) }} />}>
+      <ContractorRequestDetailLayout request={request} activeTab="analysis" statusMessage={actionError || (rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined)} actions={canContinueChat
+        ? <ContractorRequestActions chatHref={`/contractor/requests/${request.requestId}/chat`} />
+        : canDecide
+          ? <ContractorRequestActions disabled={isSubmitting || Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={approve} />
+          : null}>
         <section className="rounded-xl border border-[#e2e8f0] bg-white p-[13px]">
           <h2 className="mb-1.5 text-xs font-bold leading-[18px] text-[#1e293b]">사용자 선택 항목</h2>
           <p className="text-[11px] leading-[17px] text-[#64748b]">{request.selectedItems.join(' · ')}</p>
@@ -31,7 +68,7 @@ export default function ContractorRequestAnalysisPage() {
           <p className="text-[11px] leading-[17px] text-[#64748b]">{request.estimatedCostLabel} · 조명 금액 미포함</p>
         </section>
       </ContractorRequestDetailLayout>
-      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={(reason) => { void rejectContractorRequest(request.requestId, reason).then(() => { setRejectedReason(reason); setRejectOpen(false) }).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.')) }} />
+      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={reject} />
     </>
   )
 }

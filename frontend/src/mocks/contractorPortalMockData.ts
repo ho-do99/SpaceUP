@@ -217,6 +217,7 @@ function createContractorRequestDetail(request: ContractorRequest): ContractorRe
     selectedItems: ['바닥재', '벽지', '조명'],
     lightingNotice: '조명은 현장 실측 후 별도 협의 · 현재 견적 금액 미포함',
     floorPlanImage,
+    hasLinkedFloorPlan: true,
     photos: [
       { id: 'living-room', label: '거실', image: livingRoomImage },
       { id: 'kitchen', label: '주방', image: kitchenImage },

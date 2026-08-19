@@ -5,14 +5,31 @@ import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import type { ContractorRequestDetail } from '@/types/contractorPortal'
 import { requestToContractorDetail } from '@/utils/contractorRequestAdapter'
 
+export function isLiveContractorRequestId(requestId?: string) {
+  return Boolean(requestId && /^\d+$/.test(requestId) && Number(requestId) > 0)
+}
+
 export default function useContractorRequest(requestId?: string) {
-  const [request, setRequest] = useState<ContractorRequestDetail | null>(() => findContractorRequestDetail(requestId) ?? null)
-  const [loading, setLoading] = useState(Boolean(requestId && /^\d+$/.test(requestId)))
+  const liveId = isLiveContractorRequestId(requestId)
+  const [request, setRequest] = useState<ContractorRequestDetail | null>(
+    () => liveId ? null : findContractorRequestDetail(requestId) ?? null,
+  )
+  const [loading, setLoading] = useState(liveId)
   const [error, setError] = useState('')
+  const [resolvedRequestId, setResolvedRequestId] = useState(requestId)
 
   useEffect(() => {
-    if (!requestId || !/^\d+$/.test(requestId)) return
+    if (!liveId) {
+      setRequest(findContractorRequestDetail(requestId) ?? null)
+      setLoading(false)
+      setError('')
+      setResolvedRequestId(requestId)
+      return
+    }
     let active = true
+    setRequest(null)
+    setError('')
+    setResolvedRequestId(requestId)
     const id = Number(requestId)
     setLoading(true)
     Promise.all([
@@ -30,7 +47,8 @@ export default function useContractorRequest(requestId?: string) {
       if (active) setLoading(false)
     })
     return () => { active = false }
-  }, [requestId])
+  }, [requestId, liveId])
 
+  if (resolvedRequestId !== requestId) return { request: null, loading: liveId, error: '' }
   return { request, loading, error }
 }
