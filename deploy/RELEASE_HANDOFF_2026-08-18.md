@@ -10,7 +10,7 @@
 
 ## DB 변경
 
-Flyway 마이그레이션 `V3__add_contractor_quote_phase.sql`이 `contractor_quote.quote_phase` 컬럼을 추가한다.
+Flyway 마이그레이션 `V8__add_contractor_quote_phase.sql`이 `contractor_quote.quote_phase` 컬럼을 추가한다.
 
 - 값: `PRELIMINARY`, `FINAL`
 - 기존 견적: DB 기본값에 따라 `PRELIMINARY`
@@ -105,4 +105,4 @@ curl -fsS -o /dev/null -w 'AI %{http_code}\n' https://spaceup.duckdns.org/ai/hea
 - 서버 배포는 `main`에 포함된 커밋만 가능하다. `infra`나 `develop` SHA를 넣으면 배포 스크립트가 중단한다.
 - 서버 작업 트리에 추적 파일 변경이 있으면 배포가 중단한다. 먼저 변경 원인을 확인하고 임의로 `reset --hard` 하지 않는다.
 - 배포 이미지 태그는 SHA 고정 방식이다. main push 뒤 GitHub Actions의 이미지 빌드가 끝난 것을 확인한 다음 배포한다.
-- 배포 스크립트의 이미지 롤백은 수행하지만, Flyway로 적용된 DB 스키마를 자동 되돌리지는 않는다. 이번 V3는 기본값이 있는 추가 컬럼이라 이전 백엔드와 호환된다.
+- 배포 스크립트의 이미지 롤백은 수행하지만, Flyway로 적용된 DB 스키마를 자동 되돌리지는 않는다. 이번 V8은 기본값이 있는 추가 컬럼이라 이전 백엔드와 호환된다.
