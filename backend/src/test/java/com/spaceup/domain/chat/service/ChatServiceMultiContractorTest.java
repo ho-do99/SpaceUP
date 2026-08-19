@@ -69,4 +69,21 @@ class ChatServiceMultiContractorTest {
 
 		assertThrows(ForbiddenAccessException.class, () -> service.sendMessage(10L, null, 2L, "message"));
 	}
+	@Test
+	void exactDuplicateParticipationsProduceOnlyOneThreadPerRequestAndContractor() {
+		Member owner = Member.builder().id(1L).name("owner").role(MemberRole.LANDLORD).build();
+		Member contractor = Member.builder().id(2L).name("contractor").role(MemberRole.CONTRACTOR).build();
+		QuoteRequest request = QuoteRequest.builder().id(10L).requestCode("REQ-10").owner(owner)
+				.status(RequestStatus.QUOTE_REQUESTED).build();
+		RequestContractor first = RequestContractor.builder().request(request).contractor(contractor)
+				.status(RequestContractorStatus.APPROVED).build();
+		RequestContractor duplicate = RequestContractor.builder().request(request).contractor(contractor)
+				.status(RequestContractorStatus.APPROVED).build();
+		when(memberRepository.findById(1L)).thenReturn(Optional.of(owner));
+		when(quoteRequestRepository.findByOwnerId(1L)).thenReturn(List.of(request));
+		when(requestContractorRepository.findByRequestId(10L)).thenReturn(List.of(first, duplicate));
+		when(chatMessageRepository.findByRequestIdAndContractorIdOrderByCreatedAtAsc(10L, 2L)).thenReturn(List.of());
+
+		assertEquals(1, service.getThreads(1L).size());
+	}
 }

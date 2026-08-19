@@ -6,9 +6,13 @@ import UserScreenShell from '@/components/user/UserScreenShell'
 import { getContractorById } from '@/mocks/contractors'
 import type { ContractorSummary } from '@/mocks/contractors'
 import { getContractor } from '@/api/contractorApi'
-import { inviteContractor, updateRequest } from '@/api/requestApi'
+import { getRequest, inviteContractor, updateRequest } from '@/api/requestApi'
+import { getAnalysis } from '@/api/analysisApi'
+import { getMember } from '@/api/memberApi'
 import { profileToSummary } from '@/utils/contractorAdapter'
 import { getActiveRequestId, parseManwon } from '@/utils/requestFlow'
+import { getMemberId } from '@/utils/authSession'
+import type { AnalysisJobResponse } from '@/types/analysis'
 
 interface EstimateRequestFormState {
   name: string
@@ -29,6 +33,38 @@ function getContractorIdFromNavigationState(state: unknown) {
   return typeof state.contractorId === 'string' ? state.contractorId : null
 }
 
+function formatBudget(min?: number, max?: number) {
+  const lower = min ?? max
+  const upper = max ?? min
+  if (!lower || !upper) return ''
+  const manwon = (amount: number) => Math.round(amount / 10_000).toLocaleString('ko-KR')
+  return lower === upper ? `${manwon(lower)}만원` : `${manwon(lower)}~${manwon(upper)}만원`
+}
+
+function parseBudgetRange(value: string) {
+  const amounts = value.match(/\d[\d,]*/g)?.map((part) => Number(part.replace(/,/g, '')) * 10_000)
+    .filter(Number.isFinite) ?? []
+  if (amounts.length >= 2) return { budgetMin: Math.min(amounts[0], amounts[1]), budgetMax: Math.max(amounts[0], amounts[1]) }
+  const amount = parseManwon(value)
+  return { budgetMin: amount, budgetMax: amount }
+}
+
+function formatAreaScope(areaM2: number, analysis: AnalysisJobResponse | null) {
+  const pyeong = areaM2 > 0 ? (areaM2 / 3.305785).toFixed(1) : ''
+  const floorArea = analysis?.totalFloorAreaM2 && analysis.totalFloorAreaM2 > 0
+    ? Number(analysis.totalFloorAreaM2.toFixed(1))
+    : areaM2 > 0 ? Number(areaM2.toFixed(1)) : null
+  const wallpaperArea = analysis?.totalWallpaperAreaM2 && analysis.totalWallpaperAreaM2 > 0
+    ? Number(analysis.totalWallpaperAreaM2.toFixed(1))
+    : null
+  const construction = [
+    floorArea ? `바닥 ${floorArea}㎡` : '',
+    wallpaperArea ? `벽 ${wallpaperArea}㎡` : '',
+  ].filter(Boolean).join(' · ')
+  if (!pyeong) return construction
+  return construction ? `${pyeong}평 / ${construction}` : `${pyeong}평`
+}
+
 export default function EstimateRequestPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -46,11 +82,41 @@ export default function EstimateRequestPage() {
     requestMessage: '',
     agreedToPrivacy: false,
   })
+  const [selectedItems, setSelectedItems] = useState(['거실 조명 교체', '바닥재 교체', '벽지 교체'])
 
   useEffect(() => {
     if (!contractorId || !/^\d+$/.test(contractorId)) return
     getContractor(Number(contractorId)).then((profile) => setContractor(profileToSummary(profile))).catch(() => setContractor(undefined))
   }, [contractorId])
+
+  useEffect(() => {
+    const requestId = getActiveRequestId()
+    const memberId = getMemberId()
+    if (!requestId || !memberId) return
+    let active = true
+    Promise.all([
+      getRequest(requestId),
+      getAnalysis(requestId).catch(() => null),
+      getMember(memberId),
+    ]).then(([request, analysis, member]) => {
+      if (!active) return
+      setForm((current) => ({
+        ...current,
+        name: member.name || current.name,
+        phone: member.phoneNumber || current.phone,
+        region: request.region || current.region,
+        budget: formatBudget(request.budgetMin ?? request.budget, request.budgetMax ?? request.budget) || current.budget,
+        areaScope: formatAreaScope(request.areaM2, analysis) || current.areaScope,
+        preferredDate: request.desiredDate || current.preferredDate,
+      }))
+      if (request.requestedItems) {
+        setSelectedItems(request.requestedItems.split(',').map((item) => item.trim()).filter(Boolean))
+      }
+    }).catch((error: unknown) => {
+      if (active) setSubmitError(error instanceof Error ? error.message : '기존 의뢰 정보를 불러오지 못했습니다.')
+    })
+    return () => { active = false }
+  }, [])
 
   const canSubmit = Boolean(
     contractor &&
@@ -78,13 +144,13 @@ export default function EstimateRequestPage() {
     setSubmitError('')
     try {
       if (requestId && Number.isSafeInteger(numericContractorId)) {
-        const budget = parseManwon(form.budget)
+        const budget = parseBudgetRange(form.budget)
         await updateRequest(requestId, {
           region: form.region.trim(),
-          budgetMin: budget,
-          budgetMax: budget,
+          budgetMin: budget.budgetMin,
+          budgetMax: budget.budgetMax,
           desiredDate: form.preferredDate || undefined,
-          requestedItems: '바닥재,벽지,조명',
+          requestedItems: selectedItems.join(','),
         })
         await inviteContractor(requestId, numericContractorId)
       }
@@ -230,9 +296,9 @@ export default function EstimateRequestPage() {
           <section className="mt-4" aria-labelledby="selected-items-title">
             <h2 id="selected-items-title" className="text-[10px] font-bold text-[#1e293b]">선택 항목</h2>
             <ul className="mt-2 flex flex-wrap gap-1.5">
-              {['거실 조명 교체 ×', '바닥재 교체 ×', '벽지 교체 ×'].map((item) => (
+              {selectedItems.map((item) => (
                 <li key={item} className="rounded-[5px] border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[8px] text-[#2563eb]">
-                  {item}
+                  {item} ×
                 </li>
               ))}
             </ul>

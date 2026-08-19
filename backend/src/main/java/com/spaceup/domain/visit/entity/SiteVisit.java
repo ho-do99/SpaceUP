@@ -99,7 +99,12 @@ public class SiteVisit extends BaseTimeEntity {
 
 	// ⭐ 임대인(고객)이 다른 일정을 요청 - 이미 일정이 잡혀 있어야만 변경을 요청할 수 있습니다.
 	public void requestChange(LocalDate requestedDate, LocalTime requestedTime, String reason) {
-		validateStatus(SiteVisitStatus.SCHEDULED);
+		if (status == SiteVisitStatus.UNSCHEDULED) {
+			this.visitDate = requestedDate;
+			this.visitTime = requestedTime;
+		} else {
+			validateStatus(SiteVisitStatus.SCHEDULED);
+		}
 		this.requestedDate = requestedDate;
 		this.requestedTime = requestedTime;
 		this.requestReason = reason;
