@@ -27,6 +27,7 @@ import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 import useContractorRequest from '@/hooks/useContractorRequest'
+import useContractorQuote from '@/hooks/useContractorQuote'
 import { submitQuote } from '@/api/estimateApi'
 import { getStoredQuoteId, storeSubmittedQuoteId } from '@/utils/quoteDraft'
 
@@ -35,8 +36,11 @@ export default function ContractorEstimatePreviewPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
+  const isLive = /^\d+$/.test(requestId ?? '')
   const liveRequest = useContractorRequest(requestId)
-  const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
+  const quoteId = isLive && requestId ? getStoredQuoteId(Number(requestId)) : null
+  const liveQuote = useContractorQuote(quoteId ? String(quoteId) : undefined)
+  const request = isLive ? liveRequest.request : findContractorRequestDetail(requestId)
 
   const {
     estimateDraft,
@@ -45,9 +49,13 @@ export default function ContractorEstimatePreviewPage() {
     resubmitEstimate,
   } = useContractorPortalFlow()
 
-  const isRevision =
-    estimateLifecycleStatus ===
-    'REVISION_REQUESTED'
+  const isRevision = isLive
+    ? Boolean(liveQuote.quote?.revisionRequestNote)
+    : estimateLifecycleStatus === 'REVISION_REQUESTED'
+
+  const activeDraft = isLive
+    ? (estimateDraft?.requestId === requestId ? estimateDraft : liveQuote.draft)
+    : estimateDraft
 
   const isCompletedView =
     searchParams.get('mode') === 'completed'
@@ -66,15 +74,29 @@ export default function ContractorEstimatePreviewPage() {
     [],
   )
 
+  if (isLive && (liveRequest.loading || (quoteId && liveQuote.loading))) {
+    return <ContractorMobileShell><main className="flex min-h-dvh items-center justify-center text-sm text-[#64748b]">견적을 불러오는 중입니다.</main></ContractorMobileShell>
+  }
+
   if (!request) {
     return <ContractorRequestNotFound />
   }
 
+  if (isLive && (!quoteId || liveQuote.error)) {
+    return (
+      <ContractorMobileShell>
+        <main className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[#64748b]">
+          <p role="alert">{liveQuote.error || '저장된 임시 견적을 찾을 수 없습니다.'}</p>
+          <Link className="font-bold text-[#2563eb]" to={`/contractor/requests/${request.requestId}/estimate${completedQuery}`}>견적 작성으로 돌아가기</Link>
+        </main>
+      </ContractorMobileShell>
+    )
+  }
 
   if (
-    !estimateDraft ||
+    !activeDraft ||
     !isContractorEstimateValid(
-      estimateDraft,
+      activeDraft,
     )
   ) {
     return (
@@ -97,7 +119,7 @@ export default function ContractorEstimatePreviewPage() {
       setSubmitError('')
       try {
         await submitQuote(quoteId)
-        storeSubmittedQuoteId('SP-20260724-001', quoteId)
+        storeSubmittedQuoteId(String(quoteId), quoteId)
       } catch (error) {
         setSubmitError(error instanceof Error ? error.message : '견적 제출에 실패했습니다.')
         setIsSubmitting(false)
@@ -107,7 +129,7 @@ export default function ContractorEstimatePreviewPage() {
       setIsSubmitting(false)
     }
     if (isRevision) {
-      resubmitEstimate(estimateDraft)
+      resubmitEstimate(activeDraft)
     } else {
       submitEstimate()
     }
@@ -115,9 +137,8 @@ export default function ContractorEstimatePreviewPage() {
     setSubmitOpen(false)
 
     if (isRevision) {
-      navigate(
-        '/contractor/estimates/SP-20260724-001',
-      )
+      const quoteId = requestId && /^\d+$/.test(requestId) ? getStoredQuoteId(Number(requestId)) : null
+      navigate(quoteId ? `/contractor/estimates/${quoteId}` : '/contractor/estimates')
       return
     }
 
@@ -138,12 +159,12 @@ export default function ContractorEstimatePreviewPage() {
           {submitError ? <p role="alert" className="mt-3 rounded-lg bg-[#fef2f2] px-3 py-2 text-xs text-[#b91c1c]">{submitError}</p> : null}
 
           <p className="mt-1 text-[11px] leading-4 text-[#64748b]">
-            견적번호 SP-20260724-001
+            {isLive ? `견적번호 ${getStoredQuoteId(Number(requestId)) ? `#${getStoredQuoteId(Number(requestId))}` : '저장 전'}` : '견적번호 SP-20260724-001'}
             <br />
-            작성일 2026.07.24 · 유효기간
-            2026.08.07까지
+            {isLive ? '서버 저장 견적 기준' : '작성일 2026.07.24 · 유효기간 2026.08.07까지'}
           </p>
 
+          {!isLive ? (
           <ContractorSectionCard
             className="mt-4"
             title="시공사 정보"
@@ -165,7 +186,8 @@ export default function ContractorEstimatePreviewPage() {
                 010-1234-5678
               </ContractorEstimateInfoRow>
             </dl>
-          </ContractorSectionCard>
+                    </ContractorSectionCard>
+          ) : null}
 
           <ContractorSectionCard
             className="mt-4"
@@ -191,12 +213,8 @@ export default function ContractorEstimatePreviewPage() {
                 {request.property.areaLabel}
               </ContractorEstimateInfoRow>
 
-              <ContractorEstimateInfoRow label="현장방문일">
-                2026.07.24
-              </ContractorEstimateInfoRow>
-
               <ContractorEstimateInfoRow label="시공 예정일">
-                {estimateDraft.condition.startDate.replace(
+                {activeDraft.condition.startDate.replace(
                   /-/g,
                   '.',
                 )}
@@ -206,10 +224,10 @@ export default function ContractorEstimatePreviewPage() {
 
           <ContractorSectionCard
             className="mt-4"
-            title="실제 견적 항목 · 바닥재 · 벽지"
+            title="견적 항목"
           >
             <div className="space-y-5">
-              {estimateDraft.categories.map(
+              {activeDraft.categories.map(
                 (category) => (
                   <ContractorEstimateCostList
                     key={category.id}
@@ -220,10 +238,9 @@ export default function ContractorEstimatePreviewPage() {
             </div>
 
             <p className="mt-4 rounded-lg bg-[#eff6ff] p-3 text-[11px] leading-5 text-[#2563eb]">
-              사용자 선택: 바닥재 · 벽지 · 조명
+              사용자 선택: {request.selectedItems.length > 0 ? request.selectedItems.join(' · ') : '등록된 시공 항목 없음'}
               <br />
-              조명은 현장 실측 후 별도 협의 · 현재
-              견적 금액 미포함
+              현장 실측과 의뢰 내용을 기준으로 산정한 견적입니다.
             </p>
           </ContractorSectionCard>
 
@@ -232,7 +249,7 @@ export default function ContractorEstimatePreviewPage() {
             title="추가 비용"
           >
             <dl className="space-y-2">
-              {estimateDraft.additionalCosts.map(
+              {activeDraft.additionalCosts.map(
                 (item) => (
                   <ContractorEstimateInfoRow
                     key={item.id}
@@ -249,7 +266,7 @@ export default function ContractorEstimatePreviewPage() {
               >
                 {formatWon(
                   calculateAdditionalTotal(
-                    estimateDraft,
+                    activeDraft,
                   ),
                 )}
               </ContractorEstimateInfoRow>
@@ -261,7 +278,7 @@ export default function ContractorEstimatePreviewPage() {
             title="최종 금액 (VAT 포함)"
           >
             <ContractorEstimateSummary
-              draft={estimateDraft}
+              draft={activeDraft}
               preview
             />
           </ContractorSectionCard>
@@ -272,14 +289,14 @@ export default function ContractorEstimatePreviewPage() {
           >
             <dl className="space-y-2">
               <ContractorEstimateInfoRow label="시공 예정일">
-                {estimateDraft.condition.startDate.replace(
+                {activeDraft.condition.startDate.replace(
                   /-/g,
                   '.',
                 )}
               </ContractorEstimateInfoRow>
 
               <ContractorEstimateInfoRow label="완료 예정일">
-                {estimateDraft.condition.completionDate.replace(
+                {activeDraft.condition.completionDate.replace(
                   /-/g,
                   '.',
                 )}
@@ -287,7 +304,7 @@ export default function ContractorEstimatePreviewPage() {
 
               <ContractorEstimateInfoRow label="예상 기간">
                 {
-                  estimateDraft.condition
+                  activeDraft.condition
                     .durationDays
                 }
                 일
@@ -296,19 +313,19 @@ export default function ContractorEstimatePreviewPage() {
               <ContractorEstimateInfoRow label="결제 조건">
                 계약금{' '}
                 {
-                  estimateDraft.condition
+                  activeDraft.condition
                     .paymentTerms
                     .depositPercent
                 }
                 % · 중도금{' '}
                 {
-                  estimateDraft.condition
+                  activeDraft.condition
                     .paymentTerms
                     .interimPercent
                 }
                 % · 잔금{' '}
                 {
-                  estimateDraft.condition
+                  activeDraft.condition
                     .paymentTerms
                     .balancePercent
                 }
@@ -326,7 +343,7 @@ export default function ContractorEstimatePreviewPage() {
             title="특이사항"
           >
             <p className="whitespace-pre-line break-words text-xs leading-5 text-[#64748b]">
-              {estimateDraft.notes ||
+              {activeDraft.notes ||
                 '등록된 특이사항이 없습니다.'}
             </p>
           </ContractorSectionCard>

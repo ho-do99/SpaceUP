@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   useNavigate,
   useParams,
@@ -31,9 +31,11 @@ import type {
 } from '@/types/contractorPortal'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
-import { createQuote, updateQuote } from '@/api/estimateApi'
+import { createQuote, getQuotesByRequest, updateQuote } from '@/api/estimateApi'
+import { getRequest } from '@/api/requestApi'
 import { estimateDraftToQuoteInput, getStoredQuoteId, storeQuoteId } from '@/utils/quoteDraft'
 import useContractorRequest from '@/hooks/useContractorRequest'
+import { createLiveContractorEstimateDraft, quoteToContractorEstimateDraft } from '@/utils/contractorQuoteAdapter'
 
 const fieldOrder: readonly ContractorEstimateField[] = [
   'floorArea',
@@ -77,8 +79,9 @@ export default function ContractorEstimateEditPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
+  const isLive = /^\d+$/.test(requestId ?? '')
   const liveRequest = useContractorRequest(requestId)
-  const request = /^\d+$/.test(requestId ?? '') ? liveRequest.request : findContractorRequestDetail(requestId)
+  const request = isLive ? liveRequest.request : findContractorRequestDetail(requestId)
 
   const {
     estimateDraft,
@@ -101,8 +104,9 @@ export default function ContractorEstimateEditPage() {
 
   const [draft, setDraft] =
     useState<ContractorEstimateDraft>(
-      estimateDraft ??
-        contractorDefaultEstimateDraft,
+      isLive
+        ? createLiveContractorEstimateDraft(requestId ?? '')
+        : estimateDraft ?? contractorDefaultEstimateDraft,
     )
 
   const [errors, setErrors] =
@@ -112,6 +116,29 @@ export default function ContractorEstimateEditPage() {
     useState(false)
   const [apiError, setApiError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    if (!isLive || !requestId) return
+    let active = true
+    const numericRequestId = Number(requestId)
+    void Promise.all([getQuotesByRequest(numericRequestId), getRequest(numericRequestId)])
+      .then(([quotes, rawRequest]) => {
+        if (!active) return
+        const existing = [...quotes].sort((a, b) => b.id - a.id)[0]
+        if (existing) {
+          storeQuoteId(numericRequestId, existing.id)
+          setDraft(quoteToContractorEstimateDraft(existing, rawRequest))
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) setApiError(error instanceof Error ? error.message : '기존 견적을 불러오지 못했습니다.')
+      })
+    return () => { active = false }
+  }, [isLive, requestId])
+
+  if (isLive && liveRequest.loading) {
+    return <ContractorMobileShell><main className="flex min-h-dvh items-center justify-center text-sm text-[#64748b]">견적을 불러오는 중입니다.</main></ContractorMobileShell>
+  }
 
   if (!request) {
     return <ContractorRequestNotFound />
@@ -333,24 +360,20 @@ export default function ContractorEstimateEditPage() {
               {request.property.areaLabel}
             </ContractorEstimateInfoRow>
 
-            <ContractorEstimateInfoRow label="현장방문일">
-              2026.07.24
-            </ContractorEstimateInfoRow>
-
-            <ContractorEstimateInfoRow label="희망 시공일">
-              2026.08.05
+            <ContractorEstimateInfoRow label="희망 일정">
+              {request.desiredSchedule}
             </ContractorEstimateInfoRow>
 
             <ContractorEstimateInfoRow label="시공 항목">
-              바닥재 · 벽지 · 조명
+              {request.selectedItems.length > 0
+                ? request.selectedItems.join(' · ')
+                : '등록된 시공 항목 없음'}
             </ContractorEstimateInfoRow>
           </dl>
 
           <p className="mt-3 rounded-lg bg-[#eff6ff] p-2 text-[11px] leading-4 text-[#2563eb]">
-            실제 견적: 바닥재 · 벽지
-            <br />
-            조명은 현장 실측 후 별도 협의 · 현재
-            견적 금액 미포함
+            의뢰에 등록된 시공 항목과 현장 실측 결과를 기준으로
+            견적을 작성해 주세요.
           </p>
         </ContractorSectionCard>
 
