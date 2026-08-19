@@ -11,6 +11,8 @@ export interface NotificationResponse {
   content: string
   read: boolean
   createdAt: string
+  requestId?: number | null
+  contractorId?: number | null
 }
 
 export async function getNotifications(params: { page?: number; size?: number } = {}) {

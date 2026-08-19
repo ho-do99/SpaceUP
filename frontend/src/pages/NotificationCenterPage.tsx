@@ -9,6 +9,7 @@ import {
   type UserNotification,
 } from '@/mocks/notifications'
 import { getNotifications, readAllNotifications, readNotification } from '@/api/notificationApi'
+import { getChatThreads } from '@/api/chatApi'
 import { mapNotification } from './notificationMapper'
 import useRealtime from '@/contexts/useRealtime'
 
@@ -24,8 +25,11 @@ export default function NotificationCenterPage() {
     setLoading(true)
     setError(null)
     try {
-      const page = await getNotifications({ size: 50 })
-      setNotifications(page.content.map((notification) => mapNotification(notification)))
+      const [page, threads] = await Promise.all([
+        getNotifications({ size: 50 }),
+        getChatThreads().catch(() => []),
+      ])
+      setNotifications(page.content.map((notification) => mapNotification(notification, new Date(), threads)))
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : '알림을 불러오지 못했습니다.')
     } finally {

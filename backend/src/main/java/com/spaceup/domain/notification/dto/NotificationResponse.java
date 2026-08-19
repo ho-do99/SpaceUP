@@ -15,6 +15,8 @@ public class NotificationResponse {
 	private final String content;
 	private final boolean read;
 	private final LocalDateTime createdAt;
+	private final Long requestId;
+	private final Long contractorId;
 
 	public NotificationResponse(Notification notification) {
 		this.id = notification.getId();
@@ -23,5 +25,7 @@ public class NotificationResponse {
 		this.content = notification.getContent();
 		this.read = notification.isRead();
 		this.createdAt = notification.getCreatedAt();
+		this.requestId = notification.getRequestId();
+		this.contractorId = notification.getContractorId();
 	}
 }

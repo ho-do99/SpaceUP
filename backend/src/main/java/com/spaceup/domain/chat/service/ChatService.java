@@ -1,7 +1,9 @@
 package com.spaceup.domain.chat.service;
 
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.context.ApplicationEventPublisher;
@@ -55,7 +57,11 @@ public class ChatService {
 					.findByRequestId(requestId).stream()).toList();
 		}
 
-		return participations.stream().map(participation -> toThread(participation, member))
+		Set<String> seenThreads = new HashSet<>();
+		return participations.stream()
+				.filter(participation -> seenThreads.add(participation.getRequest().getId() + ":"
+						+ participation.getContractor().getId()))
+				.map(participation -> toThread(participation, member))
 				.sorted(Comparator.comparing(ChatThreadResponse::lastMessageAt,
 						Comparator.nullsLast(Comparator.reverseOrder())))
 				.toList();
@@ -84,8 +90,9 @@ public class ChatService {
 		request.touch();
 
 		Long receiverId = landlord ? participation.getContractor().getId() : request.getOwner().getId();
-		notificationService.notify(receiverId, NotificationType.CHAT, "새 채팅 메시지가 도착했습니다",
-				String.format("%s: %s", sender.getName(), truncate(content)));
+		notificationService.notifyForRequest(receiverId, NotificationType.CHAT, "새 채팅 메시지가 도착했습니다",
+				String.format("%s: %s", sender.getName(), truncate(content)), requestId,
+				participation.getContractor().getId());
 		eventPublisher.publishEvent(RealtimeDomainEvent.chatMessage(memberId, requestId,
 				participation.getContractor().getId(), message.getId()));
 		eventPublisher.publishEvent(RealtimeDomainEvent.chatMessage(receiverId, requestId,
