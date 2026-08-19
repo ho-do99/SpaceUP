@@ -2,6 +2,8 @@ package com.spaceup.domain.chat.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -11,6 +13,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.springframework.context.ApplicationEventPublisher;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -19,6 +22,7 @@ import com.spaceup.domain.contractor.repository.ContractorProfileRepository;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.entity.MemberRole;
 import com.spaceup.domain.member.repository.MemberRepository;
+import com.spaceup.domain.notification.entity.NotificationType;
 import com.spaceup.domain.notification.service.NotificationService;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.entity.RequestContractor;
@@ -37,6 +41,7 @@ class ChatServiceMultiContractorTest {
 	@Mock RequestContractorRepository requestContractorRepository;
 	@Mock MemberRepository memberRepository;
 	@Mock NotificationService notificationService;
+	@Mock ApplicationEventPublisher eventPublisher;
 	@InjectMocks ChatService service;
 
 	@Test
@@ -69,6 +74,28 @@ class ChatServiceMultiContractorTest {
 
 		assertThrows(ForbiddenAccessException.class, () -> service.sendMessage(10L, null, 2L, "message"));
 	}
+
+	@Test
+	void sendingMessagePersistsChatNotificationWithProductionEnumType() {
+		Member owner = Member.builder().id(1L).name("시연 임대인").role(MemberRole.LANDLORD).build();
+		Member contractor = Member.builder().id(2L).name("시연 시공사").role(MemberRole.CONTRACTOR).build();
+		QuoteRequest request = QuoteRequest.builder().id(10L).owner(owner)
+				.status(RequestStatus.QUOTE_REQUESTED).build();
+		RequestContractor participation = RequestContractor.builder().request(request).contractor(contractor)
+				.status(RequestContractorStatus.APPROVED).build();
+		when(quoteRequestRepository.findById(10L)).thenReturn(Optional.of(request));
+		when(requestContractorRepository.findByRequestIdAndContractorId(10L, 2L))
+				.thenReturn(Optional.of(participation));
+		when(memberRepository.findById(1L)).thenReturn(Optional.of(owner));
+		when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		service.sendMessage(10L, 2L, 1L, "방문 일정을 조율해요");
+
+		verify(notificationService).notifyForRequest(eq(2L), eq(NotificationType.CHAT),
+				eq("새 채팅 메시지가 도착했습니다"), eq("시연 임대인: 방문 일정을 조율해요"),
+				eq(10L), eq(2L));
+	}
+
 	@Test
 	void exactDuplicateParticipationsProduceOnlyOneThreadPerRequestAndContractor() {
 		Member owner = Member.builder().id(1L).name("owner").role(MemberRole.LANDLORD).build();

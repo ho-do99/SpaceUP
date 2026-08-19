@@ -1,6 +1,8 @@
 package com.spaceup.domain.visit.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
@@ -14,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.spaceup.domain.member.entity.Member;
+import com.spaceup.domain.notification.entity.NotificationType;
 import com.spaceup.domain.notification.service.NotificationService;
 import com.spaceup.domain.request.entity.Property;
 import com.spaceup.domain.request.entity.QuoteRequest;
@@ -62,5 +65,8 @@ class SiteVisitServiceLiveFlowTest {
 
 		assertThat(visit.getStatus()).isEqualTo(SiteVisitStatus.CHANGE_REQUESTED);
 		assertThat(visit.getRequestedDate()).isEqualTo(LocalDate.of(2026, 9, 8));
+		verify(notificationService).notify(eq(2L), eq(NotificationType.VISIT),
+				eq("방문 일정 변경 요청이 도착했습니다"),
+				eq("희망 일정: 2026-09-08 14:00 (오후 방문 희망)"));
 	}
 }
