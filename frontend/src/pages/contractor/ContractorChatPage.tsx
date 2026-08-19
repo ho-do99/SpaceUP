@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getChatMessages, getChatThreads, readChat, sendChatMessage } from '@/api/chatApi'
 
@@ -7,7 +7,7 @@ import ContractorChatBubble from '@/components/contractor/ContractorChatBubble'
 import ContractorChatComposer from '@/components/contractor/ContractorChatComposer'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import useContractorPortalFlow from '@/components/contractor/useContractorPortalFlow'
-import useContractorRequest from '@/hooks/useContractorRequest'
+import useContractorRequest, { isLiveContractorRequestId } from '@/hooks/useContractorRequest'
 import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import type { ContractorChatMessage } from '@/types/contractorPortal'
 import type { ChatThread, SiteVisit } from '@/types/backendContractor'
@@ -26,8 +26,8 @@ export default function ContractorChatPage({
   const { requestId } = useParams()
   const navigate = useNavigate()
   const { latestEvent } = useRealtime()
-  const numericRequestId = Number(requestId)
-  const liveRequestId = Number.isInteger(numericRequestId) && numericRequestId > 0
+  const liveRequestId = isLiveContractorRequestId(requestId)
+  const numericRequestId = liveRequestId ? Number(requestId) : 0
   const liveRequest = useContractorRequest(requestId)
   const request = liveRequestId
     ? liveRequest.request
@@ -35,87 +35,103 @@ export default function ContractorChatPage({
 
   const { messages: mockMessages, addMessage: addMockMessage } =
     useContractorPortalFlow()
-  const [liveMessages, setLiveMessages] = useState<ContractorChatMessage[]>([])
-  const [liveThread, setLiveThread] = useState<ChatThread | null>(null)
-  const [liveVisit, setLiveVisit] = useState<SiteVisit | null>(null)
+  const [liveRoom, setLiveRoom] = useState<{ requestId: number; messages: ContractorChatMessage[]; thread: ChatThread | null }>({ requestId: 0, messages: [], thread: null })
+  const [liveVisitState, setLiveVisitState] = useState<{ requestId: number; visit: SiteVisit | null; loading: boolean; error: string }>({ requestId: 0, visit: null, loading: false, error: '' })
   const [liveError, setLiveError] = useState<string | null>(null)
-  const [sending, setSending] = useState(false)
-  const messages = liveRequestId ? liveMessages : mockMessages
+  const [sendingRequestId, setSendingRequestId] = useState<number | null>(null)
+  const roomLoadSequence = useRef(0)
+  const visitLoadSequence = useRef(0)
+  const activeLiveRoom = liveRoom.requestId === numericRequestId ? liveRoom : null
+  const activeLiveThread = activeLiveRoom?.thread ?? null
+  const activeLiveVisitState = liveVisitState.requestId === numericRequestId ? liveVisitState : null
+  const messages = liveRequestId ? activeLiveRoom?.messages ?? [] : mockMessages
 
-  useEffect(() => {
-    if (!liveRequestId) return
-    let active = true
-    Promise.all([getChatMessages(numericRequestId), getChatThreads()])
+  const loadLiveRoom = useCallback((requestId: number) => {
+    const sequence = ++roomLoadSequence.current
+    return Promise.all([getChatMessages(requestId), getChatThreads()])
       .then(([chatMessages, threads]) => {
-        if (!active) return
-        setLiveMessages(chatMessages.map((message) => ({
-          id: String(message.id),
-          sender: message.senderType === 'SYSTEM' ? 'system' : message.senderType === 'CONTRACTOR' ? 'contractor' : 'customer',
-          text: message.content,
-          timeLabel: message.createdAt?.slice(11, 16) || '',
-        })))
-        setLiveThread(threads.find((thread) => thread.requestId === numericRequestId) ?? null)
-        void readChat(numericRequestId).catch(() => undefined)
+        if (sequence !== roomLoadSequence.current) return
+        setLiveRoom({
+          requestId,
+          messages: chatMessages.map((message) => ({
+            id: String(message.id),
+            sender: message.senderType === 'SYSTEM' ? 'system' : message.senderType === 'CONTRACTOR' ? 'contractor' : 'customer',
+            text: message.content,
+            timeLabel: message.createdAt?.slice(11, 16) || '',
+          })),
+          thread: threads.find((thread) => thread.requestId === requestId) ?? null,
+        })
+        setLiveError(null)
+        void readChat(requestId).catch(() => undefined)
       })
       .catch(() => {
-        if (active) setLiveError('채팅 내용을 불러오지 못했습니다.')
+        if (sequence !== roomLoadSequence.current) return
+        setLiveRoom({ requestId, messages: [], thread: null })
+        setLiveError('채팅 내용을 불러오지 못했습니다.')
       })
-    return () => { active = false }
-  }, [liveRequestId, numericRequestId])
+  }, [])
 
   useEffect(() => {
+    roomLoadSequence.current += 1
     if (!liveRequestId) return
-    let active = true
+    setLiveRoom({ requestId: numericRequestId, messages: [], thread: null })
+    setLiveError(null)
+    void loadLiveRoom(numericRequestId)
+    return () => { roomLoadSequence.current += 1 }
+  }, [liveRequestId, loadLiveRoom, numericRequestId])
+
+  useEffect(() => {
+    visitLoadSequence.current += 1
+    if (!liveRequestId) return
+    const sequence = ++visitLoadSequence.current
+    setLiveVisitState({ requestId: numericRequestId, visit: null, loading: true, error: '' })
     getVisit(numericRequestId)
       .then((visit) => {
-        if (active) setLiveVisit(visit)
+        if (sequence === visitLoadSequence.current) {
+          setLiveVisitState({ requestId: numericRequestId, visit, loading: false, error: '' })
+        }
       })
       .catch(() => {
-        if (active) setLiveVisit(null)
+        if (sequence === visitLoadSequence.current) {
+          setLiveVisitState({ requestId: numericRequestId, visit: null, loading: false, error: '방문 일정을 불러오지 못했습니다.' })
+        }
       })
-    return () => { active = false }
+    return () => { visitLoadSequence.current += 1 }
   }, [liveRequestId, numericRequestId])
 
   useEffect(() => {
     if (!liveRequestId || latestEvent?.type !== 'CHAT_MESSAGE' || latestEvent.requestId !== numericRequestId) return
-    let active = true
-    Promise.all([getChatMessages(numericRequestId), getChatThreads()])
-      .then(([chatMessages, threads]) => {
-        if (!active) return
-        setLiveMessages(chatMessages.map((message) => ({
-          id: String(message.id),
-          sender: message.senderType === 'SYSTEM' ? 'system' : message.senderType === 'CONTRACTOR' ? 'contractor' : 'customer',
-          text: message.content,
-          timeLabel: message.createdAt?.slice(11, 16) || '',
-        })))
-        setLiveThread(threads.find((thread) => thread.requestId === numericRequestId) ?? null)
-        void readChat(numericRequestId).catch(() => undefined)
-      })
-      .catch(() => undefined)
-    return () => { active = false }
-  }, [latestEvent, liveRequestId, numericRequestId])
+    void loadLiveRoom(numericRequestId)
+  }, [latestEvent, liveRequestId, loadLiveRoom, numericRequestId])
 
   const addMessage = async (content: string) => {
     if (!liveRequestId) {
       addMockMessage(content)
       return
     }
-    if (!liveThread?.contactable || sending) {
+    if (!activeLiveThread?.contactable || sendingRequestId === numericRequestId) {
       setLiveError('종료된 채팅방에는 메시지를 보낼 수 없습니다.')
       return
     }
-    setSending(true)
+    const sendRequestId = numericRequestId
+    setSendingRequestId(sendRequestId)
     try {
-      const message = await sendChatMessage(numericRequestId, content)
-      setLiveMessages((current) => current.some((item) => item.id === String(message.id)) ? current : [...current, {
-        id: String(message.id), sender: 'contractor', text: message.content,
-        timeLabel: message.createdAt?.slice(11, 16) || '',
-      }])
+      const message = await sendChatMessage(sendRequestId, content)
+      setLiveRoom((current) => {
+        if (current.requestId !== sendRequestId || current.messages.some((item) => item.id === String(message.id))) return current
+        return {
+          ...current,
+          messages: [...current.messages, {
+            id: String(message.id), sender: 'contractor', text: message.content,
+            timeLabel: message.createdAt?.slice(11, 16) || '',
+          }],
+        }
+      })
       setLiveError(null)
     } catch (sendError) {
       setLiveError(sendError instanceof Error ? sendError.message : '메시지를 보내지 못했습니다.')
     } finally {
-      setSending(false)
+      setSendingRequestId((current) => current === sendRequestId ? null : current)
     }
   }
 
@@ -135,8 +151,9 @@ export default function ContractorChatPage({
     return <ContractorRequestNotFound />
   }
 
+  const visitLookupError = activeLiveVisitState?.error ?? ''
   const hasCompletedVisit = liveRequestId
-    ? liveVisit?.status === 'COMPLETED'
+    ? activeLiveVisitState?.visit?.status === 'COMPLETED'
     : completed
   const visitPagePath = liveRequestId
     ? `/contractor/requests/${requestId}/visit`
@@ -146,14 +163,14 @@ export default function ContractorChatPage({
   const estimatePagePath = liveRequestId
     ? `/contractor/requests/${requestId}/estimate-ready`
     : `/contractor/requests/${request?.requestId}/estimate-ready?mode=completed`
-  const showActions = !liveRequestId || liveThread !== null
+  const showActions = !liveRequestId || (activeLiveThread !== null && activeLiveVisitState?.loading === false && !visitLookupError)
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
       <header className="relative flex h-14 shrink-0 items-center border-b border-[#e2e8f0] bg-white px-4">
         <button type="button" aria-label="뒤로가기" onClick={() => navigate(-1)} className="mr-2 flex h-10 w-3 items-center justify-center"><img src={backIcon} alt="" className="h-5 w-5 max-w-none" /></button>
-        <h1 className="text-[17px] font-bold leading-[25px] text-[#1e293b]">{liveRequestId ? liveThread?.counterpartName ?? '채팅' : request?.customerName ?? '채팅'} 사용자</h1>
-        <p className="ml-auto text-[10px] font-bold text-[#64748b]">{liveRequestId ? liveThread?.requestCode ?? requestId : request?.requestId}</p>
+        <h1 className="text-[17px] font-bold leading-[25px] text-[#1e293b]">{liveRequestId ? activeLiveThread?.counterpartName ?? '채팅' : request?.customerName ?? '채팅'} 사용자</h1>
+        <p className="ml-auto text-[10px] font-bold text-[#64748b]">{liveRequestId ? activeLiveThread?.requestCode ?? requestId : request?.requestId}</p>
       </header>
 
       <div
@@ -189,6 +206,7 @@ export default function ContractorChatPage({
         </div>
 
         {liveError ? <p role="alert" className="mt-4 text-center text-xs font-bold text-[#dc2626]">{liveError}</p> : null}
+        {visitLookupError ? <p role="alert" className="mt-4 text-center text-xs font-bold text-[#dc2626]">{visitLookupError}</p> : null}
 
         {hasCompletedVisit ? (
           <div className="mt-4 rounded-xl border border-[#a7f3d0] bg-[#ecfdf5] p-3 text-xs leading-5 text-[#047857]">
@@ -236,8 +254,8 @@ export default function ContractorChatPage({
 
       <ContractorChatComposer
         onSend={(message) => void addMessage(message)}
-        enabled={!liveRequestId || liveThread?.contactable === true}
-        sending={sending}
+        enabled={!liveRequestId || activeLiveThread?.contactable === true}
+        sending={sendingRequestId === numericRequestId}
       />
     </ContractorMobileShell>
   )

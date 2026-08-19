@@ -5,8 +5,12 @@ import { findContractorRequestDetail } from '@/mocks/contractorPortalMockData'
 import type { ContractorRequestDetail } from '@/types/contractorPortal'
 import { requestToContractorDetail } from '@/utils/contractorRequestAdapter'
 
+export function isLiveContractorRequestId(requestId?: string) {
+  return Boolean(requestId && /^\d+$/.test(requestId) && Number(requestId) > 0)
+}
+
 export default function useContractorRequest(requestId?: string) {
-  const liveId = Boolean(requestId && /^\d+$/.test(requestId))
+  const liveId = isLiveContractorRequestId(requestId)
   const [request, setRequest] = useState<ContractorRequestDetail | null>(
     () => liveId ? null : findContractorRequestDetail(requestId) ?? null,
   )
