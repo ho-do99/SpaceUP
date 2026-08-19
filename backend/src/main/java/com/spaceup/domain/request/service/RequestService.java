@@ -212,7 +212,9 @@ public class RequestService {
 	public void approve(Long requestId, Long contractorId) {
 		QuoteRequest request = findRequestOrThrow(requestId);
 		RequestContractor participation = findParticipation(requestId, contractorId);
-		participation.approve();
+		if (!participation.approve()) {
+			return;
+		}
 		request.markQuoteRequested();
 		request.touch();
 

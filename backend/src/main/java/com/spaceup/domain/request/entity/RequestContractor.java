@@ -57,12 +57,13 @@ public class RequestContractor extends BaseTimeEntity {
 	@Column(name = "matching_score")
 	private Integer matchingScore;
 
-	public void approve() {
-		if (status == RequestContractorStatus.APPROVED) {
-			return;
+	public boolean approve() {
+		if (status == RequestContractorStatus.APPROVED || status == RequestContractorStatus.SELECTED) {
+			return false;
 		}
 		validateStatus(RequestContractorStatus.INVITED);
 		this.status = RequestContractorStatus.APPROVED;
+		return true;
 	}
 
 	public void reject(RejectReason reason, String detail) {
