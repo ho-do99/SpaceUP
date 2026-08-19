@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getAnalysis } from '@/api/analysisApi'
 import { getRequest, getRequestImages } from '@/api/requestApi'
 import ContractorRequestDetailPage from './ContractorRequestDetailPage'
@@ -35,6 +35,8 @@ function renderRequestDetail(initialPath: string) {
 }
 
 describe('ContractorRequestDetailPage', () => {
+  afterEach(cleanup)
+
   beforeEach(() => {
     getRequestMock.mockReset()
     getRequestImagesMock.mockReset().mockResolvedValue([])
@@ -53,5 +55,20 @@ describe('ContractorRequestDetailPage', () => {
     expect(await screen.findByText(/시연 임대인/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '의뢰 승인' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: /채팅/ }).find((link) => link.getAttribute('href') === '/contractor/requests/99/chat')).toBeDefined()
+  })
+
+  it('offers only chat after the participation is selected', async () => {
+    getRequestMock.mockResolvedValue({
+      ...requestFixture,
+      participationStatus: 'SELECTED',
+      landlordName: '시연 임대인',
+    })
+
+    renderRequestDetail('/contractor/requests/99')
+
+    expect(await screen.findByText(/시연 임대인/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '의뢰 승인' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '의뢰 거절' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '채팅 계속하기' })).toHaveAttribute('href', '/contractor/requests/99/chat')
   })
 })

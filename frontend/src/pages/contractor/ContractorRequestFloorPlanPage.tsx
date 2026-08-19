@@ -17,12 +17,49 @@ export default function ContractorRequestFloorPlanPage() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [rejectedReason, setRejectedReason] = useState('')
   const [actionError, setActionError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (!request) return <ContractorRequestNotFound />
+  const isLiveRequest = /^\d+$/.test(request.requestId)
+  const canDecide = request.participationStatus === 'INVITED' || !isLiveRequest
+  const canContinueChat = request.participationStatus === 'APPROVED' || request.participationStatus === 'SELECTED'
+
+  const approve = async () => {
+    if (isSubmitting) return
+    setActionError('')
+    setIsSubmitting(true)
+    try {
+      await approveContractorRequest(request.requestId)
+      navigate(`/contractor/requests/${request.requestId}/approved`)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const reject = async (reason: string) => {
+    if (isSubmitting) return
+    setActionError('')
+    setIsSubmitting(true)
+    try {
+      await rejectContractorRequest(request.requestId, reason)
+      setRejectedReason(reason)
+      setRejectOpen(false)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <>
-      <ContractorRequestDetailLayout request={request} activeTab="floor-plan" statusMessage={actionError || (rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined)} actions={<ContractorRequestActions disabled={Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={() => { void approveContractorRequest(request.requestId).then(() => navigate(`/contractor/requests/${request.requestId}/approved`)).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 승인에 실패했습니다.')) }} />}>
+      <ContractorRequestDetailLayout request={request} activeTab="floor-plan" statusMessage={actionError || (rejectedReason ? `거절 상태로 표시했습니다: ${rejectedReason}` : undefined)} actions={canContinueChat
+        ? <ContractorRequestActions chatHref={`/contractor/requests/${request.requestId}/chat`} />
+        : canDecide
+          ? <ContractorRequestActions disabled={isSubmitting || Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={approve} />
+          : null}>
         <button type="button" aria-label="평면도 크게 보기" onClick={() => setPreviewOpen(true)} className="flex h-[190px] w-full flex-col items-center justify-center rounded-xl border border-[#e2e8f0] bg-[#eff6ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]">
           {request.hasLinkedFloorPlan ? (
             <img src={request.floorPlanImage} alt={`선택한 ${request.property.areaLabel} 평면도`} className="h-full w-full rounded-xl object-contain p-2" />
@@ -46,7 +83,7 @@ export default function ContractorRequestFloorPlanPage() {
           </section>
         </div>
       ) : null}
-      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={(reason) => { void rejectContractorRequest(request.requestId, reason).then(() => { setRejectedReason(reason); setRejectOpen(false) }).catch((error) => setActionError(error instanceof Error ? error.message : '의뢰 거절에 실패했습니다.')) }} />
+      <ContractorConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={reject} />
     </>
   )
 }

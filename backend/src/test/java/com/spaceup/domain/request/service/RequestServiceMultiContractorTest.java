@@ -1,6 +1,7 @@
 package com.spaceup.domain.request.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -84,6 +85,29 @@ class RequestServiceMultiContractorTest {
 		assertEquals(activityBefore, request.getLastActivityAt());
 	}
 
+	@Test
+	void selectedParticipationApprovalDoesNotMutateOrCauseRequestSideEffects() {
+		RequestContractor participation = selectedParticipation();
+		RequestStatus statusBefore = request.getStatus();
+		LocalDateTime activityBefore = request.getLastActivityAt();
+
+		assertFalse(participation.approve());
+		assertEquals(RequestContractorStatus.SELECTED, participation.getStatus());
+		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
+		when(requestContractorRepository.findByRequestIdAndContractorId(1L, 20L))
+				.thenReturn(Optional.of(participation));
+
+		service.approve(1L, 20L);
+
+		verify(notificationService, never()).notify(any(), any(), any(), any());
+		assertEquals(statusBefore, request.getStatus());
+		assertEquals(activityBefore, request.getLastActivityAt());
+	}
+
+	private RequestContractor selectedParticipation() {
+		return RequestContractor.builder().request(request).contractor(Member.builder().id(20L).build())
+				.status(RequestContractorStatus.SELECTED).build();
+	}
 	private RequestContractor approvedParticipation() {
 		return RequestContractor.builder().request(request).contractor(Member.builder().id(20L).build())
 				.status(RequestContractorStatus.APPROVED).build();
