@@ -32,7 +32,9 @@ function budgetLabel(request: RequestResponse) {
 
 function quoteLabel(analysis?: AnalysisJobResponse | null) {
   if (analysis?.estimatedQuoteMin != null && analysis.estimatedQuoteMax != null) {
-    return `${won.format(analysis.estimatedQuoteMin)}~${won.format(analysis.estimatedQuoteMax)}원`
+    const estimateMin = Math.floor(analysis.estimatedQuoteMin / 10_000)
+    const estimateMax = Math.ceil(analysis.estimatedQuoteMax / 10_000)
+    return `${won.format(estimateMin)}~${won.format(estimateMax)}만원`
   }
   return '분석 대기 중'
 }

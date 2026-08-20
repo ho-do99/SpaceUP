@@ -24,7 +24,7 @@ export type ContractorUnsuccessfulReason =
   | 'auto_canceled'
   | 'expired'
 
-export type ContractorRequestDetailTab = 'summary' | 'floor-plan' | 'photos' | 'analysis'
+export type ContractorRequestDetailTab = 'summary' | 'floor-plan' | 'photos'
 
 export type ContractorChatSender = 'customer' | 'contractor' | 'system'
 

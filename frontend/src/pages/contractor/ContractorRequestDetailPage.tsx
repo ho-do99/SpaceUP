@@ -153,7 +153,7 @@ export default function ContractorRequestDetailPage() {
         <ContractorSectionCard className="p-[14px] shadow-none">
           <h2 className="mb-[7px] text-sm font-bold leading-5 text-[#2563eb]">SpaceUP 예상 견적</h2>
           <p className="text-xs leading-[17px] text-[#64748b]">{request.estimatedCostLabel}</p>
-          <p className="text-xs leading-[17px] text-[#64748b]">AI 분석 기반 참고 범위이며 실제 견적과 다를 수 있습니다.</p>
+          <p className="text-xs leading-[17px] text-[#64748b]">사용자가 선택한 자재와 SpaceUP 산정 로직으로 계산한 예상 범위입니다.</p>
         </ContractorSectionCard>
 
         <Link to={`/contractor/requests/${request.requestId}/floor-plan`} className="flex h-12 items-center justify-center rounded-lg border border-[#e2e8f0] bg-white text-sm font-bold text-[#0b2b59]">평면도 · 집 사진 보기</Link>

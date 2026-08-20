@@ -10,12 +10,11 @@ const tabs: readonly { id: ContractorRequestDetailTab; label: string; suffix: st
   { id: 'summary', label: '요약', suffix: '' },
   { id: 'floor-plan', label: '평면도', suffix: '/floor-plan' },
   { id: 'photos', label: '희망 시공 사진', suffix: '/photos' },
-  { id: 'analysis', label: 'AI 분석', suffix: '/analysis' },
 ]
 
 export default function ContractorTabNavigation({ requestId, activeTab }: ContractorTabNavigationProps) {
   return (
-    <nav aria-label="의뢰 상세 자료" className="grid h-[38px] grid-cols-4 gap-1.5">
+    <nav aria-label="의뢰 상세 자료" className="grid h-[38px] grid-cols-3 gap-1.5">
       {tabs.map((tab) => (
         <NavLink
           key={tab.id}
