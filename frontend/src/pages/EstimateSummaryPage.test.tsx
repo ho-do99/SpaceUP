@@ -9,10 +9,11 @@ import EstimateSummaryPage from './EstimateSummaryPage'
 const api = vi.hoisted(() => ({
   getRecommendedProducts: vi.fn(),
   getAnalysis: vi.fn(),
+  updateAnalysis: vi.fn(),
   updateRequest: vi.fn(),
 }))
 
-vi.mock('@/api/analysisApi', () => ({ getRecommendedProducts: api.getRecommendedProducts, getAnalysis: api.getAnalysis }))
+vi.mock('@/api/analysisApi', () => ({ getRecommendedProducts: api.getRecommendedProducts, getAnalysis: api.getAnalysis, updateAnalysis: api.updateAnalysis }))
 vi.mock('@/api/requestApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/requestApi')>()
   return { ...actual, updateRequest: api.updateRequest }
@@ -66,6 +67,7 @@ describe('EstimateSummaryPage', () => {
       ceilingHeightM: 2.4,
     })
     api.updateRequest.mockReset().mockResolvedValue(undefined)
+    api.updateAnalysis.mockReset().mockResolvedValue(undefined)
   })
 
   afterEach(() => { cleanup(); sessionStorage.clear() })
@@ -87,6 +89,10 @@ describe('EstimateSummaryPage', () => {
     await waitFor(() => expect(api.updateRequest).toHaveBeenCalledWith(77, {
       selectedTheme: 'WOOD', selectedFlooringProductId: 11, selectedWallpaperProductId: 12, selectedLightingProductId: 13,
     }))
+    expect(api.updateAnalysis).toHaveBeenCalledWith(77, {
+      estimatedQuoteMin: 6_260_000,
+      estimatedQuoteMax: 7_650_000,
+    })
     expect(await screen.findByText('contractors page')).toBeInTheDocument()
   })
 

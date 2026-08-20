@@ -608,7 +608,7 @@ export default function ContractorVisitPage() {
               </Link>
 
               <Link
-                to={`/contractor/requests/${request.requestId}/estimate-ready`}
+                to={`/contractor/requests/${request.requestId}/estimate?mode=completed`}
                 className="flex h-12 items-center justify-center rounded-lg bg-[#2563eb] text-sm font-bold text-white"
               >
                 견적 작성으로 이동
