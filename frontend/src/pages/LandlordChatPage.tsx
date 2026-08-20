@@ -446,7 +446,12 @@ export default function LandlordChatPage() {
     }
   }
 
-  const companyMeta = thread?.contactable ? '견적 의뢰 채팅' : '종료된 채팅방'
+  const flowLabel = thread?.requestCode || (requestId ? `REQ-ID-${requestId}` : '')
+  const companyMeta = !thread
+    ? `의뢰 ${flowLabel} · 채팅 정보 확인 중`
+    : thread.contactable
+      ? `의뢰 ${flowLabel} · 견적 상담 채팅`
+      : `의뢰 ${flowLabel} · 종료된 채팅방`
   const dateLabel = formatMessageDate(messages[0]?.createdAt)
   const visitScheduleLabel = visit?.visitDate
     ? `${visit.visitDate.replace(/-/g, '.')} ${visit.visitTime?.slice(0, 5) ?? ''}`.trim()
