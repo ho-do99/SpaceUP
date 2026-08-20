@@ -2,6 +2,8 @@ package com.spaceup.domain.request.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -120,6 +122,24 @@ class RequestServiceMultiContractorTest {
 				com.spaceup.domain.notification.entity.NotificationType.REQUEST,
 				"의뢰가 승인되었습니다", "REQ-TEST-000001 의뢰를 시공사가 승인했습니다. 채팅에서 방문 일정을 조율해 주세요.",
 				1L, 20L);
+	}
+
+	@Test
+	void ownerCanSoftDeleteRequestWithoutPhysicallyDeletingRelatedHistory() {
+		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
+
+		service.deleteRequest(1L, 10L);
+
+		assertNotNull(request.getDeletedAt());
+		verify(quoteRequestRepository, never()).delete(any());
+	}
+
+	@Test
+	void nonOwnerCannotDeleteRequest() {
+		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
+
+		assertThrows(com.spaceup.global.error.ForbiddenAccessException.class,
+				() -> service.deleteRequest(1L, 99L));
 	}
 	private RequestContractor selectedParticipation() {
 		return RequestContractor.builder().request(request).contractor(Member.builder().id(20L).build())

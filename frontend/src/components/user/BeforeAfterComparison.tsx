@@ -1,13 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 interface BeforeAfterComparisonProps {
   beforeImageUrl: string
   afterImageUrl: string
   styleName?: string
+  afterLoading?: boolean
 }
 
 type PreviewKind = 'before' | 'after'
+
+const INITIAL_SLIDER_POSITION = 50
+const DRAG_STEP = 2
+
+function clampSliderPosition(position: number) {
+  return Math.min(100, Math.max(0, position))
+}
 
 function DownloadIcon() {
   return (
@@ -37,11 +45,44 @@ export default function BeforeAfterComparison({
   beforeImageUrl,
   afterImageUrl,
   styleName = '모던',
+  afterLoading = false,
 }: BeforeAfterComparisonProps) {
   const [preview, setPreview] = useState<PreviewKind | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState('')
+  const [sliderPosition, setSliderPosition] = useState(INITIAL_SLIDER_POSITION)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isIntroAnimating, setIsIntroAnimating] = useState(true)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const comparisonRef = useRef<HTMLElement>(null)
+  const introTimerRefs = useRef<number[]>([])
+  const activePointerRef = useRef<number | null>(null)
+
+  const clearIntroTimers = useCallback(() => {
+    introTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId))
+    introTimerRefs.current = []
+  }, [])
+
+  const stopIntroAnimation = useCallback(() => {
+    clearIntroTimers()
+    setIsIntroAnimating(false)
+  }, [clearIntroTimers])
+
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setIsIntroAnimating(false)
+      return
+    }
+
+    introTimerRefs.current = [
+      window.setTimeout(() => setSliderPosition(62), 100),
+      window.setTimeout(() => setSliderPosition(38), 450),
+      window.setTimeout(() => setSliderPosition(INITIAL_SLIDER_POSITION), 800),
+      window.setTimeout(() => setIsIntroAnimating(false), 1_200),
+    ]
+
+    return clearIntroTimers
+  }, [clearIntroTimers])
 
   useEffect(() => {
     if (!preview) return
@@ -62,6 +103,32 @@ export default function BeforeAfterComparison({
   const openPreview = (kind: PreviewKind) => {
     setDownloadError('')
     setPreview(kind)
+  }
+
+  const updateSliderFromPointer = (clientX: number) => {
+    const bounds = comparisonRef.current?.getBoundingClientRect()
+    if (!bounds?.width) return
+    setSliderPosition(clampSliderPosition(((clientX - bounds.left) / bounds.width) * 100))
+  }
+
+  const finishDragging = (pointerId: number, target: HTMLButtonElement) => {
+    if (activePointerRef.current !== pointerId) return
+    if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId)
+    activePointerRef.current = null
+    setIsDragging(false)
+  }
+
+  const adjustSliderWithKeyboard = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    let nextPosition: number | null = null
+    if (event.key === 'ArrowLeft') nextPosition = sliderPosition - DRAG_STEP
+    if (event.key === 'ArrowRight') nextPosition = sliderPosition + DRAG_STEP
+    if (event.key === 'Home') nextPosition = 0
+    if (event.key === 'End') nextPosition = 100
+    if (nextPosition === null) return
+
+    event.preventDefault()
+    stopIntroAnimation()
+    setSliderPosition(clampSliderPosition(nextPosition))
   }
 
   const downloadAfterImage = async () => {
@@ -96,30 +163,78 @@ export default function BeforeAfterComparison({
 
   return (
     <>
-      <figure className="relative grid h-[402px] grid-cols-2 overflow-hidden rounded-xl border border-[#cbd5e1] bg-white">
-        <button type="button" aria-label="원본 사진 크게 보기" onClick={() => openPreview('before')} className="h-full min-w-0 cursor-zoom-in overflow-hidden focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#2563eb]">
-          <img
-            src={beforeImageUrl}
-            alt="인테리어 적용 전 공간"
-            className="h-full w-full object-cover"
-          />
-        </button>
-        <button type="button" aria-label="AI 결과 사진 크게 보기" onClick={() => openPreview('after')} className="h-full min-w-0 cursor-zoom-in overflow-hidden focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#2563eb]">
+      <figure ref={comparisonRef} aria-label="Before/After 이미지 비교" className="relative h-[402px] touch-pan-y select-none overflow-hidden rounded-xl border border-[#cbd5e1] bg-white">
+        <button type="button" aria-label="AI 결과 사진 크게 보기" disabled={afterLoading} onClick={() => openPreview('after')} className="absolute inset-0 h-full w-full cursor-zoom-in overflow-hidden focus-visible:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#2563eb] disabled:cursor-wait">
           <img
             src={afterImageUrl}
             alt={`${styleName} 스타일 적용 후 공간`}
-            className="h-full w-full object-cover"
+            draggable="false"
+            className="pointer-events-none h-full w-full select-none object-cover"
+          />
+        </button>
+        <button
+          type="button"
+          aria-label="원본 사진 크게 보기"
+          onClick={() => openPreview('before')}
+          className="absolute inset-0 z-10 h-full w-full cursor-zoom-in overflow-hidden focus-visible:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#2563eb]"
+          style={{
+            clipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
+            transition: isIntroAnimating ? 'clip-path 300ms ease-in-out' : undefined,
+          }}
+        >
+          <img
+            src={beforeImageUrl}
+            alt="인테리어 적용 전 공간"
+            draggable="false"
+            className="pointer-events-none h-full w-full select-none object-cover"
           />
         </button>
 
-        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-white" />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-1/2 flex size-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[#2563eb] bg-white"
+        <span aria-hidden="true" className="pointer-events-none absolute left-3 top-3 z-20 rounded bg-black/55 px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-white backdrop-blur-sm">BEFORE</span>
+        <span aria-hidden="true" className="pointer-events-none absolute right-3 top-3 z-20 rounded bg-black/55 px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-white backdrop-blur-sm">AFTER</span>
+
+        {afterLoading ? (
+          <div role="status" aria-live="polite" className="absolute inset-y-0 right-0 z-20 flex flex-col items-center justify-center overflow-hidden bg-white/80 px-3 text-center backdrop-blur-[2px]" style={{ left: `${sliderPosition}%` }}>
+            <span aria-hidden="true" className="size-8 animate-spin rounded-full border-[3px] border-[#bfdbfe] border-t-[#2563eb] motion-reduce:animate-none" />
+            <p className="mt-3 text-[11px] font-bold leading-4 text-[#2563eb]">새 스타일 생성 중</p>
+            <p className="mt-1 text-[9px] leading-4 text-[#64748b]">Before 이미지는 그대로 유지됩니다.</p>
+          </div>
+        ) : null}
+
+        <div aria-hidden="true" className={`pointer-events-none absolute inset-y-0 z-30 w-0.5 -translate-x-1/2 bg-white shadow-[0_0_4px_rgba(15,23,42,0.45)] ${isIntroAnimating ? 'transition-[left] duration-300 ease-in-out' : ''}`} style={{ left: `${sliderPosition}%` }} />
+        <button
+          type="button"
+          role="slider"
+          aria-label="Before/After 비교 위치"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(sliderPosition)}
+          aria-valuetext={`Before ${Math.round(sliderPosition)}%, After ${Math.round(100 - sliderPosition)}%`}
+          disabled={afterLoading}
+          onKeyDown={adjustSliderWithKeyboard}
+          onPointerDown={(event) => {
+            if (afterLoading) return
+            event.preventDefault()
+            stopIntroAnimation()
+            activePointerRef.current = event.pointerId
+            event.currentTarget.setPointerCapture?.(event.pointerId)
+            setIsDragging(true)
+            updateSliderFromPointer(event.clientX)
+          }}
+          onPointerMove={(event) => {
+            if (activePointerRef.current === event.pointerId) updateSliderFromPointer(event.clientX)
+          }}
+          onPointerUp={(event) => finishDragging(event.pointerId, event.currentTarget)}
+          onPointerCancel={(event) => finishDragging(event.pointerId, event.currentTarget)}
+          className={`absolute top-1/2 z-40 flex size-11 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center rounded-full bg-transparent outline-none ${afterLoading ? 'cursor-wait' : 'cursor-ew-resize'} ${isIntroAnimating ? 'transition-[left] duration-300 ease-in-out' : ''}`}
+          style={{ left: `${sliderPosition}%` }}
         >
-          <span className="size-2.5 rotate-45 border-b-2 border-l-2 border-[#2563eb]" />
-          <span className="size-2.5 -rotate-45 border-b-2 border-r-2 border-[#2563eb]" />
-        </div>
+          <span aria-hidden="true" className={`flex size-9 items-center justify-center rounded-full border-2 border-[#2563eb] bg-white text-[#2563eb] shadow-[0_2px_8px_rgba(15,23,42,0.2)] transition-transform ${isDragging ? 'scale-110' : ''}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-[18px]">
+              <path d="m8 7-5 5 5 5M16 7l5 5-5 5M3 12h18" />
+            </svg>
+          </span>
+        </button>
       </figure>
 
       {preview && createPortal(

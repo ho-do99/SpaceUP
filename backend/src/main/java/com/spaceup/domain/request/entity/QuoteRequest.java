@@ -14,6 +14,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import com.spaceup.domain.floorplan.entity.FloorPlanVariant;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.material.entity.MaterialProduct;
@@ -36,6 +38,7 @@ import lombok.NoArgsConstructor;
  */
 @Entity
 @Table(name = "quote_request")
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
@@ -128,6 +131,9 @@ public class QuoteRequest extends BaseTimeEntity {
 	@Column(name = "warning_sent", nullable = false)
 	private boolean warningSent = false;
 
+	@Column(name = "deleted_at")
+	private LocalDateTime deletedAt;
+
 	// ===== 상태 전이 메서드 (도메인 로직은 서비스가 아니라 엔티티가 책임지도록) =====
 
 	public void assignContractor(Member contractor) {
@@ -185,6 +191,15 @@ public class QuoteRequest extends BaseTimeEntity {
 
 	public void markWarningSent() {
 		this.warningSent = true;
+	}
+
+	/**
+	 * 사용자 화면에서 삭제한 의뢰는 연결된 견적·채팅·방문 이력을 보존하면서 모든 일반 조회에서 숨깁니다.
+	 */
+	public void softDelete() {
+		if (this.deletedAt == null) {
+			this.deletedAt = LocalDateTime.now();
+		}
 	}
 
 	// ⭐ [프론트 연동] PATCH /api/requests/{requestId} - 예산/희망일정/요청항목은 화면 뒤쪽 단계(자재선택
