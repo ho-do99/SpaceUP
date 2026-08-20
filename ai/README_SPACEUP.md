@@ -18,6 +18,9 @@ ai/
 ├─ viewer3d/                  뷰어 공통 기반 코드
 ├─ viewerselect/              8003 공간 선택 화면
 ├─ viewerwall/                8004 벽선 보정 3D 화면
+│  └─ app/
+│     ├─ approved_main.py  검증된 벽 기하 기반
+│     └─ main.py           표시용 짧은 돌출·계단 보정 래퍼
 ├─ aihub-ocr/                 OCR 실행 코드와 가중치
 ├─ model_weights/
 │  └─ segmentation/           SPA FP·CS 가중치
@@ -46,6 +49,8 @@ curl.exe http://localhost:8002/health
 - OCR: AI Hub YOLOv5 + CRNN 사전학습 모델
 - SPA: AI Hub DeepLabV3Plus FP/CS 사전학습 모델
 - 8003·8004: OCR·SPA 결과를 조합하는 사용자 화면 및 규칙 기반 후처리
+- 8003·8004는 공통 `viewer3d` API 계약을 유지하고, `viewerwall` 래퍼에서만 최종 벽선·OCR 앵커를 보정합니다.
+- 8004는 긴 수평·수직 벽선을 유지하고 짧은 돌출·계단형 표시 조각만 정리합니다. 8001 OCR과 8002 SPA 모델 가중치는 변경하지 않습니다.
 - 모델을 새로 학습하지 않으며 기존 가중치와 OpenCV 기반 후처리를 사용합니다.
 - 모델 가중치(`*.pt`, `*.pth`)는 Git LFS로 관리합니다.
 - OCR 이미지는 로컬 Docker 이미지 `floorplan4:latest`를 기반으로 빌드하므로, 해당 이미지가 없는 PC에서는 먼저 공유된 이미지를 로드해야 합니다.
