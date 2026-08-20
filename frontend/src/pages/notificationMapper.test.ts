@@ -49,4 +49,30 @@ describe('mapNotification', () => {
 
     expect(result.destination).toBe('/mypage/requests/98/chat/20')
   })
+
+  it('routes a quote notification to its request detail and exposes the shared request code', () => {
+    const result = mapNotification({
+      id: 14, type: 'QUOTE', title: '새 견적이 도착했습니다', content: '마블건축님이 견적을 보냈습니다.',
+      read: false, requestId: 114, contractorId: 19, createdAt: '2026-08-20T16:25:00',
+    }, new Date('2026-08-20T18:00:00'), [{
+      requestId: 114, contractorId: 19, requestCode: 'REQ-260820-000114', counterpartName: '마블건축',
+      requestStatus: 'QUOTE_REQUESTED', participationStatus: 'APPROVED', contactable: true, unreadCount: 0,
+    }])
+
+    expect(result.destination).toBe('/mypage/requests/114')
+    expect(result.flowLabel).toBe('의뢰 REQ-260820-000114')
+  })
+
+  it('links an existing quote notification without context using the matching DB chat thread', () => {
+    const result = mapNotification({
+      id: 15, type: 'QUOTE', title: '새 견적이 도착했습니다', content: '마블건축님이 5,171,518원 견적을 보냈습니다.',
+      read: false, createdAt: '2026-08-20T16:25:00',
+    }, new Date('2026-08-20T18:00:00'), [{
+      requestId: 114, contractorId: 19, requestCode: 'REQ-260820-000114', counterpartName: '마블건축',
+      requestStatus: 'QUOTE_REQUESTED', participationStatus: 'APPROVED', contactable: true, unreadCount: 0,
+    }])
+
+    expect(result.destination).toBe('/mypage/requests/114')
+    expect(result.flowLabel).toBe('의뢰 REQ-260820-000114')
+  })
 })

@@ -81,8 +81,11 @@ public class ProjectService {
 				.build();
 		contractorProjectRepository.save(project);
 
-		notificationService.notify(quote.getRequest().getOwner().getId(), NotificationType.PROJECT, "공사 계약이 체결되었습니다",
-				String.format("%s 계약이 체결되었습니다. 공사 진행 현황을 확인해 주세요.", quote.getTitle()));
+		notificationService.notifyForRequest(quote.getRequest().getOwner().getId(), NotificationType.PROJECT,
+				"공사 계약이 체결되었습니다",
+				String.format("%s · %s 계약이 체결되었습니다. 공사 진행 현황을 확인해 주세요.",
+						quote.getRequest().getRequestCode(), quote.getTitle()),
+				quote.getRequest().getId(), quote.getContractor().getId());
 		return new ProjectResponse(project);
 	}
 
@@ -120,8 +123,11 @@ public class ProjectService {
 		LocalDate previousCompletionDate = project.getCompletionDate();
 		project.updateSchedule(startDate, completionDate);
 
-		notificationService.notify(project.getRequest().getOwner().getId(), NotificationType.PROJECT, "공사 일정이 변경되었습니다",
-				String.format("착공일 %s, 완공 예정일 %s로 변경되었습니다. 사유: %s", startDate, completionDate, reason));
+		notificationService.notifyForRequest(project.getRequest().getOwner().getId(), NotificationType.PROJECT,
+				"공사 일정이 변경되었습니다",
+				String.format("%s · 착공일 %s, 완공 예정일 %s로 변경되었습니다. 사유: %s",
+						project.getRequest().getRequestCode(), startDate, completionDate, reason),
+				project.getRequest().getId(), project.getRequest().getContractor().getId());
 		return new ProjectScheduleChangeResponse(previousStartDate, previousCompletionDate, startDate, completionDate,
 				reason);
 	}
@@ -133,8 +139,10 @@ public class ProjectService {
 		project.start();
 		project.getRequest().startProgress();
 
-		notificationService.notify(project.getRequest().getOwner().getId(), NotificationType.PROJECT, "공사가 시작되었습니다",
-				"공사가 착공되어 시공이 진행 중입니다.");
+		notificationService.notifyForRequest(project.getRequest().getOwner().getId(), NotificationType.PROJECT,
+				"공사가 시작되었습니다",
+				String.format("%s · 공사가 착공되어 시공이 진행 중입니다.", project.getRequest().getRequestCode()),
+				project.getRequest().getId(), project.getRequest().getContractor().getId());
 		return new ProjectResponse(project);
 	}
 
@@ -144,8 +152,11 @@ public class ProjectService {
 		validateContractor(project, contractorId);
 		project.requestCompletion();
 
-		notificationService.notify(project.getRequest().getOwner().getId(), NotificationType.PROJECT, "공사 완료 확인이 필요합니다",
-				"시공사가 공사 완료를 요청했습니다. 확인 후 완료 처리해 주세요.");
+		notificationService.notifyForRequest(project.getRequest().getOwner().getId(), NotificationType.PROJECT,
+				"공사 완료 확인이 필요합니다",
+				String.format("%s · 시공사가 공사 완료를 요청했습니다. 확인 후 완료 처리해 주세요.",
+						project.getRequest().getRequestCode()),
+				project.getRequest().getId(), project.getRequest().getContractor().getId());
 		return new ProjectResponse(project);
 	}
 
@@ -160,8 +171,10 @@ public class ProjectService {
 		project.getRequest().complete();
 		contractorProfileService.increaseCompletedProject(project.getRequest().getContractor().getId());
 
-		notificationService.notify(project.getRequest().getContractor().getId(), NotificationType.PROJECT,
-				"공사 완료가 확인되었습니다", "임대인이 공사 완료를 확인했습니다.");
+		notificationService.notifyForRequest(project.getRequest().getContractor().getId(), NotificationType.PROJECT,
+				"공사 완료가 확인되었습니다",
+				String.format("%s · 임대인이 공사 완료를 확인했습니다.", project.getRequest().getRequestCode()),
+				project.getRequest().getId(), project.getRequest().getContractor().getId());
 		return new ProjectResponse(project);
 	}
 

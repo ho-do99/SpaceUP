@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -53,6 +55,23 @@ class ContractorQuoteMultiContractorTest {
 	@Mock SiteVisitRepository siteVisitRepository;
 	@Mock AnalysisJobRepository analysisJobRepository;
 	@InjectMocks ContractorQuoteService service;
+
+	@Test
+	void submittedQuoteNotificationKeepsItsRequestAndContractorContext() {
+		Member owner = Member.builder().id(10L).name("owner").build();
+		Member contractor = Member.builder().id(20L).name("마블건축").build();
+		QuoteRequest request = QuoteRequest.builder().id(14L).requestCode("REQ-260820-000114")
+				.owner(owner).status(RequestStatus.QUOTE_REQUESTED).build();
+		ContractorQuote quote = ContractorQuote.builder().id(19L).request(request).contractor(contractor)
+				.status(QuoteStatus.DRAFT).title("리모델링 견적").totalAmount(5_171_518L).build();
+
+		when(contractorQuoteRepository.findById(19L)).thenReturn(Optional.of(quote));
+
+		service.submit(19L, 20L);
+
+		verify(notificationService).notifyForRequest(eq(10L), eq(com.spaceup.domain.notification.entity.NotificationType.QUOTE),
+				eq("새 견적이 도착했습니다"), contains("REQ-260820-000114"), eq(14L), eq(20L));
+	}
 
 	@Test
 	void acceptingOneQuoteSelectsItsContractorAndClosesTheOthers() {

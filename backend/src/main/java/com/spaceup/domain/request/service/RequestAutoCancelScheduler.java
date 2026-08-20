@@ -54,13 +54,17 @@ public class RequestAutoCancelScheduler {
 				TRACKED_STATUSES, threshold);
 		for (QuoteRequest request : targets) {
 			request.markWarningSent();
-			notificationService.notify(request.getOwner().getId(), NotificationType.REQUEST, "의뢰 자동 취소 D-1 안내",
-					String.format("%s 의뢰가 24시간 내 유효 활동이 없으면 자동 취소됩니다.", request.getRequestCode()));
+			notificationService.notifyForRequest(request.getOwner().getId(), NotificationType.REQUEST,
+					"의뢰 자동 취소 D-1 안내",
+					String.format("%s 의뢰가 24시간 내 유효 활동이 없으면 자동 취소됩니다.", request.getRequestCode()),
+					request.getId(), request.getContractor() != null ? request.getContractor().getId() : null);
 			requestContractorRepository.findByRequestId(request.getId()).stream()
 					.filter(participation -> participation.canContact())
-					.forEach(participation -> notificationService.notify(participation.getContractor().getId(), NotificationType.REQUEST,
+					.forEach(participation -> notificationService.notifyForRequest(
+							participation.getContractor().getId(), NotificationType.REQUEST,
 						"의뢰 자동 취소 D-1 안내",
-						String.format("%s 의뢰가 24시간 내 유효 활동이 없으면 자동 취소됩니다.", request.getRequestCode())));
+						String.format("%s 의뢰가 24시간 내 유효 활동이 없으면 자동 취소됩니다.", request.getRequestCode()),
+						request.getId(), participation.getContractor().getId()));
 			log.info("[Request 자동취소 D-1 경고] requestId={}, code={}", request.getId(), request.getRequestCode());
 		}
 	}
@@ -71,13 +75,17 @@ public class RequestAutoCancelScheduler {
 				threshold);
 		for (QuoteRequest request : targets) {
 			request.cancel();
-			notificationService.notify(request.getOwner().getId(), NotificationType.REQUEST, "의뢰가 자동 취소되었습니다",
-					String.format("%s 의뢰가 168시간 동안 유효 활동이 없어 자동 취소되었습니다.", request.getRequestCode()));
+			notificationService.notifyForRequest(request.getOwner().getId(), NotificationType.REQUEST,
+					"의뢰가 자동 취소되었습니다",
+					String.format("%s 의뢰가 168시간 동안 유효 활동이 없어 자동 취소되었습니다.", request.getRequestCode()),
+					request.getId(), request.getContractor() != null ? request.getContractor().getId() : null);
 			requestContractorRepository.findByRequestId(request.getId()).stream()
 					.filter(participation -> participation.canContact())
-					.forEach(participation -> notificationService.notify(participation.getContractor().getId(), NotificationType.REQUEST,
+					.forEach(participation -> notificationService.notifyForRequest(
+							participation.getContractor().getId(), NotificationType.REQUEST,
 						"의뢰가 자동 취소되었습니다",
-						String.format("%s 의뢰가 168시간 동안 유효 활동이 없어 자동 취소되었습니다.", request.getRequestCode())));
+						String.format("%s 의뢰가 168시간 동안 유효 활동이 없어 자동 취소되었습니다.", request.getRequestCode()),
+						request.getId(), participation.getContractor().getId()));
 			log.info("[Request 자동취소] requestId={}, code={}", request.getId(), request.getRequestCode());
 		}
 	}
