@@ -27,7 +27,6 @@ import {
 import type {
   ContractorEstimateDraft,
   ContractorEstimateMeasurement,
-  ContractorEstimatePaymentTerms,
 } from '@/types/contractorPortal'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
@@ -45,10 +44,6 @@ const fieldOrder: readonly ContractorEstimateField[] = [
   'bathrooms',
   'startDate',
   'durationDays',
-  'depositPercent',
-  'interimPercent',
-  'balancePercent',
-  'paymentTotal',
 ]
 
 const finiteOrZero = (value: number) =>
@@ -163,35 +158,6 @@ export default function ContractorEstimateEditPage() {
     }))
   }
 
-  const updatePayment = (
-    field: keyof ContractorEstimatePaymentTerms,
-    value: number,
-  ) => {
-    setDraft((current) => ({
-      ...current,
-      condition: {
-        ...current.condition,
-        paymentTerms: {
-          ...current.condition.paymentTerms,
-          [field]: value,
-        },
-      },
-    }))
-
-    const errorField =
-      field === 'depositPercent'
-        ? 'depositPercent'
-        : field === 'interimPercent'
-          ? 'interimPercent'
-          : 'balancePercent'
-
-    setErrors((current) => ({
-      ...current,
-      [errorField]: undefined,
-      paymentTotal: undefined,
-    }))
-  }
-
   const validateDraft = () => {
     const normalized = {
       ...draft,
@@ -278,14 +244,6 @@ export default function ContractorEstimateEditPage() {
 
   const numericClass =
     'mt-1 h-11 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-xs outline-none focus:border-[#2563eb] focus-visible:ring-2 focus-visible:ring-[#bfdbfe]'
-
-  const paymentTotal =
-    draft.condition.paymentTerms
-      .depositPercent +
-    draft.condition.paymentTerms
-      .interimPercent +
-    draft.condition.paymentTerms
-      .balancePercent
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
@@ -780,104 +738,6 @@ export default function ContractorEstimateEditPage() {
             <ContractorEstimateInfoRow label="완료 예정일">
               2026.08.07
             </ContractorEstimateInfoRow>
-
-            <ContractorEstimateInfoRow label="견적 유효기간">
-              작성일로부터 14일
-            </ContractorEstimateInfoRow>
-
-            <div className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  [
-                    'depositPercent',
-                    'depositPercent',
-                    '계약금',
-                  ],
-                  [
-                    'interimPercent',
-                    'interimPercent',
-                    '중도금',
-                  ],
-                  [
-                    'balancePercent',
-                    'balancePercent',
-                    '잔금',
-                  ],
-                ] as const
-              ).map(
-                ([
-                  key,
-                  errorKey,
-                  label,
-                ]) => (
-                  <label
-                    key={key}
-                    className="text-[11px] font-bold"
-                  >
-                    {label}(%)
-
-                    <input
-                      id={errorKey}
-                      type="number"
-                      inputMode="numeric"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={
-                        draft.condition
-                          .paymentTerms[key]
-                      }
-                      aria-invalid={Boolean(
-                        errors[errorKey],
-                      )}
-                      aria-describedby={
-                        errors[errorKey]
-                          ? `${errorKey}-error`
-                          : undefined
-                      }
-                      onChange={(event) =>
-                        updatePayment(
-                          key,
-                          finiteOrZero(
-                            event.target
-                              .valueAsNumber,
-                          ),
-                        )
-                      }
-                      className={
-                        numericClass
-                      }
-                    />
-
-                    <FieldError
-                      field={errorKey}
-                      errors={errors}
-                    />
-                  </label>
-                ),
-              )}
-            </div>
-
-            <p
-              id="paymentTotal"
-              tabIndex={
-                errors.paymentTotal
-                  ? -1
-                  : undefined
-              }
-              className={`text-xs ${
-                errors.paymentTotal
-                  ? 'font-semibold text-[#dc2626]'
-                  : 'text-[#64748b]'
-              }`}
-              role={
-                errors.paymentTotal
-                  ? 'alert'
-                  : undefined
-              }
-            >
-              결제 비율 합계 {paymentTotal}%
-            </p>
 
             <ContractorEstimateInfoRow label="A/S 보증기간">
               {

@@ -23,7 +23,7 @@ function destinationFor(value: NotificationResponse, threads: readonly ChatThrea
   const requestId = value.requestId ?? thread?.requestId
   const contractorId = value.contractorId ?? thread?.contractorId
   if (!requestId || !contractorId) return undefined
-  if (value.type === 'VISIT') return `/mypage/requests/${requestId}/visit/${contractorId}`
+  if (value.type === 'VISIT') return `/mypage/requests/${requestId}/chat/${contractorId}`
   if (value.type === 'CHAT' || (value.type === 'REQUEST' && value.title.includes('승인'))) {
     return `/mypage/requests/${requestId}/chat/${contractorId}`
   }

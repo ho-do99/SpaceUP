@@ -38,3 +38,11 @@ export async function readAllNotifications() {
   const response = await apiRequest<ApiResponse<null>>({ method: 'POST', url: '/api/notifications/read-all', authenticated: true })
   return unwrapEmptyApiResponse(response, '알림 전체 읽음 처리에 실패했습니다.')
 }
+
+export async function readChatContextNotifications(requestId: number, contractorId: number) {
+  const response = await apiRequest<ApiResponse<null>>({
+    method: 'POST', url: '/api/notifications/chat-context/read',
+    params: { requestId, contractorId }, authenticated: true,
+  })
+  return unwrapEmptyApiResponse(response, '채팅 관련 알림 읽음 처리에 실패했습니다.')
+}

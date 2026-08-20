@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiRequest } from './axiosInstance'
-import { getNotifications, readAllNotifications, readNotification } from './notificationApi'
+import { getNotifications, readAllNotifications, readChatContextNotifications, readNotification } from './notificationApi'
 import { getMyPortfolios, getPublicPortfolios, setPortfolioVisibility } from './portfolioApi'
 import { getMySettlements } from './settlementApi'
 
@@ -25,6 +25,11 @@ describe('secondary workflow API paths', () => {
     expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'POST', url: '/api/notifications/3/read', authenticated: true }))
     await readAllNotifications()
     expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'POST', url: '/api/notifications/read-all', authenticated: true }))
+    await readChatContextNotifications(99, 5)
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({
+      method: 'POST', url: '/api/notifications/chat-context/read',
+      params: { requestId: 99, contractorId: 5 }, authenticated: true,
+    }))
   })
 
   it('uses protected and public portfolio endpoints correctly', async () => {

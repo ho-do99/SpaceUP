@@ -8,10 +8,6 @@ export type ContractorEstimateField =
   | 'bathrooms'
   | 'startDate'
   | 'durationDays'
-  | 'depositPercent'
-  | 'interimPercent'
-  | 'balancePercent'
-  | 'paymentTotal'
 
 export type ContractorEstimateErrors = Partial<Record<ContractorEstimateField, string>>
 
@@ -63,22 +59,6 @@ export function validateContractorEstimate(draft: ContractorEstimateDraft): Cont
   if (!Number.isInteger(condition.durationDays) || condition.durationDays < 1 || condition.durationDays > 365) {
     errors.durationDays = '예상 시공 기간은 1 이상 365 이하의 정수로 입력해 주세요.'
   }
-
-  const paymentFields = [
-    ['depositPercent', condition.paymentTerms.depositPercent, '계약금'],
-    ['interimPercent', condition.paymentTerms.interimPercent, '중도금'],
-    ['balancePercent', condition.paymentTerms.balancePercent, '잔금'],
-  ] as const
-  paymentFields.forEach(([field, value, label]) => {
-    if (!Number.isInteger(value) || value < 0 || value > 100) {
-      errors[field] = `${label} 비율은 0 이상 100 이하의 정수로 입력해 주세요.`
-    }
-  })
-
-  const paymentTotal = condition.paymentTerms.depositPercent
-    + condition.paymentTerms.interimPercent
-    + condition.paymentTerms.balancePercent
-  if (paymentTotal !== 100) errors.paymentTotal = '계약금·중도금·잔금의 합은 100%여야 합니다.'
 
   return errors
 }

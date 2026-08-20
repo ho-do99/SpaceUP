@@ -29,9 +29,12 @@ export default function ContractorNotificationPage() {
         .catch(() => [])
       const today = new Date().toISOString().slice(0, 10)
       setNotifications(page.content.map((item) => {
-        const request = item.type === 'REQUEST'
-          ? assignedRequests.find((candidate) => candidate.requestCode && `${item.title} ${item.content}`.includes(candidate.requestCode))
-          : undefined
+        const request = assignedRequests.find((candidate) =>
+          candidate.id === item.requestId
+          || Boolean(candidate.requestCode && `${item.title} ${item.content}`.includes(candidate.requestCode)),
+        )
+        const resolvedRequestId = item.requestId ?? request?.id
+        const opensChat = item.type === 'CHAT' || item.type === 'VISIT' || item.type === 'SCHEDULE'
         return {
           notificationId: String(item.id),
           type: item.type === 'QUOTE' ? 'ESTIMATE' : item.type === 'SCHEDULE' ? 'VISIT' : item.type,
@@ -40,7 +43,11 @@ export default function ContractorNotificationPage() {
           createdAtLabel: item.createdAt.slice(0, 16).replace('T', ' '),
           section: item.createdAt.startsWith(today) ? 'TODAY' : 'PREVIOUS',
           isRead: item.read,
-          destination: request ? `/contractor/requests/${request.id}` : '',
+          destination: resolvedRequestId
+            ? opensChat
+              ? `/contractor/requests/${resolvedRequestId}/chat`
+              : `/contractor/requests/${resolvedRequestId}`
+            : '',
         }
       }))
       setError('')

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getChatMessages, getChatThreads, readChat, sendChatMessage } from '@/api/chatApi'
 import { getVisit } from '@/api/visitApi'
+import { readChatContextNotifications } from '@/api/notificationApi'
 import ContractorPortalFlowProvider from '@/components/contractor/ContractorPortalFlowProvider'
 import useContractorRequest from '@/hooks/useContractorRequest'
 import type { ChatThread } from '@/types/backendContractor'
@@ -16,11 +17,18 @@ vi.mock('@/api/chatApi', () => ({
   sendChatMessage: vi.fn(),
 }))
 vi.mock('@/api/visitApi', () => ({ getVisit: vi.fn() }))
+vi.mock('@/api/notificationApi', () => ({
+  readChatContextNotifications: vi.fn(),
+}))
+
 vi.mock('@/hooks/useContractorRequest', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/hooks/useContractorRequest')>(),
   default: vi.fn(),
 }))
-const realtimeState = vi.hoisted(() => ({ latestEvent: null as { type: 'CHAT_MESSAGE'; requestId: number } | null }))
+const realtimeState = vi.hoisted(() => ({
+  latestEvent: null as { type: 'CHAT_MESSAGE'; requestId: number } | null,
+  refreshUnreadNotificationCount: vi.fn(),
+}))
 vi.mock('@/contexts/useRealtime', () => ({ default: () => realtimeState }))
 
 const getChatMessagesMock = vi.mocked(getChatMessages)
@@ -29,6 +37,7 @@ const readChatMock = vi.mocked(readChat)
 const sendChatMessageMock = vi.mocked(sendChatMessage)
 const getVisitMock = vi.mocked(getVisit)
 const useContractorRequestMock = vi.mocked(useContractorRequest)
+const readChatContextNotificationsMock = vi.mocked(readChatContextNotifications)
 
 const threadFixture: ChatThread = {
   requestId: 99,
@@ -61,6 +70,8 @@ describe('ContractorChatPage live threads', () => {
     readChatMock.mockReset().mockResolvedValue(undefined)
     sendChatMessageMock.mockReset()
     realtimeState.latestEvent = null
+    readChatContextNotificationsMock.mockReset().mockResolvedValue(undefined)
+    realtimeState.refreshUnreadNotificationCount.mockReset().mockResolvedValue(undefined)
     getVisitMock.mockReset().mockResolvedValue({ id: 1, requestId: 99, contractorId: 5, status: 'UNSCHEDULED' })
     useContractorRequestMock.mockReset().mockReturnValue({
       request: {

@@ -38,4 +38,13 @@ describe('mapNotification', () => {
 
     expect(result.destination).toBe('/mypage/requests/98/chat/20')
   })
+
+  it('routes visit notifications directly to the matching chat', () => {
+    const result = mapNotification({
+      id: 13, type: 'VISIT', title: '방문 일정 변경', content: '일정을 확인하세요',
+      read: false, requestId: 98, contractorId: 20, createdAt: '2026-08-06T08:00:00',
+    }, new Date('2026-08-06T12:00:00'))
+
+    expect(result.destination).toBe('/mypage/requests/98/chat/20')
+  })
 })
