@@ -3,6 +3,8 @@ import type { EstimateRequestSummary } from '@/mocks/estimateRequests'
 
 interface EstimateRequestHistoryCardProps {
   request: EstimateRequestSummary
+  deleting?: boolean
+  onDelete: (request: EstimateRequestSummary) => void
 }
 
 const statusClass = {
@@ -12,6 +14,8 @@ const statusClass = {
 
 export default function EstimateRequestHistoryCard({
   request,
+  deleting = false,
+  onDelete,
 }: EstimateRequestHistoryCardProps) {
   return (
     <article className="relative h-[170px] w-full rounded-[7px] border border-[#d5dfed] bg-white p-[14px]">
@@ -50,6 +54,22 @@ export default function EstimateRequestHistoryCard({
           {request.requestedAtLabel}
         </dd>
       </dl>
+
+      <button
+        type="button"
+        aria-label={`${request.contractorName} 견적 요청 삭제`}
+        title="견적 요청 삭제"
+        disabled={deleting}
+        onClick={() => onDelete(request)}
+        className="absolute bottom-[15px] left-[12px] flex size-[26px] items-center justify-center rounded-[4px] border border-[#fecaca] bg-[#fff7f7] text-[#dc2626] transition-colors hover:bg-[#fee2e2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#dc2626] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="size-[13px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 6h18" />
+          <path d="M8 6V4h8v2" />
+          <path d="m19 6-1 14H6L5 6" />
+          <path d="M10 11v5M14 11v5" />
+        </svg>
+      </button>
 
       {/* 상세 보기 */}
       <Link
