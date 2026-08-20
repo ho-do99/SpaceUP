@@ -9,6 +9,7 @@ export interface UserNotification {
   readonly occurredAtLabel: string
   readonly group: 'today' | 'previous'
   readonly isRead: boolean
+  readonly flowLabel?: string
   readonly destination?: string
 }
 

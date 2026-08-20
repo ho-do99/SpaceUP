@@ -75,8 +75,9 @@ public class ReviewService {
 
 		refreshContractorRating(contractor.getId());
 
-		notificationService.notify(contractor.getId(), NotificationType.REVIEW, "새 리뷰가 등록되었습니다",
-				String.format("%s님이 %d점 리뷰를 남겼습니다.", reviewer.getName(), dto.getRating()));
+		notificationService.notifyForRequest(contractor.getId(), NotificationType.REVIEW, "새 리뷰가 등록되었습니다",
+				String.format("%s · %s님이 %d점 리뷰를 남겼습니다.", request.getRequestCode(),
+						reviewer.getName(), dto.getRating()), requestId, contractor.getId());
 		return new ReviewResponse(review);
 	}
 

@@ -111,8 +111,11 @@ public class ContractorQuoteService {
 			quote.extendValidUntil(LocalDate.now().plusDays(DEFAULT_VALIDITY_DAYS));
 		}
 
-		notificationService.notify(quote.getRequest().getOwner().getId(), NotificationType.QUOTE, "새 견적이 도착했습니다",
-				String.format("%s님이 %,d원 견적을 보냈습니다.", quote.getContractor().getName(), quote.getTotalAmount()));
+		notificationService.notifyForRequest(quote.getRequest().getOwner().getId(), NotificationType.QUOTE,
+				"새 견적이 도착했습니다",
+				String.format("%s · %s님이 %,d원 견적을 보냈습니다.", quote.getRequest().getRequestCode(),
+						quote.getContractor().getName(), quote.getTotalAmount()),
+				quote.getRequest().getId(), quote.getContractor().getId());
 	}
 
 	// ⭐ 임대인이 최종 선택 - 해당 의뢰의 임대인 본인만 가능. 시공사에게 알림
@@ -139,13 +142,18 @@ public class ContractorQuoteService {
 			quote.getRequest().selectContractor(quote.getContractor());
 			siteVisitService.createIfAbsent(quote.getRequest(), quote.getContractor());
 
-			notificationService.notify(quote.getContractor().getId(), NotificationType.QUOTE, "1차 예상 견적이 선택되었습니다",
-					String.format("%s 1차 예상 견적이 선택되었습니다. 실측 방문 일정을 등록해 주세요.", quote.getTitle()));
+			notificationService.notifyForRequest(quote.getContractor().getId(), NotificationType.QUOTE,
+					"1차 예상 견적이 선택되었습니다",
+					String.format("%s · %s 1차 예상 견적이 선택되었습니다. 실측 방문 일정을 등록해 주세요.",
+							quote.getRequest().getRequestCode(), quote.getTitle()),
+					quote.getRequest().getId(), quote.getContractor().getId());
 			return;
 		}
 
-		notificationService.notify(quote.getContractor().getId(), NotificationType.QUOTE, "최종 견적이 확정되었습니다",
-				String.format("%s 최종 견적이 확정되었습니다.", quote.getTitle()));
+		notificationService.notifyForRequest(quote.getContractor().getId(), NotificationType.QUOTE,
+				"최종 견적이 확정되었습니다",
+				String.format("%s · %s 최종 견적이 확정되었습니다.", quote.getRequest().getRequestCode(), quote.getTitle()),
+				quote.getRequest().getId(), quote.getContractor().getId());
 	}
 
 	@Transactional
@@ -154,8 +162,10 @@ public class ContractorQuoteService {
 		validateLandlordOwnership(quote, landlordId);
 		quote.reject();
 
-		notificationService.notify(quote.getContractor().getId(), NotificationType.QUOTE, "견적이 거절되었습니다",
-				String.format("%s 견적이 거절되었습니다.", quote.getTitle()));
+		notificationService.notifyForRequest(quote.getContractor().getId(), NotificationType.QUOTE,
+				"견적이 거절되었습니다",
+				String.format("%s · %s 견적이 거절되었습니다.", quote.getRequest().getRequestCode(), quote.getTitle()),
+				quote.getRequest().getId(), quote.getContractor().getId());
 	}
 
 	// ⭐ [Figma 반영] "유효기간 연장" 화면 - 작성한 시공사 본인만 가능
@@ -165,9 +175,11 @@ public class ContractorQuoteService {
 		validateContractorOwnership(quote, contractorId);
 		quote.extendValidUntil(newValidUntil);
 
-		notificationService.notify(quote.getRequest().getOwner().getId(), NotificationType.QUOTE,
+		notificationService.notifyForRequest(quote.getRequest().getOwner().getId(), NotificationType.QUOTE,
 				"견적 유효기간이 연장되었습니다",
-				String.format("%s 견적의 유효기간이 %s까지 연장되었습니다.", quote.getTitle(), newValidUntil));
+				String.format("%s · %s 견적의 유효기간이 %s까지 연장되었습니다.",
+						quote.getRequest().getRequestCode(), quote.getTitle(), newValidUntil),
+				quote.getRequest().getId(), quote.getContractor().getId());
 	}
 
 	// ⭐ [Figma 반영] "보낸 견적 상세 - 수정 요청" 화면 - 해당 의뢰의 임대인 본인만 가능. 시공사에게 알림
@@ -180,8 +192,11 @@ public class ContractorQuoteService {
 				: targetItemIds.stream().map(String::valueOf).collect(Collectors.joining(","));
 		quote.requestRevision(note, joinedItemIds, requestedAmount);
 
-		notificationService.notify(quote.getContractor().getId(), NotificationType.QUOTE, "견적 수정 요청이 도착했습니다",
-				String.format("%s 견적에 대한 수정 요청: %s", quote.getTitle(), note));
+		notificationService.notifyForRequest(quote.getContractor().getId(), NotificationType.QUOTE,
+				"견적 수정 요청이 도착했습니다",
+				String.format("%s · %s 견적에 대한 수정 요청: %s", quote.getRequest().getRequestCode(),
+						quote.getTitle(), note),
+				quote.getRequest().getId(), quote.getContractor().getId());
 	}
 
 	// ⭐ [보안 수정] 작성한 시공사 본인 또는 해당 의뢰의 임대인만 조회 가능 (경쟁 업체의 미발송 견적 단가 열람 차단)
