@@ -78,11 +78,12 @@ export type ContractorEstimateListFilter =
   | 'viewing'
   | 'accepted'
 
-export type ContractorEstimateCategoryId = 'floor' | 'wallpaper'
+export type ContractorEstimateCategoryId = 'floor' | 'wallpaper' | 'lighting'
 
 export interface ContractorEstimateMeasurement {
   floorArea: number
   wallpaperArea: number
+  lightingQuantity: number
   ceilingHeight: number
   rooms: number
   bathrooms: number
@@ -99,7 +100,8 @@ export interface ContractorEstimateCategory {
   id: ContractorEstimateCategoryId
   label: string
   productName: string
-  area: number
+  quantity: number
+  measurementUnit: '㎡' | '개'
   unitPrice: number
   costs: readonly ContractorEstimateCostItem[]
   sectionTotal: number

@@ -12,10 +12,12 @@ describe('mapNotification', () => {
   })
 
   it('groups older notifications separately', () => {
+    const now = new Date(2026, 7, 6, 12, 0, 0)
+    const previousDay = new Date(2026, 7, 5, 23, 59, 59).toISOString()
     const result = mapNotification({
       id: 10, type: 'PROJECT', title: '공사', content: '완료', read: true,
-      createdAt: '2026-08-05T23:59:59',
-    }, new Date('2026-08-06T12:00:00'))
+      createdAt: previousDay,
+    }, now)
     expect(result.group).toBe('previous')
   })
 

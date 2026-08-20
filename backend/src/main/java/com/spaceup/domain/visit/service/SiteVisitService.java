@@ -83,8 +83,7 @@ public class SiteVisitService {
 		String content = String.format("현장 방문 일정이 %s %s로 등록되었습니다.", visitDate, visitTime);
 		notifyVisit(visit, visit.getRequest().getOwner().getId(), "현장방문 일정이 등록되었습니다",
 				content);
-		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), visit.getContractor(),
-				content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
 
@@ -97,8 +96,7 @@ public class SiteVisitService {
 		String content = String.format("사용자가 방문 일정 변경을 요청했습니다: %s %s (%s)", requestedDate,
 				requestedTime, reason);
 		notifyVisit(visit, visit.getContractor().getId(), "방문 일정 변경 요청이 도착했습니다", content);
-		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), visit.getRequest().getOwner(),
-				content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
 
@@ -110,8 +108,7 @@ public class SiteVisitService {
 		String content = String.format("시공사가 방문 일정 변경 요청을 수락했습니다: %s %s",
 				visit.getVisitDate(), visit.getVisitTime());
 		notifyVisit(visit, visit.getRequest().getOwner().getId(), "방문 일정 변경 요청을 수락했습니다", content);
-		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), visit.getContractor(),
-				content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
 
@@ -123,8 +120,7 @@ public class SiteVisitService {
 		visit.propose(visitDate, visitTime, note);
 		String content = String.format("시공사가 새 방문 일정을 제안했습니다: %s %s", visitDate, visitTime);
 		notifyVisit(visit, visit.getRequest().getOwner().getId(), "새 방문 일정을 제안했습니다", content);
-		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), visit.getContractor(),
-				content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
 
@@ -136,8 +132,7 @@ public class SiteVisitService {
 		String content = String.format("시공사가 방문 일정 변경 요청을 거절했습니다. 기존 일정 %s %s을 유지합니다.",
 				visit.getVisitDate(), visit.getVisitTime());
 		notifyVisit(visit, visit.getRequest().getOwner().getId(), "방문 일정 변경 요청을 거절했습니다", content);
-		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), visit.getContractor(),
-				content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
 
@@ -148,8 +143,7 @@ public class SiteVisitService {
 		visit.complete(note);
 		String content = "시공사가 현장 방문 완료를 처리했습니다. 이제 최종 견적서를 작성할 수 있습니다.";
 		notifyVisit(visit, visit.getRequest().getOwner().getId(), "현장방문이 완료되었습니다", content);
-		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), visit.getContractor(),
-				content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
 

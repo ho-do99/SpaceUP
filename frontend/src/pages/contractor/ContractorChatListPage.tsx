@@ -5,6 +5,7 @@ import { getChatThreads } from '@/api/chatApi'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorMobileShell from '@/components/contractor/ContractorMobileShell'
 import useRealtime from '@/contexts/useRealtime'
+import { formatBrowserMonthDayTime } from '@/utils/browserDateTime'
 
 type ChatFilter =
   | 'ALL'
@@ -67,7 +68,7 @@ export default function ContractorChatListPage() {
           customerName: thread.counterpartName,
           progressLabel: thread.contactable ? (completed ? '완료' : '견적 협의 중') : '채팅 종료',
           lastMessage: thread.lastMessage || '아직 메시지가 없습니다.',
-          timeLabel: thread.lastMessageAt?.slice(5, 16).replace('T', ' ') || '-',
+          timeLabel: thread.lastMessageAt ? formatBrowserMonthDayTime(thread.lastMessageAt) : '-',
           unreadCount: thread.unreadCount,
           status: completed ? 'COMPLETED' : 'IN_PROGRESS',
           href: `/contractor/requests/${thread.requestId}/chat`,

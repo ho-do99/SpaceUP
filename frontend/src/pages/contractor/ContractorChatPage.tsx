@@ -14,6 +14,7 @@ import type { ContractorChatMessage } from '@/types/contractorPortal'
 import type { ChatThread, SiteVisit } from '@/types/backendContractor'
 import useRealtime from '@/contexts/useRealtime'
 import { getVisit } from '@/api/visitApi'
+import { formatBrowserTime24 } from '@/utils/browserDateTime'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 
@@ -67,7 +68,7 @@ export default function ContractorChatPage({
             id: String(message.id),
             sender: message.senderType === 'SYSTEM' ? 'system' : message.senderType === 'CONTRACTOR' ? 'contractor' : 'customer',
             text: message.content,
-            timeLabel: message.createdAt?.slice(11, 16) || '',
+            timeLabel: formatBrowserTime24(message.createdAt),
           })),
           thread: matchingThread,
         })
@@ -136,7 +137,7 @@ export default function ContractorChatPage({
           ...current,
           messages: [...current.messages, {
             id: String(message.id), sender: 'contractor', text: message.content,
-            timeLabel: message.createdAt?.slice(11, 16) || '',
+            timeLabel: formatBrowserTime24(message.createdAt),
           }],
         }
       })

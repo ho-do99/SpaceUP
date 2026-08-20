@@ -101,10 +101,9 @@ public class ChatService {
 	}
 
 	@Transactional
-	public ChatMessageResponse sendSystemMessage(QuoteRequest request, Member contractor, Member actor,
-			String content) {
+	public ChatMessageResponse sendSystemMessage(QuoteRequest request, Member contractor, String content) {
 		ChatMessage message = ChatMessage.builder().request(request).contractor(contractor)
-				.senderType(ChatSenderType.SYSTEM).sender(actor).content(content).build();
+				.senderType(ChatSenderType.SYSTEM).content(content).build();
 		chatMessageRepository.save(message);
 		request.touch();
 

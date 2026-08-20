@@ -1,5 +1,6 @@
 package com.spaceup.domain.quote.entity;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,6 +66,27 @@ public class ContractorQuote extends BaseTimeEntity {
 
 	@Column(name = "estimated_days")
 	private Integer durationDays; // 예상 공사 기간(일)
+
+	@Column(name = "floor_area_m2", precision = 10, scale = 2)
+	private BigDecimal floorAreaM2;
+
+	@Column(name = "wallpaper_area_m2", precision = 10, scale = 2)
+	private BigDecimal wallpaperAreaM2;
+
+	@Column(name = "lighting_quantity")
+	private Integer lightingQuantity;
+
+	@Column(name = "ceiling_height_m", precision = 5, scale = 2)
+	private BigDecimal ceilingHeightM;
+
+	@Column(name = "room_count")
+	private Integer roomCount;
+
+	@Column(name = "bathroom_count")
+	private Integer bathroomCount;
+
+	@Column(name = "site_condition", length = 300)
+	private String siteCondition;
 
 	@Column(name = "material_cost")
 	private Long materialCost; // 자재비
@@ -180,13 +202,23 @@ public class ContractorQuote extends BaseTimeEntity {
 		this.totalAmount = Math.max(0, material + labor + vatAmount - discountAmount);
 	}
 
-	public void updateDraft(String title, String startDate, Integer durationDays, Long materialCost,
+	public void updateDraft(String title, String startDate, Integer durationDays,
+			BigDecimal floorAreaM2, BigDecimal wallpaperAreaM2, Integer lightingQuantity,
+			BigDecimal ceilingHeightM, Integer roomCount, Integer bathroomCount, String siteCondition,
+			Long materialCost,
 			Long laborCost, Long vat, Long discount, String detailContent,
 			List<ContractorQuoteItem> replacementItems) {
 		validateStatus(QuoteStatus.DRAFT);
 		this.title = title;
 		this.startDate = startDate;
 		this.durationDays = durationDays;
+		this.floorAreaM2 = floorAreaM2;
+		this.wallpaperAreaM2 = wallpaperAreaM2;
+		this.lightingQuantity = lightingQuantity;
+		this.ceilingHeightM = ceilingHeightM;
+		this.roomCount = roomCount;
+		this.bathroomCount = bathroomCount;
+		this.siteCondition = siteCondition;
 		this.materialCost = materialCost;
 		this.laborCost = laborCost;
 		this.vat = vat;

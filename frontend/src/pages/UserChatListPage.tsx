@@ -6,6 +6,7 @@ import type { ChatThread } from '@/types/backendContractor'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import useRealtime from '@/contexts/useRealtime'
+import { formatBrowserTime } from '@/utils/browserDateTime'
 
 interface UserChatListItem {
   requestId: string
@@ -28,21 +29,7 @@ function formatChatTime(value: string) {
     return value
   }
 
-  const timeMatch = value.match(
-    /(?:T|\s)(\d{2}):(\d{2})/,
-  )
-
-  if (!timeMatch) {
-    return value
-  }
-
-  const hour = Number(timeMatch[1])
-  const minute = timeMatch[2]
-  const period = hour < 12 ? '오전' : '오후'
-  const displayHour =
-    hour % 12 === 0 ? 12 : hour % 12
-
-  return `${period} ${displayHour}:${minute}`
+  return formatBrowserTime(value)
 }
 
 function normalizeChatThread(

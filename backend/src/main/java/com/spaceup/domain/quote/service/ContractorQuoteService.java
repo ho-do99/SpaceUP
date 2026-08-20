@@ -1,5 +1,7 @@
 package com.spaceup.domain.quote.service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -9,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.repository.MemberRepository;
+import com.spaceup.domain.material.entity.MaterialProduct;
 import com.spaceup.domain.notification.entity.NotificationType;
 import com.spaceup.domain.notification.service.NotificationService;
 import com.spaceup.domain.quote.dto.ContractorQuoteCreateRequest;
@@ -63,17 +66,19 @@ public class ContractorQuoteService {
 		Member contractor = memberRepository.findById(contractorId)
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 시공사입니다: " + contractorId));
 
-		long materialCost = sumByCategory(dto.getItems());
+		QuoteAmounts amounts = resolveAmountsAndItems(request, phase, dto);
 
 		ContractorQuote quote = ContractorQuote.builder().request(request).contractor(contractor)
 				.title(dto.getTitle()).startDate(dto.getStartDate()).durationDays(dto.getDurationDays())
-				.materialCost(dto.getMaterialCost() != null ? dto.getMaterialCost() : materialCost)
-				.laborCost(dto.getLaborCost()).vat(dto.getVat()).discount(dto.getDiscount())
+				.floorAreaM2(dto.getFloorAreaM2()).wallpaperAreaM2(dto.getWallpaperAreaM2())
+				.lightingQuantity(dto.getLightingQuantity()).ceilingHeightM(dto.getCeilingHeightM())
+				.roomCount(dto.getRoomCount()).bathroomCount(dto.getBathroomCount())
+				.siteCondition(dto.getSiteCondition())
+				.materialCost(amounts.materialCost()).laborCost(amounts.additionalCost())
+				.vat(amounts.vat()).discount(amounts.discount())
 				.detailContent(dto.getDetailContent()).status(QuoteStatus.DRAFT).phase(phase).build();
 
-		dto.getItems().forEach(itemDto -> quote.addItem(ContractorQuoteItem.builder()
-				.category(itemDto.getCategory()).description(itemDto.getDescription()).amount(itemDto.getAmount())
-				.build()));
+		amounts.items().forEach(quote::addItem);
 
 		quote.recalculateTotal();
 		contractorQuoteRepository.save(quote);
@@ -87,14 +92,12 @@ public class ContractorQuoteService {
 		if (!quote.getRequest().getId().equals(dto.getRequestId())) {
 			throw new InvalidStatusTransitionException("견적이 속한 의뢰 번호는 변경할 수 없습니다.");
 		}
-		long itemTotal = sumByCategory(dto.getItems());
-		List<ContractorQuoteItem> items = dto.getItems().stream()
-				.map(item -> ContractorQuoteItem.builder().category(item.getCategory())
-						.description(item.getDescription()).amount(item.getAmount()).build())
-				.toList();
+		QuoteAmounts amounts = resolveAmountsAndItems(quote.getRequest(), quote.getPhase(), dto);
 		quote.updateDraft(dto.getTitle(), dto.getStartDate(), dto.getDurationDays(),
-				dto.getMaterialCost() != null ? dto.getMaterialCost() : itemTotal,
-				dto.getLaborCost(), dto.getVat(), dto.getDiscount(), dto.getDetailContent(), items);
+				dto.getFloorAreaM2(), dto.getWallpaperAreaM2(), dto.getLightingQuantity(),
+				dto.getCeilingHeightM(), dto.getRoomCount(), dto.getBathroomCount(), dto.getSiteCondition(),
+				amounts.materialCost(), amounts.additionalCost(), amounts.vat(), amounts.discount(),
+				dto.getDetailContent(), amounts.items());
 	}
 
 	// ⭐ PDF "견적 제안 보내기" 버튼 - 작성한 시공사 본인만 발송 가능. 임대인에게 알림
@@ -235,8 +238,134 @@ public class ContractorQuoteService {
 		}
 	}
 
-	private long sumByCategory(List<ContractorQuoteItemRequest> items) {
-		return items.stream().mapToLong(ContractorQuoteItemRequest::getAmount).sum();
+	private QuoteAmounts resolveAmountsAndItems(QuoteRequest request, QuotePhase phase,
+			ContractorQuoteCreateRequest dto) {
+		if (phase == QuotePhase.FINAL) {
+			return calculateFinalQuote(request, dto);
+		}
+
+		List<ContractorQuoteItem> items = dto.getItems().stream().map(this::toEntity).toList();
+		long itemTotal = sumAmounts(items);
+		long materialCost = dto.getMaterialCost() != null ? dto.getMaterialCost() : itemTotal;
+		long additionalCost = dto.getLaborCost() != null ? dto.getLaborCost() : 0L;
+		long vat = dto.getVat() != null ? dto.getVat() : 0L;
+		long discount = dto.getDiscount() != null ? dto.getDiscount() : 0L;
+		return new QuoteAmounts(items, materialCost, additionalCost, vat, discount);
+	}
+
+	private QuoteAmounts calculateFinalQuote(QuoteRequest request, ContractorQuoteCreateRequest dto) {
+		validateFinalMeasurements(dto);
+		MaterialProduct flooring = requireSelectedMaterial(request.getSelectedFlooringProduct(), "바닥재");
+		MaterialProduct wallpaper = requireSelectedMaterial(request.getSelectedWallpaperProduct(), "벽지");
+		MaterialProduct lighting = requireSelectedMaterial(request.getSelectedLightingProduct(), "조명");
+
+		long floorUnitPrice = squareMeterUnitPrice(flooring, "바닥재");
+		long wallpaperUnitPrice = squareMeterUnitPrice(wallpaper, "벽지");
+		long lightingUnitPrice = wholeUnitPrice(lighting, "조명");
+
+		ContractorQuoteItem floorItem = calculatedItem("바닥재", materialName(flooring),
+				dto.getFloorAreaM2(), "㎡", floorUnitPrice);
+		ContractorQuoteItem wallpaperItem = calculatedItem("벽지", materialName(wallpaper),
+				dto.getWallpaperAreaM2(), "㎡", wallpaperUnitPrice);
+		ContractorQuoteItem lightingItem = calculatedItem("조명", materialName(lighting),
+				BigDecimal.valueOf(dto.getLightingQuantity()), "개", lightingUnitPrice);
+
+		List<ContractorQuoteItem> additionalItems = dto.getItems().stream()
+				.filter(item -> "추가비용".equals(item.getCategory()))
+				.map(this::validatedAdditionalItem)
+				.toList();
+		List<ContractorQuoteItem> items = new java.util.ArrayList<>();
+		items.add(floorItem);
+		items.add(wallpaperItem);
+		items.add(lightingItem);
+		items.addAll(additionalItems);
+
+		long materialCost = sumAmounts(List.of(floorItem, wallpaperItem, lightingItem));
+		long additionalCost = sumAmounts(additionalItems);
+		long supplyAmount = Math.addExact(materialCost, additionalCost);
+		long vat = BigDecimal.valueOf(supplyAmount).multiply(new BigDecimal("0.10"))
+				.setScale(0, RoundingMode.HALF_UP).longValueExact();
+		return new QuoteAmounts(List.copyOf(items), materialCost, additionalCost, vat, 0L);
+	}
+
+	private void validateFinalMeasurements(ContractorQuoteCreateRequest dto) {
+		if (dto.getFloorAreaM2() == null || dto.getFloorAreaM2().signum() <= 0
+				|| dto.getWallpaperAreaM2() == null || dto.getWallpaperAreaM2().signum() <= 0
+				|| dto.getLightingQuantity() == null || dto.getLightingQuantity() <= 0
+				|| dto.getCeilingHeightM() == null || dto.getCeilingHeightM().signum() <= 0
+				|| dto.getRoomCount() == null || dto.getRoomCount() < 0
+				|| dto.getBathroomCount() == null || dto.getBathroomCount() < 0) {
+			throw new InvalidStatusTransitionException("현장 실측 정보를 모두 입력해 주세요.");
+		}
+	}
+
+	private MaterialProduct requireSelectedMaterial(MaterialProduct product, String label) {
+		if (product == null) {
+			throw new InvalidStatusTransitionException("사용자가 선택한 " + label + " 정보가 없습니다.");
+		}
+		return product;
+	}
+
+	private long squareMeterUnitPrice(MaterialProduct product, String label) {
+		BigDecimal normalized = product.getNormalizedPriceM2();
+		if (normalized == null && product.getCoveragePerUnitM2() != null
+				&& product.getCoveragePerUnitM2().signum() > 0 && product.getCurrentPrice() != null) {
+			normalized = product.getCurrentPrice().divide(product.getCoveragePerUnitM2(), 0, RoundingMode.HALF_UP);
+		}
+		if (normalized == null || normalized.signum() < 0) {
+			throw new InvalidStatusTransitionException(label + "의 ㎡당 단가가 등록되지 않았습니다.");
+		}
+		return normalized.setScale(0, RoundingMode.HALF_UP).longValueExact();
+	}
+
+	private long wholeUnitPrice(MaterialProduct product, String label) {
+		if (product.getCurrentPrice() == null || product.getCurrentPrice().signum() < 0) {
+			throw new InvalidStatusTransitionException(label + " 단가가 등록되지 않았습니다.");
+		}
+		return product.getCurrentPrice().setScale(0, RoundingMode.HALF_UP).longValueExact();
+	}
+
+	private ContractorQuoteItem calculatedItem(String category, String description, BigDecimal quantity,
+			String unit, long unitPrice) {
+		long amount = quantity.multiply(BigDecimal.valueOf(unitPrice))
+				.setScale(0, RoundingMode.HALF_UP).longValueExact();
+		return ContractorQuoteItem.builder().category(category).description(description).quantity(quantity)
+				.measurementUnit(unit).unitPrice(unitPrice).amount(amount).build();
+	}
+
+	private ContractorQuoteItem validatedAdditionalItem(ContractorQuoteItemRequest item) {
+		if (item.getDescription() == null || item.getDescription().isBlank()) {
+			throw new InvalidStatusTransitionException("추가 비용 항목명을 입력해 주세요.");
+		}
+		if (item.getAmount() == null || item.getAmount() < 0) {
+			throw new InvalidStatusTransitionException("추가 비용은 0원 이상이어야 합니다.");
+		}
+		return ContractorQuoteItem.builder().category("추가비용").description(item.getDescription().trim())
+				.amount(item.getAmount()).build();
+	}
+
+	private ContractorQuoteItem toEntity(ContractorQuoteItemRequest item) {
+		return ContractorQuoteItem.builder().category(item.getCategory()).description(item.getDescription())
+				.quantity(item.getQuantity()).measurementUnit(item.getMeasurementUnit())
+				.unitPrice(item.getUnitPrice()).amount(item.getAmount()).build();
+	}
+
+	private String materialName(MaterialProduct product) {
+		return product.getBrandName() == null || product.getBrandName().isBlank()
+				? product.getProductName()
+				: product.getBrandName() + " · " + product.getProductName();
+	}
+
+	private long sumAmounts(List<ContractorQuoteItem> items) {
+		long total = 0L;
+		for (ContractorQuoteItem item : items) {
+			total = Math.addExact(total, item.getAmount());
+		}
+		return total;
+	}
+
+	private record QuoteAmounts(List<ContractorQuoteItem> items, long materialCost, long additionalCost,
+			long vat, long discount) {
 	}
 
 	private ContractorQuote findQuoteOrThrow(Long quoteId) {

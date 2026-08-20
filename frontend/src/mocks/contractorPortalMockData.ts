@@ -215,7 +215,7 @@ function createContractorRequestDetail(request: ContractorRequest): ContractorRe
       ceilingHeight: '2.3m',
     },
     selectedItems: ['바닥재', '벽지', '조명'],
-    lightingNotice: '조명은 현장 실측 후 별도 협의 · 현재 견적 금액 미포함',
+    lightingNotice: '조명은 실측 수량과 선택 자재 단가 기준으로 최종 견적에 포함',
     floorPlanImage,
     hasLinkedFloorPlan: true,
     photos: [
@@ -288,6 +288,7 @@ export const contractorDefaultEstimateDraft: ContractorEstimateDraft = {
   measurement: {
     floorArea: 59,
     wallpaperArea: 168,
+    lightingQuantity: 2,
     ceilingHeight: 2.4,
     rooms: 3,
     bathrooms: 2,
@@ -298,7 +299,8 @@ export const contractorDefaultEstimateDraft: ContractorEstimateDraft = {
       id: 'floor',
       label: '바닥재',
       productName: 'KCC · 숲 소리순 · 내추럴 오크',
-      area: 59,
+      quantity: 59,
+      measurementUnit: '㎡',
       unitPrice: 32000,
       costs: [
         { id: 'material', label: '자재비', amount: 1888000 },
@@ -314,7 +316,8 @@ export const contractorDefaultEstimateDraft: ContractorEstimateDraft = {
       id: 'wallpaper',
       label: '벽지',
       productName: 'LX하우시스 · 베스띠 · 실크벽지 · 웜 화이트',
-      area: 168,
+      quantity: 168,
+      measurementUnit: '㎡',
       unitPrice: 9500,
       costs: [
         { id: 'material', label: '자재비', amount: 800000 },
@@ -325,6 +328,18 @@ export const contractorDefaultEstimateDraft: ContractorEstimateDraft = {
         { id: 'other', label: '기타 비용', amount: 50000 },
       ],
       sectionTotal: 1700000,
+    },
+    {
+      id: 'lighting',
+      label: '조명',
+      productName: 'LED 거실등',
+      quantity: 2,
+      measurementUnit: '개',
+      unitPrice: 100000,
+      costs: [
+        { id: 'material', label: '선택 자재 금액', amount: 200000 },
+      ],
+      sectionTotal: 200000,
     },
   ],
   additionalCosts: [
@@ -385,7 +400,7 @@ export const contractorProjectMocks: readonly ContractorProject[] = [
     contractAmount: 5500000,
     contractDate: '2026-07-24',
     constructionItems: ['바닥재', '벽지'],
-    lightingNotice: '조명은 현장 실측 후 별도 협의 · 현재 계약 금액 미포함',
+    lightingNotice: '조명은 실측 수량과 선택 자재 단가 기준으로 최종 견적에 포함',
     status: 'START_SCHEDULED',
     schedule: { startDate: '2026-08-05', completionDate: '2026-08-07' },
     checklist: [

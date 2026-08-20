@@ -24,6 +24,7 @@ import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import useRealtime from '@/contexts/useRealtime'
 import type { ChatThread, SiteVisit } from '@/types/backendContractor'
+import { formatBrowserKoreanDate, formatBrowserTime } from '@/utils/browserDateTime'
 
 interface DisplayMessage {
   id: string | number
@@ -170,35 +171,11 @@ function CalendarIcon() {
 }
 
 function formatMessageTime(value?: string) {
-  if (!value) return ''
-
-  const match = value.match(
-    /(?:T|\s)(\d{2}):(\d{2})/,
-  )
-
-  if (!match) {
-    return value.slice(11, 16)
-  }
-
-  const hour = Number(match[1])
-  const minute = match[2]
-  const period =
-    hour < 12 ? '오전' : '오후'
-  const displayHour =
-    hour % 12 === 0 ? 12 : hour % 12
-
-  return `${period} ${displayHour}:${minute}`
+  return formatBrowserTime(value)
 }
 
 function formatMessageDate(value?: string) {
-  if (!value) return '오늘'
-
-  const datePart = value.slice(0, 10)
-  const [year, month, day] = datePart.split('-')
-
-  if (!year || !month || !day) return '오늘'
-
-  return `${Number(year)}년 ${Number(month)}월 ${Number(day)}일`
+  return formatBrowserKoreanDate(value) || '오늘'
 }
 
 function LandlordChatComposer({

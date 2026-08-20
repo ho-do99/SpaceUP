@@ -1,5 +1,6 @@
 package com.spaceup.domain.quote.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
@@ -20,6 +21,18 @@ public class ContractorQuoteResponse {
 	private final String title;
 	private final String startDate;
 	private final Integer durationDays;
+	private final BigDecimal floorAreaM2;
+	private final BigDecimal wallpaperAreaM2;
+	private final Integer lightingQuantity;
+	private final BigDecimal ceilingHeightM;
+	private final Integer roomCount;
+	private final Integer bathroomCount;
+	private final String siteCondition;
+	private final Long materialCost;
+	private final Long laborCost;
+	private final Long vat;
+	private final Long discount;
+	private final String detailContent;
 	private final Long totalAmount;
 	private final QuoteStatus status;
 	private final QuotePhase phase;
@@ -38,6 +51,18 @@ public class ContractorQuoteResponse {
 		this.title = quote.getTitle();
 		this.startDate = quote.getStartDate();
 		this.durationDays = quote.getDurationDays();
+		this.floorAreaM2 = quote.getFloorAreaM2();
+		this.wallpaperAreaM2 = quote.getWallpaperAreaM2();
+		this.lightingQuantity = quote.getLightingQuantity();
+		this.ceilingHeightM = quote.getCeilingHeightM();
+		this.roomCount = quote.getRoomCount();
+		this.bathroomCount = quote.getBathroomCount();
+		this.siteCondition = quote.getSiteCondition();
+		this.materialCost = quote.getMaterialCost();
+		this.laborCost = quote.getLaborCost();
+		this.vat = quote.getVat();
+		this.discount = quote.getDiscount();
+		this.detailContent = quote.getDetailContent();
 		this.totalAmount = quote.getTotalAmount();
 		this.status = quote.getStatus();
 		this.phase = quote.getPhase();
@@ -50,10 +75,12 @@ public class ContractorQuoteResponse {
 		this.revisionRequestedAmount = quote.getRevisionRequestedAmount();
 		this.revisionCount = quote.getRevisionCount();
 		this.items = quote.getItems().stream()
-				.map(item -> new ItemView(item.getCategory(), item.getDescription(), item.getAmount()))
+				.map(item -> new ItemView(item.getCategory(), item.getDescription(), item.getQuantity(),
+						item.getMeasurementUnit(), item.getUnitPrice(), item.getAmount()))
 				.collect(Collectors.toList());
 	}
 
-	public record ItemView(String category, String description, Long amount) {
+	public record ItemView(String category, String description, BigDecimal quantity, String measurementUnit,
+			Long unitPrice, Long amount) {
 	}
 }

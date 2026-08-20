@@ -70,6 +70,6 @@ class SiteVisitServiceLiveFlowTest {
 		String content = "사용자가 방문 일정 변경을 요청했습니다: 2026-09-08 14:00 (오후 방문 희망)";
 		verify(notificationService).notifyForRequest(eq(2L), eq(NotificationType.VISIT),
 				eq("방문 일정 변경 요청이 도착했습니다"), eq(content), eq(10L), eq(2L));
-		verify(chatService).sendSystemMessage(eq(request), eq(contractor), eq(owner), eq(content));
+		verify(chatService).sendSystemMessage(eq(request), eq(contractor), eq(content));
 	}
 }
