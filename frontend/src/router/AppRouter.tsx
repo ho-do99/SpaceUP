@@ -83,7 +83,6 @@ import ContractorCompanyInfoPage from '@/pages/contractor/ContractorCompanyInfoP
 import ContractorCompanySpecialtiesPage from '@/pages/contractor/ContractorCompanySpecialtiesPage'
 import ContractorCompanyRegionsPage from '@/pages/contractor/ContractorCompanyRegionsPage'
 import ContractorCompanySettlementPage from '@/pages/contractor/ContractorCompanySettlementPage'
-import ContractorRequestAnalysisPage from '@/pages/contractor/ContractorRequestAnalysisPage'
 import ContractorRequestApprovedPage from '@/pages/contractor/ContractorRequestApprovedPage'
 import ContractorRequestDetailPage from '@/pages/contractor/ContractorRequestDetailPage'
 import ContractorRequestFloorPlanPage from '@/pages/contractor/ContractorRequestFloorPlanPage'
@@ -270,11 +269,6 @@ export default function AppRouter() {
           <Route
             path="/contractor/requests/:requestId/photos"
             element={<ContractorRequestPhotosPage />}
-          />
-
-          <Route
-            path="/contractor/requests/:requestId/analysis"
-            element={<ContractorRequestAnalysisPage />}
           />
 
           <Route
