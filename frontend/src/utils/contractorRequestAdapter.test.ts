@@ -29,4 +29,10 @@ describe('contractor request adapter', () => {
     expect(result.floorPlanImage).toBeUndefined()
     expect(result.hasLinkedFloorPlan).toBe(false)
   })
+
+  it('passes the preliminary SpaceUP estimate to the contractor', () => {
+    const result = requestToContractorDetail(requestFixture, [], { requestId: 1, status: 'COMPLETED', estimatedQuoteMin: 6_260_000, estimatedQuoteMax: 7_650_000 })
+
+    expect(result.estimatedCostLabel).toBe('6,260,000~7,650,000원')
+  })
 })

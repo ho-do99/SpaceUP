@@ -38,7 +38,7 @@ function formatBudget(min?: number, max?: number) {
   const upper = max ?? min
   if (!lower || !upper) return ''
   const manwon = (amount: number) => Math.round(amount / 10_000).toLocaleString('ko-KR')
-  return lower === upper ? `${manwon(lower)}만원` : `${manwon(lower)}~${manwon(upper)}만원`
+  return lower === upper ? manwon(lower) : `${manwon(lower)}~${manwon(upper)}`
 }
 
 function parseBudgetRange(value: string) {
@@ -76,7 +76,7 @@ export default function EstimateRequestPage() {
     name: '',
     phone: '',
     region: '광주광역시 서구',
-    budget: '1,500만원',
+    budget: '1,500',
     areaScope: '',
     preferredDate: '',
     requestMessage: '',
@@ -274,12 +274,23 @@ export default function EstimateRequestPage() {
             </label>
             <label className="text-[10px] font-bold text-[#1e293b]">
               예산 *
-              <input
-                required
-                value={form.budget}
-                className={inputClass}
-                onChange={(event) => updateField('budget', event.target.value)}
-              />
+              <span className="relative block">
+                <input
+                  required
+                  type="text"
+                  inputMode="numeric"
+                  aria-describedby="budget-unit"
+                  value={form.budget}
+                  className={`${inputClass} pr-[46px]`}
+                  onChange={(event) => updateField('budget', event.target.value)}
+                />
+                <span
+                  id="budget-unit"
+                  className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center pt-1.5 text-[11px] font-semibold text-[#475569]"
+                >
+                  만원
+                </span>
+              </span>
             </label>
           </div>
 

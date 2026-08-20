@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getAnalysis, getRecommendedProducts } from '@/api/analysisApi'
+import { getAnalysis, getRecommendedProducts, updateAnalysis } from '@/api/analysisApi'
 import { updateRequest } from '@/api/requestApi'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
@@ -117,6 +117,10 @@ export default function EstimateSummaryPage() {
         selectedFlooringProductId: Number(selectedFloor.id),
         selectedWallpaperProductId: Number(selectedWallpaper.id),
         selectedLightingProductId: Number(selectedLighting.id),
+      })
+      await updateAnalysis(requestId, {
+        estimatedQuoteMin: estimate.estimateMin,
+        estimatedQuoteMax: estimate.estimateMax,
       })
       flow.selectFloor(selectedFloor.id)
       flow.selectWallpaper(selectedWallpaper.id)

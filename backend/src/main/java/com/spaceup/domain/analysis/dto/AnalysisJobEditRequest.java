@@ -1,6 +1,8 @@
 package com.spaceup.domain.analysis.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,4 +24,15 @@ public class AnalysisJobEditRequest {
 	@Positive(message = "전용면적은 0보다 커야 합니다.")
 	private Double exclusiveAreaM2; // 전용 면적(㎡) - Property에 반영됨
 	private Double ceilingHeightM; // 층고(m) - 매물 전체 기준 단일 값
+
+        @PositiveOrZero(message = "예상 견적 최소값은 0 이상이어야 합니다.")
+        private Long estimatedQuoteMin;
+        @PositiveOrZero(message = "예상 견적 최대값은 0 이상이어야 합니다.")
+        private Long estimatedQuoteMax;
+
+        @AssertTrue(message = "예상 견적 최대값은 최소값 이상이어야 합니다.")
+        public boolean isEstimatedQuoteRangeValid() {
+                return estimatedQuoteMin == null || estimatedQuoteMax == null
+                                || estimatedQuoteMax >= estimatedQuoteMin;
+        }
 }
