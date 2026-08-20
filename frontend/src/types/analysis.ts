@@ -46,6 +46,8 @@ export interface AnalysisJobEditInput {
   kitchenType?: string
   exclusiveAreaM2?: number
   ceilingHeightM?: number
+  estimatedQuoteMin?: number
+  estimatedQuoteMax?: number
 }
 
 export interface RecommendedProduct {

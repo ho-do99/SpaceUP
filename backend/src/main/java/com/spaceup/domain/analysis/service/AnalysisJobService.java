@@ -80,6 +80,7 @@ public class AnalysisJobService {
 		validateOwner(analysis.getRequest(), landlordId);
 		analysis.updateBasicInfo(dto.getRoomCount(), dto.getBathroomCount(), dto.getHasBalcony(),
 				dto.getKitchenType(), dto.getCeilingHeightM());
+                analysis.updateEstimatedQuote(dto.getEstimatedQuoteMin(), dto.getEstimatedQuoteMax());
 		if (dto.getExclusiveAreaM2() != null) {
 			analysis.getRequest().getProperty().updateArea(dto.getExclusiveAreaM2());
 		}

@@ -30,4 +30,14 @@ class ExclusiveAreaValidationTest {
 		assertThat(validator.validate(request)).anyMatch(violation ->
 				violation.getPropertyPath().toString().equals("areaM2"));
 	}
+
+    @Test
+    void rejectsAnInvertedEstimatedQuoteRange() {
+            AnalysisJobEditRequest request = new AnalysisJobEditRequest();
+            request.setEstimatedQuoteMin(7_650_000L);
+            request.setEstimatedQuoteMax(6_260_000L);
+
+            assertThat(validator.validate(request)).anyMatch(violation ->
+                            violation.getPropertyPath().toString().equals("estimatedQuoteRangeValid"));
+    }
 }

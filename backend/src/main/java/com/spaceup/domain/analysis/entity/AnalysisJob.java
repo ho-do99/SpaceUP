@@ -145,6 +145,15 @@ public class AnalysisJob extends BaseTimeEntity {
 		}
 	}
 
+    public void updateEstimatedQuote(Long estimatedQuoteMin, Long estimatedQuoteMax) {
+            if (estimatedQuoteMin != null) {
+                    this.estimatedQuoteMin = estimatedQuoteMin;
+            }
+            if (estimatedQuoteMax != null) {
+                    this.estimatedQuoteMax = estimatedQuoteMax;
+            }
+    }
+
 	// ⭐ [프론트 연동] AnalysisJobService.replaceSpaces()가 공간 목록을 다시 저장할 때마다 호출해 갱신합니다.
 	public void applyTotalConstructionArea(Double totalFloorAreaM2, Double totalWallpaperAreaM2) {
 		this.totalFloorAreaM2 = totalFloorAreaM2;

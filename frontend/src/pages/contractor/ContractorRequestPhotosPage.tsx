@@ -63,23 +63,6 @@ export default function ContractorRequestPhotosPage() {
         : canDecide
           ? <ContractorRequestActions disabled={isSubmitting || Boolean(rejectedReason)} onReject={() => setRejectOpen(true)} onApprove={approve} />
           : null}>
-        <section>
-          <h2 className="text-[15px] font-bold leading-normal text-[#1e293b]">사용자 공간 사진</h2>
-          <p className="mt-2 text-[11px] leading-[17px] text-[#64748b]">사용자가 의뢰에 직접 등록한 현장 사진입니다.</p>
-          {request.photos.length > 0 ? (
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              {request.photos.map((photo) => (
-                <button key={photo.id} type="button" onClick={() => setPreview({ src: photo.image, label: photo.label })} className="rounded-[10px] border border-[#d9e3f0] bg-white p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb]">
-                  <img src={photo.image} alt={photo.label} className="h-[150px] w-full rounded-[8px] object-cover" />
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-4 rounded-xl border border-dashed border-[#cbd5e1] bg-white px-4 py-8 text-center">
-              <p className="text-[12px] font-bold text-[#475569]">사용자가 등록한 공간 사진이 없습니다.</p>
-            </div>
-          )}
-        </section>
         {beforeSrc && afterSrc ? (
           <section>
             <h2 className="text-[15px] font-bold leading-normal text-[#1e293b]">AI 인테리어 시뮬레이션 결과</h2>

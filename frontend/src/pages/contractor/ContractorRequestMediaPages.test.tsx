@@ -40,15 +40,18 @@ describe('live contractor request media', () => {
     expect(screen.queryByRole('button', { name: '평면도 크게 보기' })).not.toBeInTheDocument()
   })
 
-  it('renders uploaded user photos', () => {
-    useContractorRequestMock.mockReturnValue({ request: { ...fixture, photos: [{ id: '7', label: '공간 사진 1', image: '/api/files/images/room.png' }] }, loading: false, error: '' })
+  it('renders only the AI before and after comparison', () => {
+    useContractorRequestMock.mockReturnValue({ request: { ...fixture, beforeImage: '/api/files/images/before.png', afterImage: '/api/files/images/after.png', photos: [{ id: '7', label: '공간 사진 1', image: '/api/files/images/room.png' }] }, loading: false, error: '' })
     renderPage('/contractor/requests/99/photos', 'photos')
-    expect(screen.getByRole('img', { name: '공간 사진 1' })).toHaveAttribute('src', '/api/files/images/room.png')
+    expect(screen.queryByText('사용자 공간 사진')).not.toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: '공간 사진 1' })).not.toBeInTheDocument()
+    expect(screen.getByAltText('AI 인테리어 시뮬레이션 전')).toHaveAttribute('src', '/api/files/images/before.png')
+    expect(screen.getByAltText('AI 인테리어 시뮬레이션 후')).toHaveAttribute('src', '/api/files/images/after.png')
   })
 
-  it('renders a live empty state instead of bundled room or AI photos', () => {
+  it('does not render a standalone user-photo section without an AI comparison', () => {
     renderPage('/contractor/requests/99/photos', 'photos')
-    expect(screen.getByText('사용자가 등록한 공간 사진이 없습니다.')).toBeInTheDocument()
+    expect(screen.queryByText('사용자 공간 사진')).not.toBeInTheDocument()
     expect(screen.queryByAltText('AI 인테리어 시뮬레이션 전')).not.toBeInTheDocument()
     expect(screen.queryByAltText('AI 인테리어 시뮬레이션 후')).not.toBeInTheDocument()
   })

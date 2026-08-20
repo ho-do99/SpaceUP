@@ -35,7 +35,8 @@ describe('EstimateRequestPage live defaults', () => {
     expect(await screen.findByDisplayValue('시연 임대인')).toBeInTheDocument()
     expect(screen.getByDisplayValue('010-1234-5678')).toBeInTheDocument()
     expect(screen.getByDisplayValue('광주광역시 서구')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('1,500만원')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('1,500')).toBeInTheDocument()
+    expect(screen.getByText('만원')).toBeInTheDocument()
     expect(screen.getByDisplayValue('25.4평 / 바닥 72㎡ · 벽 140㎡')).toBeInTheDocument()
     expect(screen.getByDisplayValue('2026-09-05')).toBeInTheDocument()
 

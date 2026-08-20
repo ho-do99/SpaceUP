@@ -56,4 +56,12 @@ describe('ContractorVisitPage live/mock boundary', () => {
     expect(await screen.findByText('등록된 방문 일정이 없습니다')).toBeInTheDocument()
     expect(screen.queryByText('현장 방문 완료')).not.toBeInTheDocument()
   })
+
+  it('links a completed live visit directly to the final estimate editor', async () => {
+    getVisitMock.mockResolvedValue({ id: 3, requestId: 99, contractorId: 7, status: 'COMPLETED', visitDate: '2026-08-22', visitTime: '10:00:00', completedAt: '2026-08-22T11:00:00' })
+    renderVisit()
+
+    const link = await screen.findByRole('link', { name: '견적 작성으로 이동' })
+    expect(link).toHaveAttribute('href', '/contractor/requests/99/estimate?mode=completed')
+  })
 })
