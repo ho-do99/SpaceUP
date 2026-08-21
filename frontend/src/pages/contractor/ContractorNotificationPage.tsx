@@ -8,6 +8,7 @@ import type { ContractorNotification, ContractorNotificationFilter } from '@/typ
 import { getNotifications, readAllNotifications, readNotification } from '@/api/notificationApi'
 import { getAssignedRequests } from '@/api/contractorApi'
 import useRealtime from '@/contexts/useRealtime'
+import { formatBrowserDateTime, isSameBrowserDay } from '@/utils/browserDateTime'
 
 const filters: readonly { id: ContractorNotificationFilter; label: string }[] = [
   { id: 'all', label: '전체' }, { id: 'request', label: '의뢰' }, { id: 'estimate', label: '견적' }, { id: 'visit', label: '일정' }, { id: 'settlement', label: '정산' },
@@ -27,20 +28,26 @@ export default function ContractorNotificationPage() {
       const assignedRequests = await getAssignedRequests({ size: 100 })
         .then((response) => response.content)
         .catch(() => [])
-      const today = new Date().toISOString().slice(0, 10)
       setNotifications(page.content.map((item) => {
-        const request = item.type === 'REQUEST'
-          ? assignedRequests.find((candidate) => candidate.requestCode && `${item.title} ${item.content}`.includes(candidate.requestCode))
-          : undefined
+        const request = assignedRequests.find((candidate) =>
+          candidate.id === item.requestId
+          || Boolean(candidate.requestCode && `${item.title} ${item.content}`.includes(candidate.requestCode)),
+        )
+        const resolvedRequestId = item.requestId ?? request?.id
+        const opensChat = item.type === 'CHAT' || item.type === 'VISIT' || item.type === 'SCHEDULE'
         return {
           notificationId: String(item.id),
           type: item.type === 'QUOTE' ? 'ESTIMATE' : item.type === 'SCHEDULE' ? 'VISIT' : item.type,
           title: item.title,
           message: item.content,
-          createdAtLabel: item.createdAt.slice(0, 16).replace('T', ' '),
-          section: item.createdAt.startsWith(today) ? 'TODAY' : 'PREVIOUS',
+          createdAtLabel: formatBrowserDateTime(item.createdAt),
+          section: isSameBrowserDay(item.createdAt) ? 'TODAY' : 'PREVIOUS',
           isRead: item.read,
-          destination: request ? `/contractor/requests/${request.id}` : '',
+          destination: resolvedRequestId
+            ? opensChat
+              ? `/contractor/requests/${resolvedRequestId}/chat`
+              : `/contractor/requests/${resolvedRequestId}`
+            : '',
         }
       }))
       setError('')

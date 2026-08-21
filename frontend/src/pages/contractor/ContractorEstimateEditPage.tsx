@@ -13,6 +13,7 @@ import ContractorEstimateSummary from '@/components/contractor/ContractorEstimat
 import {
   calculateAdditionalTotal,
   formatWon,
+  recalculateContractorEstimate,
   validateContractorEstimate,
   type ContractorEstimateErrors,
   type ContractorEstimateField,
@@ -27,7 +28,6 @@ import {
 import type {
   ContractorEstimateDraft,
   ContractorEstimateMeasurement,
-  ContractorEstimatePaymentTerms,
 } from '@/types/contractorPortal'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
@@ -36,23 +36,44 @@ import { getRequest } from '@/api/requestApi'
 import { estimateDraftToQuoteInput, getStoredQuoteId, storeQuoteId } from '@/utils/quoteDraft'
 import useContractorRequest from '@/hooks/useContractorRequest'
 import { createLiveContractorEstimateDraft, quoteToContractorEstimateDraft } from '@/utils/contractorQuoteAdapter'
+import { getMaterialCatalog } from '@/api/materialCatalogApi'
+import type { RequestResponse } from '@/types/request'
+import { applySelectedMaterials, type SelectedFinalEstimateMaterials } from '@/utils/contractorFinalEstimate'
 
 const fieldOrder: readonly ContractorEstimateField[] = [
   'floorArea',
   'wallpaperArea',
+  'lightingQuantity',
   'ceilingHeight',
   'rooms',
   'bathrooms',
+  'materials',
+  'additionalCosts',
   'startDate',
   'durationDays',
-  'depositPercent',
-  'interimPercent',
-  'balancePercent',
-  'paymentTotal',
 ]
 
 const finiteOrZero = (value: number) =>
   Number.isFinite(value) ? value : 0
+
+async function loadSelectedMaterials(request: RequestResponse): Promise<SelectedFinalEstimateMaterials> {
+  const theme = request.selectedTheme
+  if (!theme || !request.selectedFlooringProductId || !request.selectedWallpaperProductId || !request.selectedLightingProductId) {
+    throw new Error('사용자가 선택한 바닥재·벽지·조명 정보가 없습니다.')
+  }
+  const [floorCatalog, wallpaperCatalog, lightingCatalog] = await Promise.all([
+    getMaterialCatalog(theme, 'FLOORING'),
+    getMaterialCatalog(theme, 'WALLPAPER'),
+    getMaterialCatalog(theme, 'LIGHTING'),
+  ])
+  const floor = floorCatalog.find((item) => item.productId === request.selectedFlooringProductId)
+  const wallpaper = wallpaperCatalog.find((item) => item.productId === request.selectedWallpaperProductId)
+  const lighting = lightingCatalog.find((item) => item.productId === request.selectedLightingProductId)
+  if (!floor || !wallpaper || !lighting) {
+    throw new Error('선택한 자재가 현재 자재 카탈로그에 없습니다.')
+  }
+  return { floor, wallpaper, lighting }
+}
 
 function FieldError({
   field,
@@ -122,13 +143,25 @@ export default function ContractorEstimateEditPage() {
     let active = true
     const numericRequestId = Number(requestId)
     void Promise.all([getQuotesByRequest(numericRequestId), getRequest(numericRequestId)])
-      .then(([quotes, rawRequest]) => {
+      .then(async ([quotes, rawRequest]) => {
         if (!active) return
-        const existing = [...quotes].sort((a, b) => b.id - a.id)[0]
+        const existing = quotes
+          .filter((quote) => quote.phase === 'FINAL' && quote.status === 'DRAFT')
+          .sort((a, b) => b.id - a.id)[0]
         if (existing) {
           storeQuoteId(numericRequestId, existing.id)
-          setDraft(quoteToContractorEstimateDraft(existing, rawRequest))
+          const loadedDraft = quoteToContractorEstimateDraft(existing, rawRequest)
+          if (loadedDraft.categories.length === 3) {
+            setDraft(recalculateContractorEstimate(loadedDraft))
+            return
+          }
         }
+        const materials = await loadSelectedMaterials(rawRequest)
+        if (!active) return
+        const baseDraft = existing
+          ? quoteToContractorEstimateDraft(existing, rawRequest)
+          : createLiveContractorEstimateDraft(requestId)
+        setDraft(applySelectedMaterials(baseDraft, materials))
       })
       .catch((error: unknown) => {
         if (active) setApiError(error instanceof Error ? error.message : '기존 견적을 불러오지 못했습니다.')
@@ -149,7 +182,7 @@ export default function ContractorEstimateEditPage() {
     field: keyof ContractorEstimateMeasurement,
     value: number | string,
   ) => {
-    setDraft((current) => ({
+    setDraft((current) => recalculateContractorEstimate({
       ...current,
       measurement: {
         ...current.measurement,
@@ -163,40 +196,38 @@ export default function ContractorEstimateEditPage() {
     }))
   }
 
-  const updatePayment = (
-    field: keyof ContractorEstimatePaymentTerms,
-    value: number,
-  ) => {
-    setDraft((current) => ({
+  const updateAdditionalCost = (id: string, field: 'label' | 'amount', value: string | number) => {
+    setDraft((current) => recalculateContractorEstimate({
       ...current,
-      condition: {
-        ...current.condition,
-        paymentTerms: {
-          ...current.condition.paymentTerms,
-          [field]: value,
-        },
-      },
+      additionalCosts: current.additionalCosts.map((item) =>
+        item.id === id ? { ...item, [field]: value } : item),
     }))
+    setErrors((current) => ({ ...current, additionalCosts: undefined }))
+  }
 
-    const errorField =
-      field === 'depositPercent'
-        ? 'depositPercent'
-        : field === 'interimPercent'
-          ? 'interimPercent'
-          : 'balancePercent'
-
-    setErrors((current) => ({
+  const addAdditionalCost = () => {
+    setDraft((current) => recalculateContractorEstimate({
       ...current,
-      [errorField]: undefined,
-      paymentTotal: undefined,
+      additionalCosts: [
+        ...current.additionalCosts,
+        { id: `additional-${Date.now()}-${current.additionalCosts.length}`, label: '', amount: 0 },
+      ],
+    }))
+  }
+
+  const removeAdditionalCost = (id: string) => {
+    setDraft((current) => recalculateContractorEstimate({
+      ...current,
+      additionalCosts: current.additionalCosts.filter((item) => item.id !== id),
     }))
   }
 
   const validateDraft = () => {
-    const normalized = {
+    const normalized = recalculateContractorEstimate({
       ...draft,
       notes: draft.notes.trim(),
-    }
+      additionalCosts: draft.additionalCosts.map((item) => ({ ...item, label: item.label.trim() })),
+    })
 
     const nextErrors =
       validateContractorEstimate(normalized)
@@ -278,14 +309,6 @@ export default function ContractorEstimateEditPage() {
 
   const numericClass =
     'mt-1 h-11 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-xs outline-none focus:border-[#2563eb] focus-visible:ring-2 focus-visible:ring-[#bfdbfe]'
-
-  const paymentTotal =
-    draft.condition.paymentTerms
-      .depositPercent +
-    draft.condition.paymentTerms
-      .interimPercent +
-    draft.condition.paymentTerms
-      .balancePercent
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
@@ -462,6 +485,28 @@ export default function ContractorEstimateEditPage() {
             </label>
 
             <label className="text-[11px] font-bold">
+              조명 수량(개)
+
+              <input
+                id="lightingQuantity"
+                type="number"
+                inputMode="numeric"
+                min="1"
+                max="1000"
+                step="1"
+                value={draft.measurement.lightingQuantity}
+                aria-invalid={Boolean(errors.lightingQuantity)}
+                aria-describedby={errors.lightingQuantity ? 'lightingQuantity-error' : undefined}
+                onChange={(event) =>
+                  updateMeasurement('lightingQuantity', finiteOrZero(event.target.valueAsNumber))
+                }
+                className={numericClass}
+              />
+
+              <FieldError field="lightingQuantity" errors={errors} />
+            </label>
+
+            <label className="text-[11px] font-bold">
               층고(m)
 
               <input
@@ -600,85 +645,83 @@ export default function ContractorEstimateEditPage() {
           </label>
         </ContractorSectionCard>
 
-        {draft.categories.map((category) => (
-          <ContractorSectionCard
-            key={category.id}
-            className="mt-4"
-            title={`${category.label} 견적`}
-          >
-            <ContractorEstimateCostList
-              category={category}
-            />
-
-            {category.id === 'wallpaper' ? (
-              <p className="mt-3 text-[10px] leading-4 text-[#64748b]">
-                항목 합계는 확정된 견적 기준값으로
-                표시됩니다.
-              </p>
-            ) : null}
-          </ContractorSectionCard>
-        ))}
+        <div id="materials" tabIndex={-1}>
+          {draft.categories.map((category) => (
+            <ContractorSectionCard
+              key={category.id}
+              className="mt-4"
+              title={`${category.label} 실측 견적`}
+            >
+              <ContractorEstimateCostList category={category} />
+            </ContractorSectionCard>
+          ))}
+          <FieldError field="materials" errors={errors} />
+        </div>
 
         <ContractorSectionCard
           className="mt-4"
           title="추가 비용"
         >
-          <dl className="space-y-2">
-            {draft.additionalCosts.map(
-              (item) => (
-                <ContractorEstimateInfoRow
-                  key={item.id}
-                  label={item.label}
+          <div id="additionalCosts" tabIndex={-1} className="space-y-3">
+            {draft.additionalCosts.map((item) => (
+              <div key={item.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] gap-2">
+                <label className="text-[10px] font-semibold text-[#64748b]">
+                  항목명
+                  <input
+                    type="text"
+                    maxLength={50}
+                    value={item.label}
+                    onChange={(event) => updateAdditionalCost(item.id, 'label', event.target.value)}
+                    className={numericClass}
+                  />
+                </label>
+                <label className="text-[10px] font-semibold text-[#64748b]">
+                  금액(원)
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    step="1000"
+                    value={item.amount}
+                    onChange={(event) => updateAdditionalCost(item.id, 'amount', finiteOrZero(event.target.valueAsNumber))}
+                    className={numericClass}
+                  />
+                </label>
+                <button
+                  type="button"
+                  aria-label={`${item.label || '추가 비용'} 삭제`}
+                  onClick={() => removeAdditionalCost(item.id)}
+                  className="mt-[19px] h-11 rounded-lg border border-[#fecaca] text-base text-[#dc2626]"
                 >
-                  {formatWon(item.amount)}
-                </ContractorEstimateInfoRow>
-              ),
-            )}
+                  ×
+                </button>
+              </div>
+            ))}
 
-            <ContractorEstimateInfoRow
-              label="추가 비용 합계"
-              emphasize
+            <button
+              type="button"
+              onClick={addAdditionalCost}
+              className="h-10 w-full rounded-lg border border-dashed border-[#2563eb] text-xs font-bold text-[#2563eb]"
             >
-              {formatWon(
-                calculateAdditionalTotal(
-                  draft,
-                ),
-              )}
+              + 추가 비용 항목 추가
+            </button>
+            <FieldError field="additionalCosts" errors={errors} />
+          </div>
+
+          <div className="mt-4 border-t border-[#e2e8f0] pt-3">
+            <ContractorEstimateInfoRow label="추가 비용 합계" emphasize>
+              {formatWon(calculateAdditionalTotal(draft))}
             </ContractorEstimateInfoRow>
-          </dl>
+          </div>
         </ContractorSectionCard>
 
         <ContractorSectionCard
           className="mt-4"
-          title="할인 및 세금"
-        >
-          <dl className="space-y-2">
-            <ContractorEstimateInfoRow label="할인 금액">
-              -
-              {formatWon(
-                draft.discountAmount,
-              )}
-            </ContractorEstimateInfoRow>
-
-            <ContractorEstimateInfoRow label="부가세">
-              {draft.vatIncluded
-                ? '포함'
-                : '별도'}
-            </ContractorEstimateInfoRow>
-          </dl>
-
-          <p className="mt-3 text-[11px] text-[#64748b]">
-            총 견적 금액에는 부가세가 포함되어
-            있습니다.
-          </p>
-        </ContractorSectionCard>
-
-        <ContractorSectionCard
-          className="mt-4"
-          title="시공사 제안 견적"
+          title="최종 금액 (VAT 포함)"
         >
           <ContractorEstimateSummary
             draft={draft}
+            preview
           />
         </ContractorSectionCard>
 
@@ -780,104 +823,6 @@ export default function ContractorEstimateEditPage() {
             <ContractorEstimateInfoRow label="완료 예정일">
               2026.08.07
             </ContractorEstimateInfoRow>
-
-            <ContractorEstimateInfoRow label="견적 유효기간">
-              작성일로부터 14일
-            </ContractorEstimateInfoRow>
-
-            <div className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  [
-                    'depositPercent',
-                    'depositPercent',
-                    '계약금',
-                  ],
-                  [
-                    'interimPercent',
-                    'interimPercent',
-                    '중도금',
-                  ],
-                  [
-                    'balancePercent',
-                    'balancePercent',
-                    '잔금',
-                  ],
-                ] as const
-              ).map(
-                ([
-                  key,
-                  errorKey,
-                  label,
-                ]) => (
-                  <label
-                    key={key}
-                    className="text-[11px] font-bold"
-                  >
-                    {label}(%)
-
-                    <input
-                      id={errorKey}
-                      type="number"
-                      inputMode="numeric"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={
-                        draft.condition
-                          .paymentTerms[key]
-                      }
-                      aria-invalid={Boolean(
-                        errors[errorKey],
-                      )}
-                      aria-describedby={
-                        errors[errorKey]
-                          ? `${errorKey}-error`
-                          : undefined
-                      }
-                      onChange={(event) =>
-                        updatePayment(
-                          key,
-                          finiteOrZero(
-                            event.target
-                              .valueAsNumber,
-                          ),
-                        )
-                      }
-                      className={
-                        numericClass
-                      }
-                    />
-
-                    <FieldError
-                      field={errorKey}
-                      errors={errors}
-                    />
-                  </label>
-                ),
-              )}
-            </div>
-
-            <p
-              id="paymentTotal"
-              tabIndex={
-                errors.paymentTotal
-                  ? -1
-                  : undefined
-              }
-              className={`text-xs ${
-                errors.paymentTotal
-                  ? 'font-semibold text-[#dc2626]'
-                  : 'text-[#64748b]'
-              }`}
-              role={
-                errors.paymentTotal
-                  ? 'alert'
-                  : undefined
-              }
-            >
-              결제 비율 합계 {paymentTotal}%
-            </p>
 
             <ContractorEstimateInfoRow label="A/S 보증기간">
               {

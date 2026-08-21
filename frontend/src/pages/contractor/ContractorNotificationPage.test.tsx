@@ -28,3 +28,18 @@ describe('ContractorNotificationPage', () => {
     expect(mocks.readNotification).toHaveBeenCalledWith(5)
   })
 })
+
+  it('opens a contextual visit notification directly in the request chat', async () => {
+    mocks.getNotifications.mockResolvedValue({ content: [{
+      id: 6, type: 'VISIT', title: '방문 일정 변경 요청', content: '일정을 확인하세요.',
+      read: false, requestId: 99, contractorId: 5, createdAt: new Date().toISOString(),
+    }] })
+
+    render(<MemoryRouter initialEntries={['/contractor/notifications']}><Routes>
+      <Route path="/contractor/notifications" element={<ContractorNotificationPage />} />
+      <Route path="/contractor/requests/:requestId/chat" element={<p>chat page</p>} />
+    </Routes></MemoryRouter>)
+
+    fireEvent.click(await screen.findByRole('button', { name: /방문 일정 변경 요청/ }))
+    expect(await screen.findByText('chat page')).toBeInTheDocument()
+  })

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getMyEstimateRequests, getRequest } from '@/api/requestApi'
+import { ACTIVE_REQUEST_ID_KEY, deleteEstimateRequest, getMyEstimateRequests, getRequest } from '@/api/requestApi'
 import { getQuotesByRequest } from '@/api/estimateApi'
 import { getEstimateRequestById, type EstimateRequestSummary } from '@/mocks/estimateRequests'
 import type { QuoteResponse } from '@/types/backendContractor'
@@ -24,9 +24,10 @@ export function toEstimateRequestSummary(request: RequestResponse): EstimateRequ
   const contractorName = request.contractorNames?.length ? request.contractorNames.join(', ') : request.contractorId ? `선택 시공사 #${request.contractorId}` : '여러 시공사 견적 비교'
   return {
     id: String(request.id),
+    requestCode: request.requestCode ?? `REQ-ID-${request.id}`,
     contractorId: request.contractorId ? String(request.contractorId) : '',
     contractorName,
-    regionAndSpecialty: `${request.region} · ${request.requestCode ?? `의뢰 #${request.id}`}`,
+    regionAndSpecialty: `${request.region} · ${request.requestCode ?? `REQ-ID-${request.id}`}`,
     requestedAtLabel: request.createdAt?.slice(0, 10) ?? '-',
     itemCountLabel: `${selectedItems.length}개 항목`,
     status: state.status,
@@ -56,7 +57,27 @@ export function useEstimateRequestHistory() {
     }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [attempt])
-  return { requests, usingLiveData: true, loading, error, retry: () => setAttempt((value) => value + 1) }
+
+  const removeRequest = async (requestId: string) => {
+    const numericId = Number(requestId)
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      throw new Error('삭제할 견적 요청을 확인할 수 없습니다.')
+    }
+    await deleteEstimateRequest(numericId)
+    setRequests((current) => current.filter((request) => request.id !== requestId))
+    if (sessionStorage.getItem(ACTIVE_REQUEST_ID_KEY) === requestId) {
+      sessionStorage.removeItem(ACTIVE_REQUEST_ID_KEY)
+    }
+  }
+
+  return {
+    requests,
+    usingLiveData: true,
+    loading,
+    error,
+    retry: () => setAttempt((value) => value + 1),
+    removeRequest,
+  }
 }
 
 export function useEstimateRequestDetail(requestId: string | undefined) {

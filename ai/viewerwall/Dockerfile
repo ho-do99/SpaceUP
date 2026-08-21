@@ -5,8 +5,9 @@ WORKDIR /app
 COPY viewer3d/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Reuse the stable 8003 UI and API implementation, then replace only the
-# display-polygon postprocessor with the experimental wall-guided version.
+# Reuse the stable 8003 UI and API implementation. viewerwall/app/main.py
+# layers the approved line-first viewer and the latest 8004-only cleanup;
+# approved_main.py is kept in the same package so the image is self-contained.
 COPY viewer3d/app ./base_app
 COPY viewerwall/app ./app
 

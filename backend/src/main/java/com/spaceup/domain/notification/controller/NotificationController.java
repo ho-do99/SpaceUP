@@ -54,6 +54,14 @@ public class NotificationController {
 		return ResponseEntity.ok(ApiResponse.success("모든 알림을 읽음 처리했습니다.", null));
 	}
 
+	@PostMapping("/chat-context/read")
+	public ResponseEntity<ApiResponse<Void>> markChatContextAsRead(@RequestParam Long requestId,
+			@RequestParam Long contractorId, Authentication authentication) {
+		notificationService.markChatContextAsRead(getMemberId(authentication), requestId, contractorId);
+		return ResponseEntity.ok(ApiResponse.success("채팅 관련 알림을 읽음 처리했습니다.", null));
+	}
+
+
 	private Long getMemberId(Authentication authentication) {
 		MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
 		return principal.getId();

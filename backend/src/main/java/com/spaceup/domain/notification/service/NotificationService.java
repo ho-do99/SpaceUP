@@ -1,5 +1,7 @@
 package com.spaceup.domain.notification.service;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.context.ApplicationEventPublisher;
@@ -90,6 +92,18 @@ public class NotificationService {
 	@Transactional
 	public void markAllAsRead(Long receiverId) {
 		notificationRepository.findByReceiverIdAndReadFalse(receiverId).forEach(Notification::markAsRead);
+		eventPublisher.publishEvent(RealtimeDomainEvent.notificationChanged(receiverId, null));
+	}
+
+	@Transactional
+	public void markChatContextAsRead(Long receiverId, Long requestId, Long contractorId) {
+		List<Notification> notifications = notificationRepository
+				.findByReceiverIdAndRequestIdAndContractorIdAndTypeInAndReadFalse(receiverId, requestId,
+						contractorId, List.of(NotificationType.CHAT, NotificationType.VISIT));
+		if (notifications.isEmpty()) {
+			return;
+		}
+		notifications.forEach(Notification::markAsRead);
 		eventPublisher.publishEvent(RealtimeDomainEvent.notificationChanged(receiverId, null));
 	}
 

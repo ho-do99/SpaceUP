@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getChatMessages, getChatThreads, readChat, sendChatMessage } from '@/api/chatApi'
+import { readChatContextNotifications } from '@/api/notificationApi'
 
 import backIcon from '@/assets/user/icons/back.svg'
 import ContractorChatBubble from '@/components/contractor/ContractorChatBubble'
@@ -13,6 +14,7 @@ import type { ContractorChatMessage } from '@/types/contractorPortal'
 import type { ChatThread, SiteVisit } from '@/types/backendContractor'
 import useRealtime from '@/contexts/useRealtime'
 import { getVisit } from '@/api/visitApi'
+import { formatBrowserTime24 } from '@/utils/browserDateTime'
 
 import ContractorRequestNotFound from './ContractorRequestNotFound'
 
@@ -25,7 +27,7 @@ export default function ContractorChatPage({
 }: ContractorChatPageProps) {
   const { requestId } = useParams()
   const navigate = useNavigate()
-  const { latestEvent } = useRealtime()
+  const { latestEvent, refreshUnreadNotificationCount } = useRealtime()
   const liveRequestId = isLiveContractorRequestId(requestId)
   const numericRequestId = liveRequestId ? Number(requestId) : 0
   const liveRequest = useContractorRequest(requestId)
@@ -46,30 +48,39 @@ export default function ContractorChatPage({
   const activeLiveVisitState = liveVisitState.requestId === numericRequestId ? liveVisitState : null
   const messages = liveRequestId ? activeLiveRoom?.messages ?? [] : mockMessages
 
+  const acknowledgeLiveRoom = useCallback(async (requestId: number, contractorId: number) => {
+    await Promise.allSettled([
+      readChat(requestId),
+      readChatContextNotifications(requestId, contractorId),
+    ])
+    await refreshUnreadNotificationCount()
+  }, [refreshUnreadNotificationCount])
+
   const loadLiveRoom = useCallback((requestId: number) => {
     const sequence = ++roomLoadSequence.current
     return Promise.all([getChatMessages(requestId), getChatThreads()])
       .then(([chatMessages, threads]) => {
         if (sequence !== roomLoadSequence.current) return
+        const matchingThread = threads.find((thread) => thread.requestId === requestId) ?? null
         setLiveRoom({
           requestId,
           messages: chatMessages.map((message) => ({
             id: String(message.id),
             sender: message.senderType === 'SYSTEM' ? 'system' : message.senderType === 'CONTRACTOR' ? 'contractor' : 'customer',
             text: message.content,
-            timeLabel: message.createdAt?.slice(11, 16) || '',
+            timeLabel: formatBrowserTime24(message.createdAt),
           })),
-          thread: threads.find((thread) => thread.requestId === requestId) ?? null,
+          thread: matchingThread,
         })
         setLiveError(null)
-        void readChat(requestId).catch(() => undefined)
+        if (matchingThread) void acknowledgeLiveRoom(requestId, matchingThread.contractorId)
       })
       .catch(() => {
         if (sequence !== roomLoadSequence.current) return
         setLiveRoom({ requestId, messages: [], thread: null })
         setLiveError('채팅 내용을 불러오지 못했습니다.')
       })
-  }, [])
+  }, [acknowledgeLiveRoom])
 
   useEffect(() => {
     roomLoadSequence.current += 1
@@ -79,30 +90,33 @@ export default function ContractorChatPage({
     void loadLiveRoom(numericRequestId)
     return () => { roomLoadSequence.current += 1 }
   }, [liveRequestId, loadLiveRoom, numericRequestId])
-
-  useEffect(() => {
-    visitLoadSequence.current += 1
-    if (!liveRequestId) return
+  const loadLiveVisit = useCallback((requestId: number) => {
     const sequence = ++visitLoadSequence.current
-    setLiveVisitState({ requestId: numericRequestId, visit: null, loading: true, error: '' })
-    getVisit(numericRequestId)
+    setLiveVisitState({ requestId, visit: null, loading: true, error: '' })
+    return getVisit(requestId)
       .then((visit) => {
         if (sequence === visitLoadSequence.current) {
-          setLiveVisitState({ requestId: numericRequestId, visit, loading: false, error: '' })
+          setLiveVisitState({ requestId, visit, loading: false, error: '' })
         }
       })
       .catch(() => {
         if (sequence === visitLoadSequence.current) {
-          setLiveVisitState({ requestId: numericRequestId, visit: null, loading: false, error: '방문 일정을 불러오지 못했습니다.' })
+          setLiveVisitState({ requestId, visit: null, loading: false, error: '방문 일정을 불러오지 못했습니다.' })
         }
       })
+  }, [])
+
+  useEffect(() => {
+    visitLoadSequence.current += 1
+    if (!liveRequestId) return
+    void loadLiveVisit(numericRequestId)
     return () => { visitLoadSequence.current += 1 }
-  }, [liveRequestId, numericRequestId])
+  }, [liveRequestId, loadLiveVisit, numericRequestId])
 
   useEffect(() => {
     if (!liveRequestId || latestEvent?.type !== 'CHAT_MESSAGE' || latestEvent.requestId !== numericRequestId) return
-    void loadLiveRoom(numericRequestId)
-  }, [latestEvent, liveRequestId, loadLiveRoom, numericRequestId])
+    void Promise.all([loadLiveRoom(numericRequestId), loadLiveVisit(numericRequestId)])
+  }, [latestEvent, liveRequestId, loadLiveRoom, loadLiveVisit, numericRequestId])
 
   const addMessage = async (content: string) => {
     if (!liveRequestId) {
@@ -123,7 +137,7 @@ export default function ContractorChatPage({
           ...current,
           messages: [...current.messages, {
             id: String(message.id), sender: 'contractor', text: message.content,
-            timeLabel: message.createdAt?.slice(11, 16) || '',
+            timeLabel: formatBrowserTime24(message.createdAt),
           }],
         }
       })
@@ -164,6 +178,23 @@ export default function ContractorChatPage({
     ? `/contractor/requests/${requestId}/estimate-ready`
     : `/contractor/requests/${request?.requestId}/estimate-ready?mode=completed`
   const showActions = !liveRequestId || (activeLiveThread !== null && activeLiveVisitState?.loading === false && !visitLookupError)
+  const liveVisit = activeLiveVisitState?.visit
+  const visitScheduleLabel = liveVisit?.visitDate
+    ? `${liveVisit.visitDate.replace(/-/g, '.')} ${liveVisit.visitTime?.slice(0, 5) ?? ''}`.trim()
+    : ''
+  const visitHeadline = hasCompletedVisit
+    ? '현장 확인 완료 · 견적 작성 가능'
+    : liveVisit?.status === 'CHANGE_REQUESTED'
+      ? '방문 일정 변경 요청 확인 중'
+      : liveVisit?.status === 'SCHEDULED'
+        ? '현장 방문 일정 확정'
+        : '의뢰 승인 완료 · 실시간 채팅 중'
+  const visitDescription = hasCompletedVisit
+    ? `실제 현장 방문 완료${visitScheduleLabel ? ` · ${visitScheduleLabel}` : ''}`
+    : liveVisit?.status === 'CHANGE_REQUESTED'
+      ? `변경 희망 일정 ${liveVisit.requestedDate?.replace(/-/g, '.') ?? ''} ${liveVisit.requestedTime?.slice(0, 5) ?? ''}`.trim()
+      : visitScheduleLabel || '사용자와 현장 방문 일정을 조율해 주세요.'
+
 
   return (
     <ContractorMobileShell innerClassName="h-dvh min-h-0">
@@ -183,8 +214,8 @@ export default function ContractorChatPage({
           <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">안전한 거래와 개인정보 보호를 위해 사용자와의 소통은 이 채팅 안에서 진행해 주세요.</p>
         </section>
         <section className="mb-3 rounded-xl border border-[#e2e8f0] bg-white p-[13px]">
-          <h2 className="text-sm font-bold text-[#2563eb]">{hasCompletedVisit ? '현장 확인 완료 · 견적 작성 가능' : '의뢰 승인 완료 · 실시간 채팅 중'}</h2>
-          <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">{hasCompletedVisit ? '실제 현장 방문 완료 · 2026.07.24 15:40' : '사용자와 현장 방문 일정을 조율해 주세요.'}</p>
+          <h2 className="text-sm font-bold text-[#2563eb]">{visitHeadline}</h2>
+          <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">{visitDescription}</p>
         </section>
         <section className="mb-4 rounded-xl border border-[#e2e8f0] bg-white p-[13px]">
           <h2 className="text-sm font-bold text-[#ef4444]">7일 자동 취소 안내</h2>
@@ -192,9 +223,6 @@ export default function ContractorChatPage({
           <p className="mt-1 text-[11px] leading-[17px] text-[#64748b]">144시간: D-1 알림 · 168시간: 자동 취소</p>
         </section>
 
-        <p className="mb-3 text-center text-[10px] text-[#94a3b8]">
-          2026년 7월 24일
-        </p>
 
         <div className="space-y-3">
           {messages.map((message) => (
@@ -215,7 +243,7 @@ export default function ContractorChatPage({
             </p>
 
             <p>
-              방문일 2026.07.24 · 이제 견적서를
+              방문일 {visitScheduleLabel || '확인 완료'} · 이제 견적서를
               작성할 수 있습니다.
             </p>
           </div>

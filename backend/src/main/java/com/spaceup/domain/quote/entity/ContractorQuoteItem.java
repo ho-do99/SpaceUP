@@ -1,5 +1,7 @@
 package com.spaceup.domain.quote.entity;
 
+import java.math.BigDecimal;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -38,8 +40,17 @@ public class ContractorQuoteItem {
 	@Column(name = "work_type", nullable = false, length = 30)
 	private String category; // 철거/바닥/조명 등
 
-	@Column(length = 100)
+	@Column(length = 500)
 	private String description; // 어반톤 9T, LED 교체 등 세부 내용
+
+	@Column(precision = 10, scale = 2)
+	private BigDecimal quantity; // 실측 면적 또는 조명 수량
+
+	@Column(name = "measurement_unit", length = 10)
+	private String measurementUnit; // ㎡, 개
+
+	@Column(name = "unit_price")
+	private Long unitPrice; // 견적 작성 당시 선택 자재 단가 스냅샷
 
 	@Column(nullable = false)
 	private Long amount; // 항목 금액

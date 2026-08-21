@@ -101,13 +101,29 @@ public class ChatService {
 	}
 
 	@Transactional
+	public ChatMessageResponse sendSystemMessage(QuoteRequest request, Member contractor, String content) {
+		ChatMessage message = ChatMessage.builder().request(request).contractor(contractor)
+				.senderType(ChatSenderType.SYSTEM).content(content).build();
+		chatMessageRepository.save(message);
+		request.touch();
+
+		Long requestId = request.getId();
+		Long contractorId = contractor.getId();
+		Long landlordId = request.getOwner().getId();
+		eventPublisher.publishEvent(RealtimeDomainEvent.chatMessage(landlordId, requestId, contractorId,
+				message.getId()));
+		if (!contractorId.equals(landlordId)) {
+			eventPublisher.publishEvent(RealtimeDomainEvent.chatMessage(contractorId, requestId, contractorId,
+					message.getId()));
+		}
+		return new ChatMessageResponse(message);
+	}
+
+	@Transactional
 	public void markThreadAsRead(Long requestId, Long contractorId, Long memberId) {
 		RequestContractor participation = resolveParticipation(requestId, contractorId, memberId);
-		Member member = findMemberOrThrow(memberId);
-		ChatSenderType myType = participation.getRequest().getOwner().getId().equals(memberId)
-				? ChatSenderType.LANDLORD : ChatSenderType.CONTRACTOR;
-		chatMessageRepository.findByRequestIdAndContractorIdAndSenderTypeNotAndReadFalse(requestId,
-				participation.getContractor().getId(), myType).forEach(ChatMessage::markAsRead);
+		chatMessageRepository.findUnreadFromOtherMembers(requestId, participation.getContractor().getId(),
+				memberId).forEach(ChatMessage::markAsRead);
 	}
 
 	private ChatThreadResponse toThread(RequestContractor participation, Member viewer) {

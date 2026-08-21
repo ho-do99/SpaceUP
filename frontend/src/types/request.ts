@@ -30,6 +30,9 @@ export interface RequestResponse extends RequestCreateInput {
   landlordId?: number
   landlordName?: string
   selectedTheme?: MaterialTheme | null
+  selectedWallpaperProductId?: number | null
+  selectedFlooringProductId?: number | null
+  selectedLightingProductId?: number | null
   contractorId?: number | null
   status?: string
   rejectReason?: string | null

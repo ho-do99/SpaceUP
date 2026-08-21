@@ -5,7 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.spaceup.domain.analysis.repository.AnalysisJobRepository;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.repository.MemberRepository;
+import com.spaceup.domain.material.entity.MaterialProduct;
 import com.spaceup.domain.notification.service.NotificationService;
 import com.spaceup.domain.quote.dto.ContractorQuoteCreateRequest;
 import com.spaceup.domain.quote.dto.ContractorQuoteItemRequest;
@@ -50,6 +55,23 @@ class ContractorQuoteMultiContractorTest {
 	@Mock SiteVisitRepository siteVisitRepository;
 	@Mock AnalysisJobRepository analysisJobRepository;
 	@InjectMocks ContractorQuoteService service;
+
+	@Test
+	void submittedQuoteNotificationKeepsItsRequestAndContractorContext() {
+		Member owner = Member.builder().id(10L).name("owner").build();
+		Member contractor = Member.builder().id(20L).name("마블건축").build();
+		QuoteRequest request = QuoteRequest.builder().id(14L).requestCode("REQ-260820-000114")
+				.owner(owner).status(RequestStatus.QUOTE_REQUESTED).build();
+		ContractorQuote quote = ContractorQuote.builder().id(19L).request(request).contractor(contractor)
+				.status(QuoteStatus.DRAFT).title("리모델링 견적").totalAmount(5_171_518L).build();
+
+		when(contractorQuoteRepository.findById(19L)).thenReturn(Optional.of(quote));
+
+		service.submit(19L, 20L);
+
+		verify(notificationService).notifyForRequest(eq(10L), eq(com.spaceup.domain.notification.entity.NotificationType.QUOTE),
+				eq("새 견적이 도착했습니다"), contains("REQ-260820-000114"), eq(14L), eq(20L));
+	}
 
 	@Test
 	void acceptingOneQuoteSelectsItsContractorAndClosesTheOthers() {
@@ -87,8 +109,12 @@ class ContractorQuoteMultiContractorTest {
 	void createsFinalDraftOnlyForSelectedContractorAfterCompletedVisit() {
 		Member owner = Member.builder().id(10L).name("owner").build();
 		Member contractor = Member.builder().id(20L).name("contractor").build();
+		MaterialProduct flooring = material("바닥재", "30000");
+		MaterialProduct wallpaper = material("벽지", "10000");
+		MaterialProduct lighting = lighting("조명", "50000");
 		QuoteRequest request = QuoteRequest.builder().id(1L).owner(owner)
-				.status(RequestStatus.APPROVED).build();
+				.selectedFlooringProduct(flooring).selectedWallpaperProduct(wallpaper)
+				.selectedLightingProduct(lighting).status(RequestStatus.APPROVED).build();
 		RequestContractor participation = RequestContractor.builder().id(100L).request(request)
 				.contractor(contractor).status(RequestContractorStatus.SELECTED).build();
 		SiteVisit completedVisit = SiteVisit.builder().id(30L).request(request).contractor(contractor)
@@ -104,6 +130,10 @@ class ContractorQuoteMultiContractorTest {
 		ArgumentCaptor<ContractorQuote> quoteCaptor = ArgumentCaptor.forClass(ContractorQuote.class);
 		verify(contractorQuoteRepository).save(quoteCaptor.capture());
 		assertEquals(QuotePhase.FINAL, quoteCaptor.getValue().getPhase());
+		assertEquals(3, quoteCaptor.getValue().getItems().size());
+		assertEquals(3_650_000L, quoteCaptor.getValue().getMaterialCost());
+		assertEquals(365_000L, quoteCaptor.getValue().getVat());
+		assertEquals(4_015_000L, quoteCaptor.getValue().getTotalAmount());
 	}
 
 	@Test
@@ -130,7 +160,27 @@ class ContractorQuoteMultiContractorTest {
 		ContractorQuoteCreateRequest request = new ContractorQuoteCreateRequest();
 		request.setRequestId(requestId);
 		request.setTitle("견적");
+		request.setFloorAreaM2(new BigDecimal("59"));
+		request.setWallpaperAreaM2(new BigDecimal("168"));
+		request.setLightingQuantity(4);
+		request.setCeilingHeightM(new BigDecimal("2.4"));
+		request.setRoomCount(3);
+		request.setBathroomCount(1);
 		request.setItems(List.of(item));
 		return request;
+	}
+
+	private MaterialProduct material(String name, String normalizedPrice) {
+		MaterialProduct product = mock(MaterialProduct.class);
+		when(product.getProductName()).thenReturn(name);
+		when(product.getNormalizedPriceM2()).thenReturn(new BigDecimal(normalizedPrice));
+		return product;
+	}
+
+	private MaterialProduct lighting(String name, String currentPrice) {
+		MaterialProduct product = mock(MaterialProduct.class);
+		when(product.getProductName()).thenReturn(name);
+		when(product.getCurrentPrice()).thenReturn(new BigDecimal(currentPrice));
+		return product;
 	}
 }

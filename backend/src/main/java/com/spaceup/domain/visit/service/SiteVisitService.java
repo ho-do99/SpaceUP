@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.spaceup.domain.chat.service.ChatService;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.notification.entity.NotificationType;
 import com.spaceup.domain.notification.service.NotificationService;
@@ -33,6 +34,7 @@ public class SiteVisitService {
 	private final QuoteRequestRepository quoteRequestRepository;
 	private final RequestContractorRepository requestContractorRepository;
 	private final NotificationService notificationService;
+	private final ChatService chatService;
 
 	@Transactional
 	public void createIfAbsent(QuoteRequest request, Member contractor) {
@@ -78,9 +80,10 @@ public class SiteVisitService {
 		SiteVisit visit = findByRequestOrThrow(requestId, contractorId);
 		validateContractor(visit, contractorId);
 		visit.schedule(visitDate, visitTime, managerName, note);
-		notificationService.notify(visit.getRequest().getOwner().getId(), NotificationType.VISIT,
-				"현장방문 일정이 등록되었습니다",
-				String.format("%s 시공사가 %s %s 방문할 예정입니다.", visit.getContractor().getName(), visitDate, visitTime));
+		String content = String.format("현장 방문 일정이 %s %s로 등록되었습니다.", visitDate, visitTime);
+		notifyVisit(visit, visit.getRequest().getOwner().getId(), "현장방문 일정이 등록되었습니다",
+				content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
 
@@ -90,9 +93,10 @@ public class SiteVisitService {
 		SiteVisit visit = findOrThrow(visitId);
 		validateLandlord(visit.getRequest(), landlordId);
 		visit.requestChange(requestedDate, requestedTime, reason);
-		notificationService.notify(visit.getContractor().getId(), NotificationType.VISIT,
-				"방문 일정 변경 요청이 도착했습니다",
-				String.format("희망 일정: %s %s (%s)", requestedDate, requestedTime, reason));
+		String content = String.format("사용자가 방문 일정 변경을 요청했습니다: %s %s (%s)", requestedDate,
+				requestedTime, reason);
+		notifyVisit(visit, visit.getContractor().getId(), "방문 일정 변경 요청이 도착했습니다", content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
 
@@ -101,9 +105,10 @@ public class SiteVisitService {
 		SiteVisit visit = findOrThrow(visitId);
 		validateContractor(visit, contractorId);
 		visit.acceptChangeRequest();
-		notificationService.notify(visit.getRequest().getOwner().getId(), NotificationType.VISIT,
-				"방문 일정 변경 요청을 수락했습니다",
-				String.format("%s %s로 방문 일정이 확정되었습니다.", visit.getVisitDate(), visit.getVisitTime()));
+		String content = String.format("시공사가 방문 일정 변경 요청을 수락했습니다: %s %s",
+				visit.getVisitDate(), visit.getVisitTime());
+		notifyVisit(visit, visit.getRequest().getOwner().getId(), "방문 일정 변경 요청을 수락했습니다", content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
 
@@ -113,8 +118,9 @@ public class SiteVisitService {
 		SiteVisit visit = findOrThrow(visitId);
 		validateContractor(visit, contractorId);
 		visit.propose(visitDate, visitTime, note);
-		notificationService.notify(visit.getRequest().getOwner().getId(), NotificationType.VISIT,
-				"새 방문 일정을 제안했습니다", String.format("%s %s로 방문 일정을 제안드립니다.", visitDate, visitTime));
+		String content = String.format("시공사가 새 방문 일정을 제안했습니다: %s %s", visitDate, visitTime);
+		notifyVisit(visit, visit.getRequest().getOwner().getId(), "새 방문 일정을 제안했습니다", content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
 
@@ -123,9 +129,10 @@ public class SiteVisitService {
 		SiteVisit visit = findOrThrow(visitId);
 		validateContractor(visit, contractorId);
 		visit.rejectChangeRequest();
-		notificationService.notify(visit.getRequest().getOwner().getId(), NotificationType.VISIT,
-				"방문 일정 변경 요청을 거절했습니다",
-				String.format("기존 일정(%s %s)을 유지합니다.", visit.getVisitDate(), visit.getVisitTime()));
+		String content = String.format("시공사가 방문 일정 변경 요청을 거절했습니다. 기존 일정 %s %s을 유지합니다.",
+				visit.getVisitDate(), visit.getVisitTime());
+		notifyVisit(visit, visit.getRequest().getOwner().getId(), "방문 일정 변경 요청을 거절했습니다", content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
 
@@ -134,10 +141,17 @@ public class SiteVisitService {
 		SiteVisit visit = findOrThrow(visitId);
 		validateContractor(visit, contractorId);
 		visit.complete(note);
-		notificationService.notify(visit.getRequest().getOwner().getId(), NotificationType.VISIT,
-				"현장방문이 완료되었습니다", "현장방문이 완료되었습니다. 곧 견적서를 받아볼 수 있습니다.");
+		String content = "시공사가 현장 방문 완료를 처리했습니다. 이제 최종 견적서를 작성할 수 있습니다.";
+		notifyVisit(visit, visit.getRequest().getOwner().getId(), "현장방문이 완료되었습니다", content);
+		chatService.sendSystemMessage(visit.getRequest(), visit.getContractor(), content);
 		return new SiteVisitResponse(visit);
 	}
+
+	private void notifyVisit(SiteVisit visit, Long receiverId, String title, String content) {
+		notificationService.notifyForRequest(receiverId, NotificationType.VISIT, title, content,
+				visit.getRequest().getId(), visit.getContractor().getId());
+	}
+
 
 	private void validateContractor(SiteVisit visit, Long contractorId) {
 		if (!visit.getContractor().getId().equals(contractorId)) {

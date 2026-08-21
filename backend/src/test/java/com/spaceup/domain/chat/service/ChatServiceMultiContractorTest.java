@@ -1,6 +1,7 @@
 package com.spaceup.domain.chat.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -12,11 +13,14 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.springframework.context.ApplicationEventPublisher;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.spaceup.domain.chat.entity.ChatMessage;
+import com.spaceup.domain.chat.entity.ChatSenderType;
 import com.spaceup.domain.chat.repository.ChatMessageRepository;
 import com.spaceup.domain.contractor.repository.ContractorProfileRepository;
 import com.spaceup.domain.member.entity.Member;
@@ -94,6 +98,22 @@ class ChatServiceMultiContractorTest {
 		verify(notificationService).notifyForRequest(eq(2L), eq(NotificationType.CHAT),
 				eq("새 채팅 메시지가 도착했습니다"), eq("시연 임대인: 방문 일정을 조율해요"),
 				eq(10L), eq(2L));
+	}
+
+	@Test
+	void systemMessageHasNoSenderToSatisfyDatabaseConstraint() {
+		Member owner = Member.builder().id(1L).role(MemberRole.LANDLORD).build();
+		Member contractor = Member.builder().id(2L).role(MemberRole.CONTRACTOR).build();
+		QuoteRequest request = QuoteRequest.builder().id(10L).owner(owner)
+				.status(RequestStatus.QUOTE_REQUESTED).build();
+		when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		service.sendSystemMessage(request, contractor, "방문 일정이 등록되었습니다.");
+
+		ArgumentCaptor<ChatMessage> messageCaptor = ArgumentCaptor.forClass(ChatMessage.class);
+		verify(chatMessageRepository).save(messageCaptor.capture());
+		assertEquals(ChatSenderType.SYSTEM, messageCaptor.getValue().getSenderType());
+		assertNull(messageCaptor.getValue().getSender());
 	}
 
 	@Test

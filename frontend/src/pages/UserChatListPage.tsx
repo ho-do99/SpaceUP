@@ -6,9 +6,11 @@ import type { ChatThread } from '@/types/backendContractor'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import useRealtime from '@/contexts/useRealtime'
+import { formatBrowserTime } from '@/utils/browserDateTime'
 
 interface UserChatListItem {
   requestId: string
+  requestCode: string
   contractorId: string
   contractorName: string
   lastMessage: string
@@ -28,21 +30,7 @@ function formatChatTime(value: string) {
     return value
   }
 
-  const timeMatch = value.match(
-    /(?:T|\s)(\d{2}):(\d{2})/,
-  )
-
-  if (!timeMatch) {
-    return value
-  }
-
-  const hour = Number(timeMatch[1])
-  const minute = timeMatch[2]
-  const period = hour < 12 ? '오전' : '오후'
-  const displayHour =
-    hour % 12 === 0 ? 12 : hour % 12
-
-  return `${period} ${displayHour}:${minute}`
+  return formatBrowserTime(value)
 }
 
 function normalizeChatThread(
@@ -50,6 +38,7 @@ function normalizeChatThread(
 ): UserChatListItem {
   return {
     requestId: String(thread.requestId),
+    requestCode: thread.requestCode || `REQ-ID-${thread.requestId}`,
     contractorId: String(thread.contractorId),
     contractorName: thread.counterpartName,
     lastMessage: thread.lastMessage || '아직 메시지가 없습니다.',
@@ -136,6 +125,9 @@ export default function UserChatListPage() {
         chat.contractorName
           .toLowerCase()
           .includes(keyword) ||
+        chat.requestCode
+          .toLowerCase()
+          .includes(keyword) ||
         chat.lastMessage
           .toLowerCase()
           .includes(keyword),
@@ -219,7 +211,11 @@ export default function UserChatListPage() {
                   {chat.contractorName}
                 </h2>
 
-                <p className="mt-[3px] truncate text-[12px] leading-[19px] text-[#64748b]">
+                <p className="truncate text-[9px] font-medium leading-[14px] text-[#2563eb]">
+                  의뢰 {chat.requestCode}
+                </p>
+
+                <p className="truncate text-[11px] leading-[17px] text-[#64748b]">
                   {chat.lastMessage}
                 </p>
               </div>

@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -16,11 +17,14 @@ import {
   readChat,
   sendChatMessage,
 } from '@/api/chatApi'
+import { readChatContextNotifications } from '@/api/notificationApi'
+import { getVisit } from '@/api/visitApi'
 
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import useRealtime from '@/contexts/useRealtime'
-import type { ChatThread } from '@/types/backendContractor'
+import type { ChatThread, SiteVisit } from '@/types/backendContractor'
+import { formatBrowserKoreanDate, formatBrowserTime } from '@/utils/browserDateTime'
 
 interface DisplayMessage {
   id: string | number
@@ -167,35 +171,11 @@ function CalendarIcon() {
 }
 
 function formatMessageTime(value?: string) {
-  if (!value) return ''
-
-  const match = value.match(
-    /(?:T|\s)(\d{2}):(\d{2})/,
-  )
-
-  if (!match) {
-    return value.slice(11, 16)
-  }
-
-  const hour = Number(match[1])
-  const minute = match[2]
-  const period =
-    hour < 12 ? '오전' : '오후'
-  const displayHour =
-    hour % 12 === 0 ? 12 : hour % 12
-
-  return `${period} ${displayHour}:${minute}`
+  return formatBrowserTime(value)
 }
 
 function formatMessageDate(value?: string) {
-  if (!value) return '오늘'
-
-  const datePart = value.slice(0, 10)
-  const [year, month, day] = datePart.split('-')
-
-  if (!year || !month || !day) return '오늘'
-
-  return `${Number(year)}년 ${Number(month)}월 ${Number(day)}일`
+  return formatBrowserKoreanDate(value) || '오늘'
 }
 
 function LandlordChatComposer({
@@ -314,7 +294,7 @@ function LandlordChatComposer({
 
 export default function LandlordChatPage() {
   const navigate = useNavigate()
-  const { latestEvent } = useRealtime()
+  const { latestEvent, refreshUnreadNotificationCount } = useRealtime()
 
   const {
     requestId,
@@ -334,10 +314,19 @@ export default function LandlordChatPage() {
   const [contractorName, setContractorName] = useState('')
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [visit, setVisit] = useState<SiteVisit | null>(null)
   const [sending, setSending] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(true)
 
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const acknowledgeRoom = useCallback(async () => {
+    await Promise.allSettled([
+      readChat(numericRequestId, numericContractorId),
+      readChatContextNotifications(numericRequestId, numericContractorId),
+    ])
+    await refreshUnreadNotificationCount()
+  }, [numericContractorId, numericRequestId, refreshUnreadNotificationCount])
+
   useEffect(() => {
     if (!Number.isInteger(numericRequestId) || !Number.isInteger(numericContractorId)) {
       setError('잘못된 채팅방 주소입니다.')
@@ -349,13 +338,15 @@ export default function LandlordChatPage() {
     setThread(null)
     setContractorName('')
     setMessages([])
+    setVisit(null)
     setLoadingMessages(true)
 
     Promise.all([
       getChatMessages(numericRequestId, numericContractorId),
       getChatThreads(),
+      getVisit(numericRequestId, numericContractorId).catch(() => null),
     ])
-      .then(([chatMessages, threads]) => {
+      .then(([chatMessages, threads, currentVisit]) => {
         if (!active) return
         const matchingThread = threads.find((item) =>
           item.requestId === numericRequestId && item.contractorId === numericContractorId,
@@ -371,8 +362,9 @@ export default function LandlordChatPage() {
           content: message.content,
           createdAt: message.createdAt,
         })))
+        setVisit(currentVisit)
         setLoadingMessages(false)
-        void readChat(numericRequestId, numericContractorId).catch(() => undefined)
+        void acknowledgeRoom()
       })
       .catch((loadError) => {
         if (!active) return
@@ -381,7 +373,7 @@ export default function LandlordChatPage() {
       })
 
     return () => { active = false }
-  }, [numericContractorId, numericRequestId])
+  }, [acknowledgeRoom, numericContractorId, numericRequestId])
   useEffect(() => {
     if (
       latestEvent?.type !== 'CHAT_MESSAGE' ||
@@ -390,8 +382,11 @@ export default function LandlordChatPage() {
     ) return
 
     let active = true
-    getChatMessages(numericRequestId, numericContractorId)
-      .then((chatMessages) => {
+    Promise.all([
+      getChatMessages(numericRequestId, numericContractorId),
+      getVisit(numericRequestId, numericContractorId).catch(() => null),
+    ])
+      .then(([chatMessages, currentVisit]) => {
         if (!active) return
         setMessages(chatMessages.map((message) => ({
           id: message.id,
@@ -399,11 +394,12 @@ export default function LandlordChatPage() {
           content: message.content,
           createdAt: message.createdAt,
         })))
-        void readChat(numericRequestId, numericContractorId).catch(() => undefined)
+        setVisit(currentVisit)
+        void acknowledgeRoom()
       })
       .catch(() => undefined)
     return () => { active = false }
-  }, [latestEvent, numericContractorId, numericRequestId])
+  }, [acknowledgeRoom, latestEvent, numericContractorId, numericRequestId])
 
   const send = async (
     content: string,
@@ -450,8 +446,33 @@ export default function LandlordChatPage() {
     }
   }
 
-  const companyMeta = thread?.contactable ? '견적 의뢰 채팅' : '종료된 채팅방'
+  const flowLabel = thread?.requestCode || (requestId ? `REQ-ID-${requestId}` : '')
+  const companyMeta = !thread
+    ? `의뢰 ${flowLabel} · 채팅 정보 확인 중`
+    : thread.contactable
+      ? `의뢰 ${flowLabel} · 견적 상담 채팅`
+      : `의뢰 ${flowLabel} · 종료된 채팅방`
   const dateLabel = formatMessageDate(messages[0]?.createdAt)
+  const visitScheduleLabel = visit?.visitDate
+    ? `${visit.visitDate.replace(/-/g, '.')} ${visit.visitTime?.slice(0, 5) ?? ''}`.trim()
+    : ''
+  const hasScheduledVisit = Boolean(visit && visit.status !== 'UNSCHEDULED')
+  const visitHeadline = !thread?.contactable
+    ? '채팅이 종료되었습니다'
+    : visit?.status === 'COMPLETED'
+      ? '현장 방문 완료'
+      : visit?.status === 'CHANGE_REQUESTED'
+        ? '방문 일정 변경 요청 확인 중'
+        : hasScheduledVisit ? '현장 방문 일정 확정' : '방문 일정 조율 중'
+  const visitDescription = !thread?.contactable
+    ? '최종 선택되지 않은 시공사와의 채팅은 종료됩니다.'
+    : visit?.status === 'CHANGE_REQUESTED'
+      ? `변경 희망 일정 ${visit.requestedDate?.replace(/-/g, '.') ?? ''} ${visit.requestedTime?.slice(0, 5) ?? ''}`.trim()
+      : visitScheduleLabel || '시공업체와 현장 방문 날짜와 시간을 조율해주세요.'
+  const visitButtonLabel = visit?.status === 'COMPLETED'
+    ? '방문 일정 확인'
+    : hasScheduledVisit ? '방문 일정 확인·변경' : '현장 방문 일정 잡기'
+
   return (
     <UserScreenShell className="h-dvh">
       <UserHeader
@@ -508,11 +529,11 @@ export default function LandlordChatPage() {
             <div className="flex items-center gap-2">
               <CheckIcon />
               <h2 className="text-[16px] font-bold leading-[22px] text-[#1e293b]">
-                {thread?.contactable ? '방문 일정 조율 중' : '채팅이 종료되었습니다'}
+                {visitHeadline}
               </h2>
             </div>
             <p className="mt-[6px] text-[12px] leading-[18px] text-[#64748b]">
-              {thread?.contactable ? '시공업체와 현장 방문 날짜와 시간을 조율해주세요.' : '최종 선택되지 않은 시공사와의 채팅은 종료됩니다.'}
+              {visitDescription}
             </p>
           </article>
 
@@ -522,7 +543,7 @@ export default function LandlordChatPage() {
             className="flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[#2563eb] text-[14px] font-bold text-white"
           >
             <CalendarIcon />
-            현장 방문 일정 잡기
+            {visitButtonLabel}
           </button> : null}
         </section>
         {/* 메시지 영역 */}

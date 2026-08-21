@@ -1,11 +1,9 @@
-import { useState } from 'react'
 import {
   Link,
   useNavigate,
   useParams,
 } from 'react-router-dom'
 
-import { acceptQuote } from '@/api/estimateApi'
 import { formatWon } from '@/components/contractor/contractorEstimateUtils'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
@@ -87,6 +85,11 @@ function getApprovedEstimate(
   }
 }
 
+function displayQuoteTitle(title?: string | null) {
+  const normalized = title?.replace(/^의뢰\s+#?\d+\s*/u, '').trim()
+  return normalized || '제안 견적'
+}
+
 function ProgressIcon() {
   return (
     <svg
@@ -132,42 +135,8 @@ export default function EstimateRequestDetailPage() {
     error,
   } = useEstimateRequestDetail(requestId)
 
-  const [acceptedQuoteId, setAcceptedQuoteId] =
-    useState<number | null>(null)
-
-  const [selectingQuoteId, setSelectingQuoteId] =
-    useState<number | null>(null)
-
-  const [selectionError, setSelectionError] =
-    useState<string | null>(null)
-
   const approvedEstimate =
     getApprovedEstimate(requestId)
-
-  const selectedQuoteId =
-    acceptedQuoteId ??
-    quotes.find(
-      (quote) => quote.status === 'ACCEPTED',
-    )?.id ??
-    null
-
-  const selectQuote = async (
-    quoteId: number,
-  ) => {
-    setSelectingQuoteId(quoteId)
-    setSelectionError(null)
-
-    try {
-      await acceptQuote(quoteId)
-      setAcceptedQuoteId(quoteId)
-    } catch {
-      setSelectionError(
-        '견적 선택에 실패했습니다. 이미 선택된 견적이 있는지 확인해주세요.',
-      )
-    } finally {
-      setSelectingQuoteId(null)
-    }
-  }
 
   if (loading || error) {
     return <UserScreenShell className="h-dvh"><UserHeader variant="detail" title="견적 요청 상세" onBack={() => navigate('/mypage/requests')} /><main className="flex flex-1 items-center justify-center px-6 text-center"><p role={error ? 'alert' : 'status'} className={`text-[13px] ${error ? 'text-[#dc2626]' : 'text-[#64748b]'}`}>{error || '견적 요청 정보를 불러오는 중입니다.'}</p></main></UserScreenShell>
@@ -339,34 +308,23 @@ export default function EstimateRequestDetailPage() {
               <div className="mt-3 space-y-2">
                 {quotes.length ? (
                   quotes.map((quote) => {
-                    const isSelected =
-                      selectedQuoteId ===
-                      quote.id
-
-                    const canSelect =
-                      quote.status ===
-                        'SUBMITTED' &&
-                      selectedQuoteId ===
-                        null
-
                     return (
                       <article
                         key={quote.id}
-                        className={`rounded-lg border p-3 ${
-                          isSelected
-                            ? 'border-[#2563eb] bg-[#eff6ff]'
-                            : 'border-[#e2e8f0] bg-white'
-                        }`}
+                        className="rounded-lg border border-[#e2e8f0] bg-white p-3"
                       >
                         <Link to={`/estimate/${quote.id}`} className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <h3 className="truncate text-[11px] font-bold text-[#1e293b]">
-                              {`시공사 #${quote.contractorId}`}
+                              {quote.contractorName || `시공사 ID-${quote.contractorId}`}
                             </h3>
 
+                            <p className="mt-1 text-[9px] font-medium text-[#2563eb]">
+                              의뢰 {request.requestCode ?? `REQ-ID-${numericId}`} · 견적 ID-{quote.id}
+                            </p>
+
                             <p className="mt-1 text-[10px] text-[#64748b]">
-                              {quote.title ||
-                                '제안 견적'}
+                              {displayQuoteTitle(quote.title)}
                               {' · '}
                               {quote.durationDays
                                 ? `${quote.durationDays}일 예상`
@@ -392,28 +350,9 @@ export default function EstimateRequestDetailPage() {
 
                           <button
                             type="button"
-                            disabled={
-                              !canSelect ||
-                              selectingQuoteId !==
-                                null
-                            }
-                            onClick={() =>
-                              void selectQuote(
-                                quote.id,
-                              )
-                            }
-                            className="h-9 rounded-md bg-[#2563eb] text-[10px] font-bold text-white disabled:bg-[#cbd5e1]"
+                            className="h-9 rounded-md bg-[#2563eb] text-[10px] font-bold text-white"
                           >
-                            {isSelected
-                              ? '최종 선택됨'
-                              : selectingQuoteId ===
-                                  quote.id
-                                ? '선택 중...'
-                                : quote.status ===
-                                    'SUBMITTED'
-                                  ? '이 시공사 선택'
-                                  : quote.status ??
-                                    '확인 중'}
+                            결제 하기
                           </button>
                         </div>
                       </article>
@@ -425,15 +364,6 @@ export default function EstimateRequestDetailPage() {
                   </p>
                 )}
               </div>
-
-              {selectionError ? (
-                <p
-                  role="alert"
-                  className="mt-3 text-[10px] font-bold text-[#dc2626]"
-                >
-                  {selectionError}
-                </p>
-              ) : null}
             </section>
           ) : null}
 

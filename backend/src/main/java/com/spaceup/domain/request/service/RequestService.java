@@ -119,6 +119,15 @@ public class RequestService {
 		request.touch();
 	}
 
+	@Transactional
+	public void deleteRequest(Long requestId, Long landlordId) {
+		QuoteRequest request = findRequestOrThrow(requestId);
+		if (!request.getOwner().getId().equals(landlordId)) {
+			throw new ForbiddenAccessException("본인이 등록한 의뢰만 삭제할 수 있습니다.");
+		}
+		request.softDelete();
+	}
+
 	private MaterialProduct resolveSelectedMaterial(Long productId, MaterialWorkType expectedWorkType,
 			MaterialTheme selectedTheme) {
 		if (productId == null) {
@@ -202,9 +211,9 @@ public class RequestService {
 		participation.updateMatchingScore(score);
 		analysisJobService.updateMatchingScoreIfExists(requestId, score);
 
-		notificationService.notify(contractorId, NotificationType.REQUEST, "새 의뢰가 도착했습니다",
+		notificationService.notifyForRequest(contractorId, NotificationType.REQUEST, "새 의뢰가 도착했습니다",
 				String.format("%s(%s) 의뢰가 배정되었습니다. 매칭 점수 %d점", request.getRequestCode(),
-						request.getProperty().getRegion(), score));
+						request.getProperty().getRegion(), score), requestId, contractorId);
 	}
 
 	// ⭐ PDF "의뢰 상세" 화면의 "의뢰 승인" 버튼 - 배정받은 시공사 본인만 가능
@@ -233,8 +242,10 @@ public class RequestService {
 		participation.reject(reason, detail);
 		request.touch();
 
-		notificationService.notify(request.getOwner().getId(), NotificationType.REQUEST, "의뢰가 거절되었습니다",
-				String.format("%s 의뢰를 시공사가 거절했습니다.", request.getRequestCode()));
+		notificationService.notifyForRequest(request.getOwner().getId(), NotificationType.REQUEST,
+				"의뢰가 거절되었습니다",
+				String.format("%s 의뢰를 시공사가 거절했습니다.", request.getRequestCode()),
+				requestId, contractorId);
 	}
 
 	// ⭐ [Figma 반영] "유효 활동" 발생 지점(채팅 전송, 일정 등록/변경/수락/확인, 현장 방문 완료, 견적 임시저장/전송 등)에서

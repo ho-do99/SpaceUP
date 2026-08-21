@@ -2,6 +2,7 @@ export type EstimateRequestStatus = 'requested' | 'reviewing'
 
 export interface EstimateRequestSummary {
   id: string
+  requestCode?: string
   contractorId: string
   contractorName: string
   regionAndSpecialty: string

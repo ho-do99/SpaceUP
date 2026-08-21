@@ -27,9 +27,9 @@ export default function ContractorEstimateDetails({ estimate, request, draft, va
           <ContractorEstimateInfoRow label="유효일">{validUntil.replace(/-/g, '.')}</ContractorEstimateInfoRow>
         </dl>
       </ContractorSectionCard>
-      <ContractorSectionCard className="mt-4" title="실제 견적 항목 · 바닥재 · 벽지">
+      <ContractorSectionCard className="mt-4" title="실제 견적 항목 · 바닥재 · 벽지 · 조명">
         <div className="space-y-5">{draft.categories.map((category) => <ContractorEstimateCostList key={category.id} category={category} />)}</div>
-        <p className="mt-4 rounded-lg bg-[#eff6ff] p-3 text-[11px] leading-5 text-[#2563eb]">사용자 선택: {request.selectedItems.join(' · ')}<br />조명은 현장 실측 후 별도 협의<br />현재 견적 금액 미포함</p>
+        <p className="mt-4 rounded-lg bg-[#eff6ff] p-3 text-[11px] leading-5 text-[#2563eb]">사용자 선택: {request.selectedItems.join(' · ')}<br />현장 실측값과 사용자가 선택한 자재 단가로 확정한 금액입니다.</p>
       </ContractorSectionCard>
       <ContractorSectionCard className="mt-4" title="추가 비용">
         <dl className="space-y-2">

@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.notification.service.NotificationService;
+import com.spaceup.domain.chat.service.ChatService;
 import com.spaceup.domain.request.entity.Property;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.repository.QuoteRequestRepository;
@@ -27,6 +28,7 @@ class SiteVisitMultiContractorTest {
 	@Mock SiteVisitRepository siteVisitRepository;
 	@Mock QuoteRequestRepository quoteRequestRepository;
 	@Mock NotificationService notificationService;
+	@Mock ChatService chatService;
 	@InjectMocks SiteVisitService service;
 
 	@Test

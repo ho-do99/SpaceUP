@@ -1,1015 +1,1069 @@
-"""Experimental 8004 viewer using original drawing walls as display geometry.
+"""8004 viewer entrypoint with shared wall and enclosed-space postprocessing."""
 
-The OCR and SPA services remain unchanged.  This module reuses the stable
-8003 application and swaps only its display-only polygon postprocessor.
-"""
+import asyncio
+import copy
+import hashlib
+import json
+from collections import OrderedDict
 
 import cv2
 import numpy as np
-from fastapi.responses import Response
+import requests
+from fastapi import File, HTTPException, UploadFile
+from starlette.responses import Response
 from starlette.routing import Route
 
-from base_app import main as base
+from . import approved_main
 
 
-def _cluster_coordinates(values, tolerance):
-    values = sorted(float(value) for value in values)
-    if not values:
-        return []
-    groups = [[values[0]]]
-    for value in values[1:]:
-        if value - groups[-1][-1] <= tolerance:
-            groups[-1].append(value)
-        else:
-            groups.append([value])
-    return [int(round(float(np.median(group)))) for group in groups]
+app = approved_main.app
 
 
-def _nearest_segment_coordinate(lines, coordinate, span_start, span_end, tolerance):
-    low, high = sorted((float(span_start), float(span_end)))
-    candidates = []
-    for line in lines:
-        overlap = min(high, float(line["end"])) - max(low, float(line["start"]))
-        if overlap < max(10.0, (high - low) * 0.22):
-            continue
-        distance = abs(float(line["coord"]) - float(coordinate))
-        if distance <= tolerance:
-            candidates.append((distance, -float(line["length"]), float(line["coord"])))
-    return min(candidates)[2] if candidates else float(coordinate)
+_ANALYSIS_CACHE_LIMIT = 16
+_analysis_cache = OrderedDict()
+_analysis_cache_lock = asyncio.Lock()
 
 
-def _polygon_mask(polygon, shape):
+def _bbox_overlap_ratio(fragment, target):
+    first = fragment.get("bbox") or {}
+    second = target.get("bbox") or {}
+    fx1, fy1 = int(first.get("x", 0)), int(first.get("y", 0))
+    fx2 = fx1 + int(first.get("width", 0))
+    fy2 = fy1 + int(first.get("height", 0))
+    tx1, ty1 = int(second.get("x", 0)), int(second.get("y", 0))
+    tx2 = tx1 + int(second.get("width", 0))
+    ty2 = ty1 + int(second.get("height", 0))
+    overlap = max(0, min(fx2, tx2) - max(fx1, tx1)) * max(
+        0, min(fy2, ty2) - max(fy1, ty1)
+    )
+    fragment_area = max(1, (fx2 - fx1) * (fy2 - fy1))
+    return overlap / fragment_area
+
+
+def _polygon_mask(polygons, shape):
     mask = np.zeros(shape, dtype=np.uint8)
-    contour = np.asarray(polygon, dtype=np.int32).reshape((-1, 1, 2))
-    cv2.fillPoly(mask, [contour], 255)
+    for polygon in polygons or []:
+        points = np.asarray(polygon, dtype=np.int32)
+        if points.ndim == 2 and points.shape[0] >= 3 and points.shape[1] == 2:
+            cv2.fillPoly(mask, [points], 255)
     return mask
 
 
-def _significant_grid_coordinates(polygon, horizontal, vertical, image_shape):
-    contour = np.asarray(polygon, dtype=np.int32).reshape((-1, 1, 2))
-    perimeter = cv2.arcLength(contour, True)
-    simplified = cv2.approxPolyDP(
-        contour, max(2.0, perimeter * 0.0035), True
-    ).reshape((-1, 2))
-    if len(simplified) < 4:
-        return [], []
-
-    height, width = image_shape
-    snap_tolerance = max(10.0, min(30.0, min(image_shape) * 0.0075))
-    minimum_edge = max(10.0, min(image_shape) * 0.004)
-    x_values = []
-    y_values = []
-    count = len(simplified)
-    for index in range(count):
-        start = simplified[index].astype(float)
-        end = simplified[(index + 1) % count].astype(float)
-        dx = float(end[0] - start[0])
-        dy = float(end[1] - start[1])
-        if abs(dx) >= minimum_edge and abs(dx) >= abs(dy) * 2.0:
-            coordinate = (start[1] + end[1]) / 2.0
-            y_values.append(
-                _nearest_segment_coordinate(
-                    horizontal, coordinate, start[0], end[0], snap_tolerance
-                )
-            )
-        elif abs(dy) >= minimum_edge and abs(dy) >= abs(dx) * 2.0:
-            coordinate = (start[0] + end[0]) / 2.0
-            x_values.append(
-                _nearest_segment_coordinate(
-                    vertical, coordinate, start[1], end[1], snap_tolerance
-                )
-            )
-
-    xs = [int(point[0]) for point in simplified]
-    ys = [int(point[1]) for point in simplified]
-    x_values.extend([min(xs), max(xs)])
-    y_values.extend([min(ys), max(ys)])
-    cluster_tolerance = max(4.0, min(14.0, min(image_shape) * 0.0035))
-    x_values = [max(0, min(width - 1, value)) for value in x_values]
-    y_values = [max(0, min(height - 1, value)) for value in y_values]
-    return (
-        _cluster_coordinates(x_values, cluster_tolerance),
-        _cluster_coordinates(y_values, cluster_tolerance),
-    )
-
-
-def _grid_rectified_polygon(polygon, horizontal, vertical, image_shape):
-    if len(polygon) < 4:
-        return None
-    source_mask = _polygon_mask(polygon, image_shape)
-    source_area = float(cv2.countNonZero(source_mask))
-    if source_area < 100:
-        return None
-
-    x_coordinates, y_coordinates = _significant_grid_coordinates(
-        polygon, horizontal, vertical, image_shape
-    )
-    if len(x_coordinates) < 2 or len(y_coordinates) < 2:
-        return None
-
-    result_mask = np.zeros(image_shape, dtype=np.uint8)
-    for x0, x1 in zip(x_coordinates[:-1], x_coordinates[1:]):
-        if x1 - x0 < 2:
+def _mask_polygons(mask):
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    polygons = []
+    for contour in sorted(contours, key=cv2.contourArea, reverse=True):
+        if cv2.contourArea(contour) < 12:
             continue
-        for y0, y1 in zip(y_coordinates[:-1], y_coordinates[1:]):
-            if y1 - y0 < 2:
-                continue
-            cell = source_mask[y0:y1, x0:x1]
-            cell_area = float(cell.size)
-            if cell_area <= 0:
-                continue
-            overlap = float(cv2.countNonZero(cell)) / cell_area
-            if overlap >= 0.46:
-                cv2.rectangle(result_mask, (x0, y0), (x1, y1), 255, thickness=-1)
-
-    contours, _ = cv2.findContours(
-        result_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-    )
-    if not contours:
-        return None
-    contour = max(contours, key=cv2.contourArea)
-    result_area = float(cv2.contourArea(contour))
-    area_ratio = result_area / max(source_area, 1.0)
-    if not 0.82 <= area_ratio <= 1.18:
-        return None
-
-    points = [[int(point[0][0]), int(point[0][1])] for point in contour]
-    points = base.remove_redundant_polygon_points(points)
-    if len(points) < 4:
-        return None
-    return points
+        approximate = cv2.approxPolyDP(contour, 1.5, True).reshape(-1, 2)
+        if len(approximate) >= 3:
+            polygons.append([[int(x), int(y)] for x, y in approximate])
+    return polygons
 
 
-def _rectify_small_service_room_corner(room_name, polygon):
-    """Fill a minor missing corner in compact utility-room display geometry."""
-    normalized_name = str(room_name or "").replace(" ", "")
-    if "다용도실" not in normalized_name or len(polygon) != 6:
-        return polygon, False
+def _is_legacy_solid_line_result(rooms):
+    """Return True when the approved solid-line wall-grid result is active.
 
-    contour = np.asarray(polygon, dtype=np.int32).reshape((-1, 1, 2))
-    area = float(abs(cv2.contourArea(contour)))
-    x, y, width, height = cv2.boundingRect(contour)
-    rectangle_area = float(max(0, width - 1) * max(0, height - 1))
-    if area <= 0 or rectangle_area <= area:
-        return polygon, False
-    missing_ratio = (rectangle_area - area) / rectangle_area
-    if missing_ratio > 0.10:
-        return polygon, False
-
-    return [
-        [x, y],
-        [x + width - 1, y],
-        [x + width - 1, y + height - 1],
-        [x, y + height - 1],
-    ], True
-
-
-def _snap_micro_wall_offsets(rooms, image_shape):
-    """Align only near-identical display wall coordinates.
-
-    Wall detection can return the same wall at y=1442 for one room and y=1443
-    for its neighbour.  Three.js then renders the one-pixel disagreement as a
-    short tooth at the joint.  Cluster only coordinates within a very small
-    tolerance and reject any polygon whose area changes materially.  This is
-    display-only and never changes SPA masks or pixel counts.
+    The demo drawings 1/2/3/4 already have a reliable wall-grid geometry from
+    the old solid-line postprocess.  Segment-only cleanup must not run on top of
+    that result, because anonymous/X helper regions can be incorrectly absorbed
+    into nearby rooms (for example 4번 도면 욕실2).
     """
-    tolerance = max(2.0, min(4.0, min(image_shape) * 0.0012))
-    minimum_edge = max(10.0, min(image_shape) * 0.003)
-    horizontal_values = []
-    vertical_values = []
 
-    for room in rooms:
-        for polygon in room.get("viewer_polygons") or []:
-            count = len(polygon)
-            for index in range(count):
-                start = polygon[index]
-                end = polygon[(index + 1) % count]
-                dx = abs(float(end[0] - start[0]))
-                dy = abs(float(end[1] - start[1]))
-                if dx >= minimum_edge and dy <= tolerance:
-                    horizontal_values.append((float(start[1]) + float(end[1])) / 2.0)
-                elif dy >= minimum_edge and dx <= tolerance:
-                    vertical_values.append((float(start[0]) + float(end[0])) / 2.0)
-
-    horizontal_targets = _cluster_coordinates(horizontal_values, tolerance)
-    vertical_targets = _cluster_coordinates(vertical_values, tolerance)
-
-    def nearest(value, targets):
-        candidates = [target for target in targets if abs(float(target) - value) <= tolerance]
-        return min(candidates, key=lambda target: abs(float(target) - value)) if candidates else value
-
-    changed = 0
-    for room in rooms:
-        polygons = room.get("viewer_polygons") or []
-        for polygon_index, polygon in enumerate(polygons):
-            if len(polygon) < 4:
-                continue
-            original_area = base.polygon_area(polygon)
-            adjusted = []
-            count = len(polygon)
-            for index, point in enumerate(polygon):
-                previous = polygon[index - 1]
-                following = polygon[(index + 1) % count]
-                x = float(point[0])
-                y = float(point[1])
-                if (
-                    abs(float(previous[0]) - x) <= tolerance
-                    or abs(float(following[0]) - x) <= tolerance
-                ):
-                    x = nearest(x, vertical_targets)
-                if (
-                    abs(float(previous[1]) - y) <= tolerance
-                    or abs(float(following[1]) - y) <= tolerance
-                ):
-                    y = nearest(y, horizontal_targets)
-                adjusted.append([int(round(x)), int(round(y))])
-
-            adjusted = base.remove_redundant_polygon_points(adjusted)
-            adjusted, _ = base.clean_viewer_micro_notches(adjusted, image_shape)
-            adjusted_area = base.polygon_area(adjusted)
-            if (
-                len(adjusted) < 4
-                or original_area <= 0
-                or abs(adjusted_area - original_area) / original_area > 0.006
-            ):
-                continue
-            if adjusted != polygon:
-                polygons[polygon_index] = adjusted
-                changed += 1
-
-    return changed
-
-
-def _snap_utility_room_bottom_to_neighbor(rooms, image_shape):
-    """Remove a tiny display-only gap below a rectangular utility room.
-
-    Opposite sides of the same source wall can be detected a few pixels apart.
-    Only the lower edge of a compact ``다용도실`` rectangle is considered, and
-    it is moved only when a neighbouring horizontal edge overlaps most of the
-    room width and is within the conservative wall-thickness tolerance.
-    """
-    tolerance = max(6.0, min(14.0, min(image_shape) * 0.0035))
-    changed = 0
-    for room in rooms:
-        room_name = str(room.get("room_name") or "").replace(" ", "")
-        if "\ub2e4\uc6a9\ub3c4\uc2e4" not in room_name:
-            continue
-        polygons = room.get("viewer_polygons") or []
-        for polygon_index, polygon in enumerate(polygons):
-            if len(polygon) != 4:
-                continue
-            xs = [int(point[0]) for point in polygon]
-            ys = [int(point[1]) for point in polygon]
-            left, right = min(xs), max(xs)
-            bottom = max(ys)
-            width = right - left
-            if width <= 0:
-                continue
-
-            candidates = []
-            for other in rooms:
-                if other is room:
-                    continue
-                for other_polygon in other.get("viewer_polygons") or []:
-                    count = len(other_polygon)
-                    for edge_index in range(count):
-                        start = other_polygon[edge_index]
-                        end = other_polygon[(edge_index + 1) % count]
-                        if int(start[1]) != int(end[1]):
-                            continue
-                        candidate_y = int(start[1])
-                        distance = abs(candidate_y - bottom)
-                        if not 0 < distance <= tolerance:
-                            continue
-                        edge_left, edge_right = sorted((int(start[0]), int(end[0])))
-                        overlap = min(right, edge_right) - max(left, edge_left)
-                        if overlap < width * 0.45:
-                            continue
-                        candidates.append((distance, -overlap, candidate_y))
-
-            if not candidates:
-                continue
-            target_y = min(candidates)[2]
-            polygons[polygon_index] = [
-                [int(x), target_y if int(y) == bottom else int(y)]
-                for x, y in polygon
-            ]
-            changed += 1
-    return changed
-
-
-def _bridge_utility_floor_to_living(rooms, image_shape):
-    """Fill only the tiny display gap below a utility-room corner.
-
-    The utility room and living room can use opposite sides of the same source
-    wall, leaving a narrow uncovered strip in the rendered floor.  This joins
-    that strip to the living-room display polygon without changing SPA masks or
-    pixel statistics.
-    """
-    utility_rooms = [
-        room for room in rooms
-        if "\ub2e4\uc6a9\ub3c4\uc2e4" in str(room.get("room_name") or "").replace(" ", "")
+    named_rooms = [
+        room
+        for room in rooms
+        if room.get("viewer_polygons")
+        and not str(room.get("room_name") or "").startswith("class_")
     ]
-    living_rooms = [
-        room for room in rooms
-        if "\uac70\uc2e4" in str(room.get("room_name") or "").replace(" ", "")
+    if len(named_rooms) < 6:
+        return False
+
+    wall_grid_count = sum(
+        1
+        for room in named_rooms
+        if str(room.get("viewer_geometry_source") or "") == "original_wall_grid"
+    )
+    return wall_grid_count / max(1, len(named_rooms)) >= 0.72
+
+
+def _room_name(room):
+    return str(room.get("room_name") or "").replace(" ", "")
+
+
+def _is_open_living_kitchen_pair(first, second):
+    first_name = _room_name(first)
+    second_name = _room_name(second)
+    first_living = "거실" in first_name
+    second_living = "거실" in second_name
+    first_kitchen = "주방" in first_name or "식당" in first_name
+    second_kitchen = "주방" in second_name or "식당" in second_name
+    return (first_living and second_kitchen) or (second_living and first_kitchen)
+
+
+def _polygon_bounds(room):
+    points = [
+        point
+        for polygon in (room.get("viewer_polygons") or [])
+        for point in polygon
+        if isinstance(point, (list, tuple)) and len(point) == 2
     ]
-    max_gap = max(12, min(36, int(round(min(image_shape) * 0.0105))))
-    changed = 0
+    if not points:
+        return None
+    xs = [int(point[0]) for point in points]
+    ys = [int(point[1]) for point in points]
+    return min(xs), min(ys), max(xs), max(ys)
 
-    for utility in utility_rooms:
-        for utility_polygon in utility.get("viewer_polygons") or []:
-            if len(utility_polygon) != 4:
+
+def _set_room_boundary(room, axis, side, value):
+    bounds = _polygon_bounds(room)
+    if not bounds:
+        return False
+    left, top, right, bottom = bounds
+    value = int(round(value))
+    changed = False
+    for polygon in room.get("viewer_polygons") or []:
+        for point in polygon:
+            if not isinstance(point, list) or len(point) != 2:
                 continue
-            ux = [int(point[0]) for point in utility_polygon]
-            uy = [int(point[1]) for point in utility_polygon]
-            left, right, bottom = min(ux), max(ux), max(uy)
-            if right - left < 20:
-                continue
-
-            for living in living_rooms:
-                polygons = living.get("viewer_polygons") or []
-                for polygon_index, living_polygon in enumerate(polygons):
-                    lx = [int(point[0]) for point in living_polygon]
-                    ly = [int(point[1]) for point in living_polygon]
-                    if max(lx) <= left or min(lx) >= right or max(ly) <= bottom:
-                        continue
-                    lower_edges = sorted({
-                        int(y) for y in ly if bottom < int(y) <= bottom + max_gap
-                    })
-                    if not lower_edges:
-                        continue
-                    gap_bottom = lower_edges[0]
-
-                    source_mask = _polygon_mask(living_polygon, image_shape)
-                    before = float(cv2.countNonZero(source_mask))
-                    cv2.rectangle(
-                        source_mask,
-                        (left, bottom),
-                        (right, gap_bottom),
-                        255,
-                        thickness=-1,
-                    )
-                    contours, _ = cv2.findContours(
-                        source_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-                    )
-                    if not contours:
-                        continue
-                    contour = max(contours, key=cv2.contourArea)
-                    after = float(cv2.contourArea(contour))
-                    if before <= 0 or after / before > 1.025:
-                        continue
-                    bridged = [
-                        [int(point[0][0]), int(point[0][1])] for point in contour
-                    ]
-                    bridged = base.remove_redundant_polygon_points(bridged)
-                    if len(bridged) < 4:
-                        continue
-                    polygons[polygon_index] = bridged
-                    changed += 1
-                    break
-                if changed:
-                    break
-    return changed
-
-
-def _align_entry_utility_kitchen_row(rooms, image_shape):
-    """Align a nearly-horizontal service-room row for display only.
-
-    Some plans place the entrance, utility room and kitchen side by side, but
-    the SPA/display polygons can choose opposite sides of the same thick wall.
-    When all three lower edges are already close and their horizontal spans
-    form one row, snap those edges and the matching living-room upper edge to
-    a single conservative baseline.  The original SPA masks and pixel counts
-    are never changed.
-    """
-    names = {
-        "entry": "\ud604\uad00",
-        "utility": "\ub2e4\uc6a9\ub3c4\uc2e4",
-        "living": "\uac70\uc2e4",
-    }
-
-    def find_room(token):
-        return next(
-            (
-                room
-                for room in rooms
-                if token in str(room.get("room_name") or "").replace(" ", "")
-            ),
-            None,
-        )
-
-    entry = find_room(names["entry"])
-    utility = find_room(names["utility"])
-    living = find_room(names["living"])
-    kitchen = next(
-        (
-            room
-            for room in rooms
-            if any(
-                token in str(room.get("room_name") or "").replace(" ", "")
-                for token in ("\uc8fc\ubc29", "\uc2dd\ub2f9")
-            )
-        ),
-        None,
-    )
-    if not all((entry, utility, kitchen, living)):
-        return 0
-
-    def largest_polygon(room):
-        polygons = room.get("viewer_polygons") or []
-        return max(
-            polygons,
-            key=lambda polygon: abs(
-                cv2.contourArea(np.asarray(polygon, dtype=np.int32).reshape((-1, 1, 2)))
-            ),
-            default=None,
-        )
-
-    row = [entry, utility, kitchen]
-    polygons = [largest_polygon(room) for room in row]
-    living_polygon = largest_polygon(living)
-    if any(polygon is None or len(polygon) < 4 for polygon in polygons):
-        return 0
-    if living_polygon is None or len(living_polygon) < 4:
-        return 0
-
-    bounds = []
-    for polygon in polygons:
-        xs = [int(point[0]) for point in polygon]
-        ys = [int(point[1]) for point in polygon]
-        bounds.append((min(xs), max(xs), max(ys)))
-
-    image_height, image_width = image_shape[:2]
-    max_vertical_spread = max(24, min(48, int(round(image_height * 0.014))))
-    bottoms = [bound[2] for bound in bounds]
-    if max(bottoms) - min(bottoms) > max_vertical_spread:
-        return 0
-
-    # Require a left-to-right adjoining chain.  This prevents the rule from
-    # affecting plans where these rooms exist in unrelated parts of the home.
-    ordered = sorted(bounds, key=lambda bound: bound[0])
-    max_horizontal_gap = max(16, min(70, int(round(image_width * 0.015))))
-    for previous, current in zip(ordered, ordered[1:]):
-        gap = current[0] - previous[1]
-        if gap > max_horizontal_gap or gap < -max_horizontal_gap:
-            return 0
-
-    # Entrance and utility-room walls provide the stable structural baseline;
-    # the kitchen prediction is allowed to retract to that line.
-    target_y = int(round(float(np.median([bounds[0][2], bounds[1][2]]))))
-    row_left = min(bound[0] for bound in bounds)
-    row_right = max(bound[1] for bound in bounds)
-
-    changed = 0
-    for room, polygon, (_, _, bottom) in zip(row, polygons, bounds):
-        adjusted = [
-            [int(x), target_y if int(y) == bottom else int(y)]
-            for x, y in polygon
-        ]
-        adjusted = base.remove_redundant_polygon_points(adjusted)
-        room["viewer_polygons"][room["viewer_polygons"].index(polygon)] = adjusted
-        changed += 1
-
-    # Flatten only the living-room vertices that already lie close to the same
-    # row.  Deeper corners and genuine openings stay untouched.
-    living_tolerance = max_vertical_spread
-    adjusted_living = []
-    living_changed = False
-    for x, y in living_polygon:
-        x, y = int(x), int(y)
-        if abs(y - target_y) <= living_tolerance:
-            y = target_y
-            living_changed = True
-        adjusted_living.append([x, y])
-    if living_changed:
-        adjusted_living = base.remove_redundant_polygon_points(adjusted_living)
-        if len(adjusted_living) >= 4:
-            living["viewer_polygons"][
-                living["viewer_polygons"].index(living_polygon)
-            ] = adjusted_living
-            changed += 1
-
-    return 1 if changed == 4 else 0
-
-
-def _split_master_bedroom_l_shape(rooms, image_shape=None):
-    """Return a misplaced bedroom lobe to the adjoining master room.
-
-    In a small family of plans the semantic bedroom mask joins the rectangular
-    second bedroom to the lower part of the master room.  The source drawing
-    still has a clear wall-grid pattern: a rectangular master room above, an
-    L-shaped bedroom below it, and a small balcony directly under the L-shape's
-    left lobe.  Only when that complete geometric signature is present do we
-    move the lobe to the master-room *viewer* polygon.  SPA masks, pixel counts
-    and the 8002 calculation data are not modified.
-    """
-
-    def normalized_name(room):
-        return str(room.get("room_name") or "").replace(" ", "")
-
-    master = next(
-        (room for room in rooms if "\uc548\ubc29" in normalized_name(room)), None
-    )
-    bedroom = next(
-        (room for room in rooms if "\uce68\uc2e42" in normalized_name(room)), None
-    )
-    balconies = [
-        room for room in rooms if "\ubc1c\ucf54\ub2c8" in normalized_name(room)
-    ]
-    if master is None or bedroom is None or not balconies:
-        return 0
-
-    def largest_polygon_with_index(room):
-        polygons = room.get("viewer_polygons") or []
-        if not polygons:
-            return None, None
-        index = max(
-            range(len(polygons)),
-            key=lambda item: abs(
-                cv2.contourArea(
-                    np.asarray(polygons[item], dtype=np.int32).reshape((-1, 1, 2))
-                )
-            ),
-        )
-        return index, polygons[index]
-
-    master_index, master_polygon = largest_polygon_with_index(master)
-    bedroom_index, bedroom_polygon = largest_polygon_with_index(bedroom)
-    if master_polygon is None or bedroom_polygon is None:
-        return 0
-
-    def clustered_coordinates(values, tolerance=3):
-        clusters = []
-        for value in sorted(int(item) for item in values):
-            if not clusters or value - clusters[-1][-1] > tolerance:
-                clusters.append([value])
+            if axis == "y":
+                if side == "top" and abs(int(point[1]) - top) <= 2:
+                    point[1] = value
+                    changed = True
+                elif side == "bottom" and abs(int(point[1]) - bottom) <= 2:
+                    point[1] = value
+                    changed = True
             else:
-                clusters[-1].append(value)
-        return [int(round(float(np.median(cluster)))) for cluster in clusters]
-
-    adjacency = (
-        max(14, min(28, int(round(min(image_shape[:2]) * 0.008))))
-        if image_shape is not None
-        else 28
-    )
-
-    # 8002 may already have reassigned the L-shaped lobe correctly.  In that
-    # case the wall-grid conversion can still leave the rectangular bedroom's
-    # left edge a few pixels past the master's vertical seam.  Snap only those
-    # two display edges together; room masks and pixel counts stay untouched.
-    if len(master_polygon) == 6 and len(bedroom_polygon) == 4:
-        master_x = clustered_coordinates(point[0] for point in master_polygon)
-        master_y = clustered_coordinates(point[1] for point in master_polygon)
-        bedroom_x = clustered_coordinates(point[0] for point in bedroom_polygon)
-        bedroom_y = clustered_coordinates(point[1] for point in bedroom_polygon)
-        if (
-            len(master_x) == 3
-            and len(master_y) == 3
-            and len(bedroom_x) == 2
-            and len(bedroom_y) == 2
-        ):
-            left, split_x, master_right = master_x
-            master_top, seam_y, shoulder_y = master_y
-            bedroom_left, bedroom_right = bedroom_x
-            bedroom_top, bedroom_bottom = bedroom_y
-            balcony_confirmed = False
-            for balcony in balconies:
-                _, balcony_polygon = largest_polygon_with_index(balcony)
-                if balcony_polygon is None or len(balcony_polygon) != 4:
-                    continue
-                bx = clustered_coordinates(point[0] for point in balcony_polygon)
-                by = clustered_coordinates(point[1] for point in balcony_polygon)
-                if (
-                    len(bx) == 2
-                    and len(by) == 2
-                    and abs(bx[0] - left) <= adjacency
-                    and abs(bx[1] - split_x) <= adjacency
-                    and abs(by[0] - shoulder_y) <= adjacency
-                ):
-                    balcony_confirmed = True
-                    break
-            if (
-                balcony_confirmed
-                and abs(bedroom_left - split_x) <= adjacency
-                and abs(bedroom_top - seam_y) <= adjacency
-                and split_x < master_right < bedroom_right
-            ):
-                seam_y = int(round((seam_y + bedroom_top) / 2.0))
-                master_display = [
-                    [left, master_top],
-                    [master_right, master_top],
-                    [master_right, seam_y],
-                    [split_x, seam_y],
-                    [split_x, shoulder_y],
-                    [left, shoulder_y],
-                ]
-                bedroom_display = [
-                    [split_x, seam_y],
-                    [bedroom_right, seam_y],
-                    [bedroom_right, bedroom_bottom],
-                    [split_x, bedroom_bottom],
-                ]
-                master["viewer_polygons"][master_index] = (
-                    base.remove_redundant_polygon_points(master_display)
-                )
-                bedroom["viewer_polygons"][bedroom_index] = (
-                    base.remove_redundant_polygon_points(bedroom_display)
-                )
-                return 1
-
-    if len(master_polygon) != 4 or not (6 <= len(bedroom_polygon) <= 8):
-        return 0
-
-    master_x = clustered_coordinates(point[0] for point in master_polygon)
-    master_y = clustered_coordinates(point[1] for point in master_polygon)
-    bedroom_x = clustered_coordinates(point[0] for point in bedroom_polygon)
-    bedroom_y = clustered_coordinates(point[1] for point in bedroom_polygon)
-    if len(master_x) != 2 or len(master_y) != 2:
-        return 0
-    if len(bedroom_x) != 3 or len(bedroom_y) != 3:
-        return 0
-
-    left, split_x, right = bedroom_x
-    bedroom_top, shoulder_y, bedroom_bottom = bedroom_y
-    master_left, master_right = master_x
-    master_top, master_bottom = master_y
-
-    if abs(master_left - left) > adjacency:
-        return 0
-    if abs(master_bottom - bedroom_top) > adjacency:
-        return 0
-    if not (left < split_x < right and master_top < master_bottom < shoulder_y):
-        return 0
-    if master_right <= split_x or master_right >= right + adjacency:
-        return 0
-
-    balcony_match = None
-    for balcony in balconies:
-        balcony_index, balcony_polygon = largest_polygon_with_index(balcony)
-        if balcony_polygon is None or len(balcony_polygon) != 4:
-            continue
-        bx = clustered_coordinates(point[0] for point in balcony_polygon)
-        by = clustered_coordinates(point[1] for point in balcony_polygon)
-        if len(bx) != 2 or len(by) != 2:
-            continue
-        if (
-            abs(bx[0] - left) <= adjacency
-            and abs(bx[1] - split_x) <= adjacency
-            and abs(by[0] - shoulder_y) <= adjacency
-            and by[1] > by[0]
-        ):
-            balcony_match = balcony
-            break
-    if balcony_match is None:
-        return 0
-
-    seam_y = int(round((master_bottom + bedroom_top) / 2.0))
-    master_display = [
-        [master_left, master_top],
-        [master_right, master_top],
-        [master_right, seam_y],
-        [split_x, seam_y],
-        [split_x, shoulder_y],
-        [left, shoulder_y],
-    ]
-    bedroom_display = [
-        [split_x, seam_y],
-        [right, seam_y],
-        [right, bedroom_bottom],
-        [split_x, bedroom_bottom],
-    ]
-    master["viewer_polygons"][master_index] = base.remove_redundant_polygon_points(
-        master_display
-    )
-    bedroom["viewer_polygons"][bedroom_index] = base.remove_redundant_polygon_points(
-        bedroom_display
-    )
-    return 1
-
-
-def _align_bedroom_living_shared_boundary(rooms, image_shape):
-    """Join a bedroom rectangle to the matching living-room wall edge.
-
-    SPA contours can select opposite sides of a thick wall. After wall-grid
-    rectification this appears as a short step where a rectangular bedroom and
-    the living room should share one straight corner. Move only the bedroom's
-    top/right display edges when a nearby living-room edge already supplies the
-    matching structural corner. Source masks and pixel counts stay unchanged.
-    """
-    living = next(
-        (
-            room
-            for room in rooms
-            if "\uac70\uc2e4" in str(room.get("room_name") or "").replace(" ", "")
-        ),
-        None,
-    )
-    if living is None:
-        return 0
-
-    living_polygons = living.get("viewer_polygons") or []
-    tolerance = max(10, min(28, int(round(min(image_shape) * 0.0065))))
-    changed = 0
-
-    for bedroom in rooms:
-        name = str(bedroom.get("room_name") or "").replace(" ", "")
-        if "\uce68\uc2e4" not in name or "\uc548\ubc29" in name:
-            continue
-
-        polygons = bedroom.get("viewer_polygons") or []
-        for polygon_index, polygon in enumerate(polygons):
-            if len(polygon) != 4:
-                continue
-
-            xs = [int(point[0]) for point in polygon]
-            ys = [int(point[1]) for point in polygon]
-            left, right = min(xs), max(xs)
-            top = min(ys)
-            width = right - left
-            if width <= 0:
-                continue
-
-            candidates = []
-            for living_polygon in living_polygons:
-                count = len(living_polygon)
-                for edge_index in range(count):
-                    start = living_polygon[edge_index]
-                    end = living_polygon[(edge_index + 1) % count]
-                    x1, y1 = int(start[0]), int(start[1])
-                    x2, y2 = int(end[0]), int(end[1])
-                    if abs(y1 - y2) > 2:
-                        continue
-
-                    target_y = int(round((y1 + y2) / 2.0))
-                    vertical_gap = target_y - top
-                    if not 0 < vertical_gap <= tolerance:
-                        continue
-
-                    edge_left, edge_right = sorted((x1, x2))
-                    overlap = min(right, edge_right) - max(left, edge_left)
-                    if overlap < max(35, width * 0.30):
-                        continue
-                    if abs(edge_right - right) > tolerance:
-                        continue
-                    candidates.append((vertical_gap, -overlap, target_y, edge_right))
-
-            if not candidates:
-                continue
-
-            _, _, target_y, target_right = min(candidates)
-            adjusted = []
-            for x, y in polygon:
-                x, y = int(x), int(y)
-                if y == top:
-                    y = target_y
-                if x == right and abs(target_right - right) <= tolerance:
-                    x = target_right
-                adjusted.append([x, y])
-
-            adjusted = base.remove_redundant_polygon_points(adjusted)
-            if len(adjusted) != 4:
-                continue
-            polygons[polygon_index] = adjusted
-            changed += 1
-
-    return changed
-
-
-def add_wall_grid_viewer_polygons(original_content: bytes, rooms: list):
-    image = cv2.imdecode(
-        np.frombuffer(original_content, np.uint8), cv2.IMREAD_GRAYSCALE
-    )
-    if image is None or not rooms:
-        return {"wall_grid_rooms": 0, "fallback_rooms": len(rooms)}
-
-    horizontal, vertical = base.detect_wall_segments(original_content, rooms)
-    wall_grid_rooms = 0
-    fallback_rooms = 0
-    for room in rooms:
-        display_polygons = []
-        used_wall_grid = False
-        for polygon in room.get("polygons", []):
-            rectified = _grid_rectified_polygon(
-                polygon, horizontal, vertical, image.shape[:2]
-            )
-            if rectified is not None:
-                # Grid cells can leave a tiny one-cell tooth at a wall join.
-                # Reuse the conservative 8003 display-only cleaner after the
-                # wall-grid conversion; large openings and room shapes remain.
-                rectified, _ = base.clean_viewer_micro_notches(
-                    rectified, image.shape[:2]
-                )
-                rectified, _ = _rectify_small_service_room_corner(
-                    room.get("room_name"), rectified
-                )
-                display_polygons.append(rectified)
-                used_wall_grid = True
-            else:
-                aligned = base.align_polygon_to_walls(
-                    polygon, horizontal, vertical, image.shape[:2]
-                )
-                cleaned, _ = base.clean_viewer_micro_notches(
-                    aligned or polygon, image.shape[:2]
-                )
-                display_polygons.append(cleaned)
-
-        if display_polygons:
-            room["viewer_polygons"] = display_polygons
+                if side == "left" and abs(int(point[0]) - left) <= 2:
+                    point[0] = value
+                    changed = True
+                elif side == "right" and abs(int(point[0]) - right) <= 2:
+                    point[0] = value
+                    changed = True
+    if changed:
+        updated = _polygon_bounds(room)
+        if updated:
+            left, top, right, bottom = updated
+            room["bbox"] = {
+                "x": int(left),
+                "y": int(top),
+                "width": int(max(1, right - left)),
+                "height": int(max(1, bottom - top)),
+            }
             room["viewer_geometry_source"] = (
-                "original_wall_grid" if used_wall_grid else "viewer3d_fallback"
+                f"{room.get('viewer_geometry_source') or 'viewer'}_thin_overlap_snap"
             )
-        if used_wall_grid:
-            wall_grid_rooms += 1
-        else:
-            fallback_rooms += 1
-
-    utility_bottom_snaps = _snap_utility_room_bottom_to_neighbor(
-        rooms, image.shape[:2]
-    )
-    utility_floor_bridges = _bridge_utility_floor_to_living(
-        rooms, image.shape[:2]
-    )
-    service_row_alignments = _align_entry_utility_kitchen_row(
-        rooms, image.shape[:2]
-    )
-    master_bedroom_splits = _split_master_bedroom_l_shape(
-        rooms, image.shape[:2]
-    )
-    bedroom_living_boundary_alignments = _align_bedroom_living_shared_boundary(
-        rooms, image.shape[:2]
-    )
-    micro_wall_offset_snaps = _snap_micro_wall_offsets(rooms, image.shape[:2])
-
-    return {
-        "mode": "original_drawing_wall_grid",
-        "wall_grid_rooms": wall_grid_rooms,
-        "fallback_rooms": fallback_rooms,
-        "total_rooms": len(rooms),
-        "horizontal_wall_candidates": len(horizontal),
-        "vertical_wall_candidates": len(vertical),
-        "utility_bottom_snaps": utility_bottom_snaps,
-        "utility_floor_bridges": utility_floor_bridges,
-        "service_row_alignments": service_row_alignments,
-        "master_bedroom_splits": master_bedroom_splits,
-        "bedroom_living_boundary_alignments": bedroom_living_boundary_alignments,
-        "micro_wall_offset_snaps": micro_wall_offset_snaps,
-    }
+    return changed
 
 
-# base.analyze resolves this global at request time, so 8004 can reuse all
-# stable OCR/SPA/UI behavior while keeping 8003 files and container untouched.
-base.add_wall_aligned_viewer_polygons = add_wall_grid_viewer_polygons
+def _polygon_area(polygon):
+    if not polygon or len(polygon) < 3:
+        return 0.0
+    area = 0.0
+    previous_x, previous_y = polygon[-1]
+    for current_x, current_y in polygon:
+        area += previous_x * current_y - current_x * previous_y
+        previous_x, previous_y = current_x, current_y
+    return abs(area) / 2.0
 
-# OCR room names are attached after the wall-grid hook runs.  Apply the
-# name-dependent master/bedroom correction once more immediately after OCR
-# enrichment; this still changes only viewer_polygons used by port 8004.
-_base_apply_ocr_display_names = base.apply_ocr_display_names
+
+def _remove_tiny_room_fragments(rooms):
+    """Drop tiny detached viewer polygons attached to a named room.
+
+    Solid-line tracing can occasionally leave a small triangular shard near an
+    X/fixture mark.  It is visually worse than omitting it, and it should not be
+    converted into a floor patch in the 3D demo view.
+    """
+
+    changed = 0
+    for room in rooms:
+        if _room_name(room).startswith("class_"):
+            continue
+        polygons = room.get("viewer_polygons") or []
+        if len(polygons) < 2:
+            continue
+        areas = [_polygon_area(polygon) for polygon in polygons]
+        largest = max(areas or [0.0])
+        keep = [
+            polygon
+            for polygon, area in zip(polygons, areas)
+            if area >= 400 or area >= largest * 0.05
+        ]
+        if keep and len(keep) < len(polygons):
+            room["viewer_polygons"] = keep
+            bounds = _polygon_bounds(room)
+            if bounds:
+                left, top, right, bottom = bounds
+                room["bbox"] = {
+                    "x": int(left),
+                    "y": int(top),
+                    "width": int(max(1, right - left)),
+                    "height": int(max(1, bottom - top)),
+                }
+            room["viewer_geometry_source"] = (
+                f"{room.get('viewer_geometry_source') or 'viewer'}_tiny_fragment_removed"
+            )
+            changed += 1
+    return changed
 
 
-def _apply_ocr_display_names_with_master_split(rooms, ocr_result):
-    result = _base_apply_ocr_display_names(rooms, ocr_result)
-    _split_master_bedroom_l_shape(rooms)
+def _snap_thin_room_overlaps(rooms):
+    """Remove small accidental floor overlaps between solid-line rooms.
+
+    A few approved wall-grid rooms can overlap by one wall thickness after OCR
+    naming/splitting.  In 3D that appears as a broken or doubled wall between
+    adjacent rooms.  If the overlap is only a thin strip, snap the lower/right
+    room start edge to the upper/left room end edge.
+    """
+
+    named_rooms = [
+        room
+        for room in rooms
+        if room.get("viewer_polygons")
+        and not _room_name(room).startswith("class_")
+    ]
+    changed = 0
+    max_overlap = 18
+
+    for first_index, first in enumerate(named_rooms):
+        first_bounds = _polygon_bounds(first)
+        if not first_bounds:
+            continue
+        fx1, fy1, fx2, fy2 = first_bounds
+        fw, fh = fx2 - fx1, fy2 - fy1
+        if fw <= 0 or fh <= 0:
+            continue
+        for second in named_rooms[first_index + 1 :]:
+            if _is_open_living_kitchen_pair(first, second):
+                continue
+            second_bounds = _polygon_bounds(second)
+            if not second_bounds:
+                continue
+            sx1, sy1, sx2, sy2 = second_bounds
+            sw, sh = sx2 - sx1, sy2 - sy1
+            if sw <= 0 or sh <= 0:
+                continue
+
+            overlap_x = max(0, min(fx2, sx2) - max(fx1, sx1))
+            overlap_y = max(0, min(fy2, sy2) - max(fy1, sy1))
+            if not overlap_x or not overlap_y:
+                continue
+
+            if (
+                overlap_y <= max_overlap
+                and overlap_x >= min(fw, sw) * 0.45
+            ):
+                first_center_y = (fy1 + fy2) / 2
+                second_center_y = (sy1 + sy2) / 2
+                upper, lower = (first, second) if first_center_y < second_center_y else (second, first)
+                upper_name = _room_name(upper)
+                lower_name = _room_name(lower)
+                upper_bounds = _polygon_bounds(upper)
+                lower_bounds = _polygon_bounds(lower)
+                if not upper_bounds or not lower_bounds:
+                    continue
+                if "욕실" in upper_name and "침실" in lower_name:
+                    shared_y = upper_bounds[3]
+                    if abs(lower_bounds[1] - shared_y) <= max_overlap:
+                        changed += int(_set_room_boundary(lower, "y", "top", shared_y))
+                elif "침실" in upper_name and "욕실" in lower_name:
+                    shared_y = lower_bounds[1]
+                    if abs(upper_bounds[3] - shared_y) <= max_overlap:
+                        changed += int(_set_room_boundary(upper, "y", "bottom", shared_y))
+                else:
+                    continue
+                continue
+
+            if (
+                overlap_x <= max_overlap
+                and overlap_y >= min(fh, sh) * 0.45
+            ):
+                first_center_x = (fx1 + fx2) / 2
+                second_center_x = (sx1 + sx2) / 2
+                left_room, right_room = (first, second) if first_center_x < second_center_x else (second, first)
+                left_name = _room_name(left_room)
+                right_name = _room_name(right_room)
+                left_bounds = _polygon_bounds(left_room)
+                right_bounds = _polygon_bounds(right_room)
+                if not left_bounds or not right_bounds:
+                    continue
+                if "욕실" in left_name and "침실" in right_name:
+                    shared_x = left_bounds[2]
+                    if abs(right_bounds[0] - shared_x) <= max_overlap:
+                        changed += int(_set_room_boundary(right_room, "x", "left", shared_x))
+                elif "침실" in left_name and "욕실" in right_name:
+                    shared_x = right_bounds[0]
+                    if abs(left_bounds[2] - shared_x) <= max_overlap:
+                        changed += int(_set_room_boundary(left_room, "x", "right", shared_x))
+    return changed
+
+
+def _merge_enclosed_anonymous_regions(rooms):
+    """Absorb only anonymous pixels that substantially lie inside one room.
+
+    This handles X-marked fixture/shaft masks enclosed by a bathroom or utility
+    room.  External X regions have no strong bbox containment and are omitted.
+    """
+
     coordinates = [
         point
         for room in rooms
         for polygon in (room.get("viewer_polygons") or [])
         for point in polygon
+        if isinstance(point, (list, tuple)) and len(point) == 2
     ]
-    if coordinates:
-        inferred_height = max(int(point[1]) for point in coordinates) + 1
-        inferred_width = max(int(point[0]) for point in coordinates) + 1
-        _align_bedroom_living_shared_boundary(
-            rooms, (inferred_height, inferred_width)
-        )
-        _snap_micro_wall_offsets(rooms, (inferred_height, inferred_width))
+    if not coordinates:
+        return 0
+    width = max(int(point[0]) for point in coordinates) + 4
+    height = max(int(point[1]) for point in coordinates) + 4
+    shape = (height, width)
+    removed = []
+
+    enclosed_space_names = (
+        "욕실",
+        "다용도실",
+        "파우더룸",
+        "드레스룸",
+        "W.I.C",
+        "WIC",
+    )
+
+    for fragment in list(rooms):
+        if not str(fragment.get("room_name") or "").startswith("class_12"):
+            continue
+        candidates = [
+            (_bbox_overlap_ratio(fragment, target), target)
+            for target in rooms
+            if target is not fragment
+            and not str(target.get("room_name") or "").startswith("class_")
+            and any(
+                token in str(target.get("room_name") or "")
+                for token in enclosed_space_names
+            )
+            and target.get("viewer_polygons")
+        ]
+        if not candidates:
+            continue
+        ratio, target = max(candidates, key=lambda item: item[0])
+        if ratio < 0.82:
+            continue
+
+        target_mask = _polygon_mask(target.get("viewer_polygons"), shape)
+        fragment_mask = _polygon_mask(fragment.get("viewer_polygons"), shape)
+        combined = cv2.bitwise_or(target_mask, fragment_mask)
+        polygons = _mask_polygons(combined)
+        if not polygons:
+            continue
+        target["viewer_polygons"] = polygons
+        target["viewer_geometry_source"] = "wall_grid_with_enclosed_space_merge"
+        removed.append(fragment)
+
+    for fragment in removed:
+        rooms.remove(fragment)
+    return len(removed)
+
+
+def _fill_narrow_internal_gaps(rooms):
+    """Assign only thin gaps trapped between two rendered room floors.
+
+    The source wall grid can leave a wall-width zero strip between two room
+    polygons.  Directional closing finds those strips without expanding the
+    exterior silhouette.  Each strip is assigned to the adjacent room with
+    the largest floor area; the shared wall is still rendered by the wall
+    graph on top of the floor.
+    """
+
+    named_rooms = [
+        room
+        for room in rooms
+        if room.get("viewer_polygons")
+        and not str(room.get("room_name") or "").startswith("class_")
+    ]
+    coordinates = [
+        point
+        for room in named_rooms
+        for polygon in room.get("viewer_polygons") or []
+        for point in polygon
+        if isinstance(point, (list, tuple)) and len(point) == 2
+    ]
+    if not coordinates:
+        return 0
+
+    width = max(int(point[0]) for point in coordinates) + 4
+    height = max(int(point[1]) for point in coordinates) + 4
+    shape = (height, width)
+    extent = max(width, height)
+    max_gap = max(10, min(34, int(round(extent * 0.0105))))
+
+    masks = {
+        id(room): _polygon_mask(room.get("viewer_polygons"), shape)
+        for room in named_rooms
+    }
+    occupied = np.zeros(shape, dtype=np.uint8)
+    for mask in masks.values():
+        occupied = cv2.bitwise_or(occupied, mask)
+
+    vertical = cv2.morphologyEx(
+        occupied,
+        cv2.MORPH_CLOSE,
+        np.ones((max_gap + 1, 1), dtype=np.uint8),
+    )
+    horizontal = cv2.morphologyEx(
+        occupied,
+        cv2.MORPH_CLOSE,
+        np.ones((1, max_gap + 1), dtype=np.uint8),
+    )
+    candidates = cv2.bitwise_and(cv2.bitwise_or(vertical, horizontal), cv2.bitwise_not(occupied))
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(candidates, 8)
+    changed = 0
+
+    for label_id in range(1, count):
+        x, y, component_width, component_height, area = [
+            int(value) for value in stats[label_id]
+        ]
+        short_side = min(component_width, component_height)
+        long_side = max(component_width, component_height)
+        if short_side > max_gap or long_side < short_side * 2 or area < 16:
+            continue
+        if area > max_gap * max(160, int(extent * 0.28)):
+            continue
+
+        component = (labels == label_id).astype(np.uint8) * 255
+        ring = cv2.dilate(component, np.ones((5, 5), np.uint8), iterations=1)
+        ring = cv2.bitwise_and(ring, cv2.bitwise_not(component))
+        touching = []
+        for room in named_rooms:
+            mask = masks[id(room)]
+            contact = cv2.countNonZero(cv2.bitwise_and(ring, mask))
+            if contact:
+                touching.append((contact, cv2.countNonZero(mask), room))
+        if len(touching) < 2:
+            continue
+
+        touching_names = [
+            str(item[2].get("room_name") or "").replace(" ", "")
+            for item in touching
+        ]
+        # The visible zero-strip regression occurs where the interior living
+        # floor meets a balcony floor.  Other inter-room strips are normally
+        # covered by an internal wall and must retain their original geometry.
+        if not (
+            any("거실" in name for name in touching_names)
+            and any("발코니" in name for name in touching_names)
+        ):
+            continue
+
+        target_pool = [
+            item
+            for item in touching
+            if (
+                "거실" in str(item[2].get("room_name") or "").replace(" ", "")
+                or "발코니" in str(item[2].get("room_name") or "").replace(" ", "")
+            )
+        ]
+        _, _, target = max(target_pool, key=lambda item: (item[0], item[1]))
+        combined = cv2.bitwise_or(masks[id(target)], component)
+        polygons = _mask_polygons(combined)
+        if not polygons:
+            continue
+        masks[id(target)] = combined
+        target["viewer_polygons"] = polygons
+        target["viewer_geometry_source"] = "wall_grid_with_narrow_gap_fill"
+        occupied = cv2.bitwise_or(occupied, component)
+        changed += 1
+
+    return changed
+
+
+_approved_apply_ocr_names = approved_main.base.apply_ocr_display_names
+
+
+def _apply_ocr_names_with_enclosed_merge(rooms, ocr_result):
+    result = _approved_apply_ocr_names(rooms, ocr_result)
+    _postprocess_display_rooms(rooms)
     return result
 
 
-base.apply_ocr_display_names = _apply_ocr_display_names_with_master_split
+def _postprocess_display_rooms(rooms):
+    """Apply the 8004-only room cleanup even when SPA already supplied OCR names.
 
-
-def _build_viewerwall_javascript():
-    """Patch only 8004 so wall boxes stop at the inner edge of T-junctions.
-
-    The shared viewer extends wall boxes to hide ordinary corner gaps.  At a
-    T-junction, however, an endpoint that lands in the middle of another wall
-    must be shortened to that wall's inner face; otherwise a small nib remains
-    visible inside the neighbouring room.  Only those interior intersections
-    are trimmed.  SPA polygons and pixel counts are never changed.
+    The team pipeline intentionally avoids a second OCR request in viewer3d.
+    Keeping the cleanup independent from that optional OCR hook preserves the
+    approved 8004 geometry while retaining the faster single-OCR call path.
     """
-    source = (base.STATIC_DIR / "viewer.js").read_text(encoding="utf-8")
-    replacements = {
-        "scene.background = new THREE.Color(0xedf3f1);": "scene.background = new THREE.Color(0xf4f7fc);",
-        "  pendingWallSegments.forEach((segment, segmentIndex) => {": """  const endpointHitsWallInterior = (point, segmentIndex, segment) => pendingWallSegments.some((other, otherIndex) => {
-    if (otherIndex === segmentIndex) return false;
-    const odx = other.end.x - other.start.x;
-    const odz = other.end.z - other.start.z;
-    const otherLength2 = odx * odx + odz * odz;
-    if (otherLength2 < wallThickness * wallThickness) return false;
-    const t = ((point.x - other.start.x) * odx + (point.z - other.start.z) * odz) / otherLength2;
-    if (t <= .06 || t >= .94) return false;
-    const closestX = other.start.x + odx * t;
-    const closestZ = other.start.z + odz * t;
-    if (Math.hypot(point.x - closestX, point.z - closestZ) > wallThickness * .42) return false;
-    const sdx = segment.end.x - segment.start.x;
-    const sdz = segment.end.z - segment.start.z;
-    const segmentLength = Math.hypot(sdx, sdz);
-    const otherLength = Math.sqrt(otherLength2);
-    if (segmentLength < wallThickness || otherLength < wallThickness) return false;
-    const perpendicularity = Math.abs((sdx * odx + sdz * odz) / (segmentLength * otherLength));
-    return perpendicularity < .28;
+
+    if _is_legacy_solid_line_result(rooms):
+        _remove_tiny_room_fragments(rooms)
+        _snap_thin_room_overlaps(rooms)
+    else:
+        _merge_enclosed_anonymous_regions(rooms)
+        _fill_narrow_internal_gaps(rooms)
+
+
+approved_main.base.apply_ocr_display_names = _apply_ocr_names_with_enclosed_merge
+
+_source = approved_main._VIEWERWALL_JAVASCRIPT
+
+_floor_helper_marker = "function addPolygonRoom(points, color, roomName, transform, room) {"
+_floor_helper = r"""
+function cleanLegacyShallowFloorSteps(vertices, room) {
+  if (!room || room.viewer_geometry_source !== "original_wall_grid" || vertices.length < 6) {
+    return vertices;
+  }
+  const axisTolerance = currentExtent * .0015;
+  const stepLimit = currentExtent * .022;
+  const longSideMin = stepLimit * 2.4;
+  const points = vertices.map((point) => ({ ...point }));
+  const length = (start, end) => Math.hypot(end.x - start.x, end.z - start.z);
+  const horizontal = (start, end) => Math.abs(end.z - start.z) <= axisTolerance;
+  const vertical = (start, end) => Math.abs(end.x - start.x) <= axisTolerance;
+
+  for (let pass = 0; pass < 3 && points.length >= 6; pass += 1) {
+    let changed = false;
+    for (let index = 0; index < points.length; index += 1) {
+      const beforeIndex = (index - 1 + points.length) % points.length;
+      const afterIndex = (index + 1) % points.length;
+      const afterAfterIndex = (index + 2) % points.length;
+      const before = points[beforeIndex];
+      const start = points[index];
+      const end = points[afterIndex];
+      const after = points[afterAfterIndex];
+      const connectorLength = length(start, end);
+      const beforeLength = length(before, start);
+      const afterLength = length(end, after);
+      if (connectorLength <= axisTolerance || connectorLength > stepLimit) continue;
+      if (beforeLength < longSideMin || afterLength < longSideMin) continue;
+
+      const verticalStep = vertical(start, end)
+        && horizontal(before, start) && horizontal(end, after);
+      const horizontalStep = horizontal(start, end)
+        && vertical(before, start) && vertical(end, after);
+      if (!verticalStep && !horizontalStep) continue;
+
+      if (verticalStep) {
+        const targetZ = beforeLength >= afterLength ? start.z : end.z;
+        if (beforeLength >= afterLength) {
+          end.z = targetZ;
+          after.z = targetZ;
+        } else {
+          before.z = targetZ;
+          start.z = targetZ;
+        }
+      } else {
+        const targetX = beforeLength >= afterLength ? start.x : end.x;
+        if (beforeLength >= afterLength) {
+          end.x = targetX;
+          after.x = targetX;
+        } else {
+          before.x = targetX;
+          start.x = targetX;
+        }
+      }
+      changed = true;
+      break;
+    }
+    if (!changed) break;
+    for (let index = points.length - 1; index >= 0; index -= 1) {
+      const next = points[(index + 1) % points.length];
+      if (length(points[index], next) <= axisTolerance) points.splice(index, 1);
+    }
+  }
+  return points.length >= 3 ? points : vertices;
+}
+
+"""
+if _floor_helper_marker not in _source:
+    raise RuntimeError("viewer floor cleanup marker was not found")
+_source = _source.replace(
+    _floor_helper_marker,
+    _floor_helper + _floor_helper_marker,
+    1,
+)
+_source = _source.replace(
+    """  const vertices = points.map(([x, y]) => ({
+    x: (x - centerX) * scale,
+    z: (y - centerY) * scale,
+  }));
+  const shape = new THREE.Shape();""",
+    """  let vertices = points.map(([x, y]) => ({
+    x: (x - centerX) * scale,
+    z: (y - centerY) * scale,
+  }));
+  vertices = cleanLegacyShallowFloorSteps(vertices, room);
+  const shape = new THREE.Shape();""",
+    1,
+)
+
+_source = _source.replace(
+    "  addContourWalls(vertices, roomName);",
+    "  addContourWalls(vertices, roomName, room);",
+    1,
+)
+_source = _source.replace(
+    "function addContourWalls(vertices, roomName) {",
+    "function addContourWalls(vertices, roomName, room) {",
+    1,
+)
+_source = _source.replace(
+    "  pendingWallPolygons.push({ vertices, roomName });",
+    "  const roomSource = room && room.viewer_geometry_source;\n  pendingWallPolygons.push({ vertices, roomName, roomSource });",
+    1,
+)
+_source = _source.replace(
+    "    pendingWallSegments.push({ start, end, roomName });",
+    "    pendingWallSegments.push({ start, end, roomName, roomSource });",
+    1,
+)
+
+_helper_marker = "function renderContourWalls() {"
+_helper = r"""
+function buildContinuousWallGraph(sourceSegments, wallThickness) {
+  const axisTolerance = wallThickness * .58;
+  const joinTolerance = wallThickness * .72;
+  const axis = [];
+  const diagonal = [];
+
+  sourceSegments.forEach((segment) => {
+    const dx = segment.end.x - segment.start.x;
+    const dz = segment.end.z - segment.start.z;
+    const length = Math.hypot(dx, dz);
+    if (length < wallThickness * .72) return;
+    if (Math.abs(dz) <= axisTolerance) {
+      axis.push({
+        orientation: "h",
+        coordinate: (segment.start.z + segment.end.z) / 2,
+        from: Math.min(segment.start.x, segment.end.x),
+        to: Math.max(segment.start.x, segment.end.x),
+        roomName: segment.roomName,
+      });
+    } else if (Math.abs(dx) <= axisTolerance) {
+      axis.push({
+        orientation: "v",
+        coordinate: (segment.start.x + segment.end.x) / 2,
+        from: Math.min(segment.start.z, segment.end.z),
+        to: Math.max(segment.start.z, segment.end.z),
+        roomName: segment.roomName,
+      });
+    } else {
+      diagonal.push(segment);
+    }
   });
 
-  pendingWallSegments.forEach((segment, segmentIndex) => {""",
-        "    const wallSegment = extendedSegment(\n      start,\n      end,": """    const startHitsWallInterior = endpointHitsWallInterior(start, segmentIndex, segment);
-    const endHitsWallInterior = endpointHitsWallInterior(end, segmentIndex, segment);
-    const wallSegment = extendedSegment(
-      start,
-      end,""",
-        "startTouchesRemoved ? 0 : wallThickness * .175": "startHitsWallInterior ? -wallThickness * .52 : 0",
-        "endTouchesRemoved ? 0 : wallThickness * .175": "endHitsWallInterior ? -wallThickness * .52 : 0",
-        "startTouchesRemoved ? 0 : wallThickness * .225": "startHitsWallInterior ? -wallThickness * .62 : 0",
-        "endTouchesRemoved ? 0 : wallThickness * .225": "endHitsWallInterior ? -wallThickness * .62 : 0",
+  const rows = [];
+  axis
+    .sort((a, b) => a.orientation.localeCompare(b.orientation)
+      || a.coordinate - b.coordinate || a.from - b.from)
+    .forEach((item) => {
+      let row = rows.find((candidate) => (
+        candidate.orientation === item.orientation
+        && Math.abs(candidate.coordinate - item.coordinate) <= axisTolerance
+      ));
+      if (!row) {
+        row = { orientation: item.orientation, coordinate: item.coordinate, items: [] };
+        rows.push(row);
+      } else {
+        row.coordinate = (
+          row.coordinate * row.items.length + item.coordinate
+        ) / (row.items.length + 1);
+      }
+      row.items.push(item);
+    });
+
+  const merged = [];
+  rows.forEach((row) => {
+    const intervals = row.items.sort((a, b) => a.from - b.from || a.to - b.to);
+    let active = null;
+    intervals.forEach((interval) => {
+      if (!active || interval.from > active.to + joinTolerance) {
+        if (active) merged.push(active);
+        active = {
+          orientation: row.orientation,
+          coordinate: row.coordinate,
+          from: interval.from,
+          to: interval.to,
+          roomNames: new Set([interval.roomName]),
+        };
+      } else {
+        active.to = Math.max(active.to, interval.to);
+        active.roomNames.add(interval.roomName);
+      }
+    });
+    if (active) merged.push(active);
+  });
+
+  const result = merged.map((item) => ({
+    start: item.orientation === "h"
+      ? { x: item.from, z: item.coordinate }
+      : { x: item.coordinate, z: item.from },
+    end: item.orientation === "h"
+      ? { x: item.to, z: item.coordinate }
+      : { x: item.coordinate, z: item.to },
+    roomName: Array.from(item.roomNames).join("|"),
+    orientation: item.orientation,
+  }));
+
+  // Connect only tiny endpoint gaps to a perpendicular wall.  This closes
+  // T-junctions without extending a wall across a doorway or open room.
+  result.forEach((segment) => {
+    ["start", "end"].forEach((side) => {
+      const point = segment[side];
+      let best = null;
+      result.forEach((other) => {
+        if (other === segment || other.orientation === segment.orientation) return;
+        const crossing = segment.orientation === "h"
+          ? { x: other.start.x, z: segment.start.z }
+          : { x: segment.start.x, z: other.start.z };
+        const otherMin = other.orientation === "h"
+          ? Math.min(other.start.x, other.end.x)
+          : Math.min(other.start.z, other.end.z);
+        const otherMax = other.orientation === "h"
+          ? Math.max(other.start.x, other.end.x)
+          : Math.max(other.start.z, other.end.z);
+        const crossValue = other.orientation === "h" ? crossing.x : crossing.z;
+        if (crossValue < otherMin - axisTolerance || crossValue > otherMax + axisTolerance) return;
+        const distance = Math.hypot(point.x - crossing.x, point.z - crossing.z);
+        if (distance <= joinTolerance && (!best || distance < best.distance)) {
+          best = { crossing, distance };
+        }
+      });
+      if (best) segment[side] = best.crossing;
+    });
+  });
+
+  return result.concat(diagonal);
+}
+
+function collapseLegacyShallowSteps(sourceSegments, wallThickness) {
+  const axisTolerance = wallThickness * .7;
+  const stepLimit = Math.max(wallThickness * 3.2, currentExtent * .022);
+  const longSideMin = stepLimit * 2.4;
+  const cloned = sourceSegments.map((segment) => ({
+    ...segment,
+    start: { ...segment.start },
+    end: { ...segment.end },
+  }));
+  const near = (a, b) => Math.abs(a - b) <= axisTolerance;
+  const lengthOf = (segment) => Math.hypot(
+    segment.end.x - segment.start.x,
+    segment.end.z - segment.start.z,
+  );
+  const horizontal = (segment) => Math.abs(segment.end.z - segment.start.z) <= axisTolerance;
+  const vertical = (segment) => Math.abs(segment.end.x - segment.start.x) <= axisTolerance;
+  const touches = (segment, point) => (
+    Math.hypot(segment.start.x - point.x, segment.start.z - point.z) <= axisTolerance * 1.8
+    || Math.hypot(segment.end.x - point.x, segment.end.z - point.z) <= axisTolerance * 1.8
+  );
+
+  cloned.forEach((connector) => {
+    const connectorLength = lengthOf(connector);
+    if (connectorLength <= axisTolerance || connectorLength > stepLimit) return;
+    const isVerticalConnector = vertical(connector);
+    const isHorizontalConnector = horizontal(connector);
+    if (!isVerticalConnector && !isHorizontalConnector) return;
+
+    const firstSides = cloned.filter((candidate) => (
+      candidate !== connector
+      && (isVerticalConnector ? horizontal(candidate) : vertical(candidate))
+      && lengthOf(candidate) >= longSideMin
+      && touches(candidate, connector.start)
+    ));
+    const secondSides = cloned.filter((candidate) => (
+      candidate !== connector
+      && (isVerticalConnector ? horizontal(candidate) : vertical(candidate))
+      && lengthOf(candidate) >= longSideMin
+      && touches(candidate, connector.end)
+    ));
+    if (!firstSides.length || !secondSides.length) return;
+
+    const first = firstSides.sort((a, b) => lengthOf(b) - lengthOf(a))[0];
+    const second = secondSides.sort((a, b) => lengthOf(b) - lengthOf(a))[0];
+    if (first === second) return;
+    const target = lengthOf(first) >= lengthOf(second) ? first : second;
+
+    if (isVerticalConnector) {
+      const oldA = (first.start.z + first.end.z) / 2;
+      const oldB = (second.start.z + second.end.z) / 2;
+      const targetZ = (target.start.z + target.end.z) / 2;
+      const moved = [];
+      cloned.forEach((segment) => {
+        if (horizontal(segment)) {
+          const z = (segment.start.z + segment.end.z) / 2;
+          if (near(z, oldA) || near(z, oldB)) {
+            const minX = Math.min(segment.start.x, segment.end.x);
+            const maxX = Math.max(segment.start.x, segment.end.x);
+            if (connector.start.x >= minX - stepLimit && connector.start.x <= maxX + stepLimit) {
+              moved.push({
+                oldStart: { ...segment.start },
+                oldEnd: { ...segment.end },
+              });
+              segment.start.z = targetZ;
+              segment.end.z = targetZ;
+            }
+          }
+        }
+      });
+      moved.forEach(({ oldStart, oldEnd }) => {
+        cloned.forEach((segment) => {
+          ["start", "end"].forEach((side) => {
+            const point = segment[side];
+            const attachedToStart = near(point.x, oldStart.x) && near(point.z, oldStart.z);
+            const attachedToEnd = near(point.x, oldEnd.x) && near(point.z, oldEnd.z);
+            if (attachedToStart || attachedToEnd) point.z = targetZ;
+          });
+        });
+      });
+    } else {
+      const oldA = (first.start.x + first.end.x) / 2;
+      const oldB = (second.start.x + second.end.x) / 2;
+      const targetX = (target.start.x + target.end.x) / 2;
+      const moved = [];
+      cloned.forEach((segment) => {
+        if (vertical(segment)) {
+          const x = (segment.start.x + segment.end.x) / 2;
+          if (near(x, oldA) || near(x, oldB)) {
+            const minZ = Math.min(segment.start.z, segment.end.z);
+            const maxZ = Math.max(segment.start.z, segment.end.z);
+            if (connector.start.z >= minZ - stepLimit && connector.start.z <= maxZ + stepLimit) {
+              moved.push({
+                oldStart: { ...segment.start },
+                oldEnd: { ...segment.end },
+              });
+              segment.start.x = targetX;
+              segment.end.x = targetX;
+            }
+          }
+        }
+      });
+      moved.forEach(({ oldStart, oldEnd }) => {
+        cloned.forEach((segment) => {
+          ["start", "end"].forEach((side) => {
+            const point = segment[side];
+            const attachedToStart = near(point.x, oldStart.x) && near(point.z, oldStart.z);
+            const attachedToEnd = near(point.x, oldEnd.x) && near(point.z, oldEnd.z);
+            if (attachedToStart || attachedToEnd) point.x = targetX;
+          });
+        });
+      });
     }
-    for marker, replacement in replacements.items():
-        if marker not in source:
-            raise RuntimeError(f"viewerwall JavaScript marker was not found: {marker}")
-        source = source.replace(marker, replacement, 1)
-    return source
+  });
 
+  return cloned.filter((segment) => lengthOf(segment) > axisTolerance);
+}
 
-_VIEWERWALL_JAVASCRIPT = _build_viewerwall_javascript()
+function buildLegacySolidLineWallSegments(sourceSegments, wallThickness) {
+  const axisTolerance = wallThickness * .7;
+  const minPartLength = wallThickness * .85;
+  const isLegacyLivingName = (name) => /거실/.test(String(name || ""));
+  const isLegacyKitchenName = (name) => /주방|식당/.test(String(name || ""));
+  const isLegacyOpenPlanPair = (firstName, secondName) => (
+    (isLegacyLivingName(firstName) && isLegacyKitchenName(secondName))
+    || (isLegacyKitchenName(firstName) && isLegacyLivingName(secondName))
+  );
+  const isLegacyRemovedOpenPlanDiagonal = (segment) => {
+    const dx = segment.end.x - segment.start.x;
+    const dz = segment.end.z - segment.start.z;
+    const length = Math.hypot(dx, dz);
+    return (
+      Math.abs(dx) > wallThickness * 1.5
+      && Math.abs(dz) > wallThickness * 1.5
+      && length < Math.max(.56, currentExtent * .047)
+      && /거실|주방|식당/.test(String(segment.roomName || ""))
+    );
+  };
+  const clamp01 = (value) => Math.max(0, Math.min(1, value));
+  const subtractInterval = (parts, rawFrom, rawTo) => {
+    const from = clamp01(Math.min(rawFrom, rawTo));
+    const to = clamp01(Math.max(rawFrom, rawTo));
+    if (to - from <= .001) return parts;
+    const next = [];
+    parts.forEach((part) => {
+      if (to <= part.from || from >= part.to) {
+        next.push(part);
+        return;
+      }
+      if (from > part.from) next.push({ from: part.from, to: from });
+      if (to < part.to) next.push({ from: to, to: part.to });
+    });
+    return next;
+  };
+  const boundsOf = (vertices) => vertices.reduce((bounds, point) => ({
+    minX: Math.min(bounds.minX, point.x),
+    maxX: Math.max(bounds.maxX, point.x),
+    minZ: Math.min(bounds.minZ, point.z),
+    maxZ: Math.max(bounds.maxZ, point.z),
+  }), {
+    minX: Infinity,
+    maxX: -Infinity,
+    minZ: Infinity,
+    maxZ: -Infinity,
+  });
+  const ratioAt = (coord, startCoord, endCoord) => {
+    const denom = endCoord - startCoord;
+    if (Math.abs(denom) < 1e-6) return 0;
+    return clamp01((coord - startCoord) / denom);
+  };
+  const interpolate = (segment, ratio) => ({
+    x: segment.start.x + (segment.end.x - segment.start.x) * ratio,
+    z: segment.start.z + (segment.end.z - segment.start.z) * ratio,
+  });
 
+  const result = [];
+  collapseLegacyShallowSteps(sourceSegments, wallThickness).forEach((segment) => {
+    if (isLegacyRemovedOpenPlanDiagonal(segment)) return;
 
-def _build_viewerwall_stylesheet():
-    """Give only port 8004 the blue visual language used by the app UI."""
-    source = (base.STATIC_DIR / "styles.css").read_text(encoding="utf-8")
-    replacements = {
-        "--ink: #17211d;": "--ink: #17233d;",
-        "--muted: #708078;": "--muted: #7b8498;",
-        "--line: #e2e8e4;": "--line: #e1e7f0;",
-        "--paper: #f4f7f4;": "--paper: #f4f7fc;",
-        "--green: #19a56f;": "--green: #2f6fed;",
-        "--green-dark: #087b50;": "--green-dark: #205bd8;",
-        "background: #edf2ee;": "background: #f3f6fb;",
-        "background: linear-gradient(145deg, #23b982, #07875a);": "background: linear-gradient(145deg, #4b82f4, #2563eb);",
-        "box-shadow: 0 8px 18px rgba(17, 152, 100, .22);": "box-shadow: 0 8px 18px rgba(37, 99, 235, .22);",
-        "color: #597168;": "color: #315ea8;",
-        "border: 1px solid #dce9e1;": "border: 1px solid #dbe6fb;",
-        "background: #f5fbf7;": "background: #f5f8ff;",
-        "background: #22b87f;": "background: #2f6fed;",
-        "box-shadow: 0 0 0 4px rgba(34, 184, 127, .12);": "box-shadow: 0 0 0 4px rgba(47, 111, 237, .12);",
-        "background: #fbfcfb;": "background: #fbfcff;",
-        "border: 1.5px dashed #b9ccc0;": "border: 1.5px dashed #b9cbef;",
-        "background: #f4faf6;": "background: #f7f9fe;",
-        "background: #eaf8f0;": "background: #edf4ff;",
-        "box-shadow: 0 8px 18px rgba(25, 165, 111, .22);": "box-shadow: 0 8px 18px rgba(47, 111, 237, .22);",
-        "background: #e8eeea;": "background: #e8edf6;",
-        "background: linear-gradient(90deg, #1bb17a, #7bd8af);": "background: linear-gradient(90deg, #2563eb, #7ba7ff);",
-        "border: 1px solid #e0e6e2;": "border: 1px solid #dfe6f1;",
-        "background: #f5f7f5;": "background: #f5f7fb;",
-        "color: #6c7972;": "color: #69758c;",
-        "linear-gradient(#f1f5f2 1px, transparent 1px)": "linear-gradient(#edf2fa 1px, transparent 1px)",
-        "linear-gradient(90deg, #f1f5f2 1px, transparent 1px);": "linear-gradient(90deg, #edf2fa 1px, transparent 1px);",
-        "background: #eef7f2;": "background: #eef4ff;",
+    const dx = segment.end.x - segment.start.x;
+    const dz = segment.end.z - segment.start.z;
+    const length = Math.hypot(dx, dz);
+    if (length < minPartLength) return;
+
+    const vertical = Math.abs(dx) <= axisTolerance;
+    const horizontal = Math.abs(dz) <= axisTolerance;
+    if (!vertical && !horizontal) {
+      if (!segmentRunsThroughOpenPlanRoom(segment, wallThickness)) result.push(segment);
+      return;
     }
-    for marker, replacement in replacements.items():
-        if marker not in source:
-            raise RuntimeError(f"viewerwall stylesheet marker was not found: {marker}")
-        source = source.replace(marker, replacement, 1)
-    return source
+
+    let parts = [{ from: 0, to: 1 }];
+    pendingWallPolygons.forEach((polygon) => {
+      if (!isLegacyOpenPlanPair(segment.roomName, polygon.roomName)) return;
+      const bounds = boundsOf(polygon.vertices);
+
+      if (vertical) {
+        const x = (segment.start.x + segment.end.x) / 2;
+        if (x < bounds.minX - wallThickness * 1.6 || x > bounds.maxX + wallThickness * 1.6) return;
+        const cutMin = Math.max(Math.min(segment.start.z, segment.end.z), bounds.minZ);
+        const cutMax = Math.min(Math.max(segment.start.z, segment.end.z), bounds.maxZ);
+        if (cutMax - cutMin < minPartLength) return;
+        parts = subtractInterval(
+          parts,
+          ratioAt(cutMin, segment.start.z, segment.end.z),
+          ratioAt(cutMax, segment.start.z, segment.end.z),
+        );
+      } else if (horizontal) {
+        const z = (segment.start.z + segment.end.z) / 2;
+        if (z < bounds.minZ - wallThickness * 1.6 || z > bounds.maxZ + wallThickness * 1.6) return;
+        const cutMin = Math.max(Math.min(segment.start.x, segment.end.x), bounds.minX);
+        const cutMax = Math.min(Math.max(segment.start.x, segment.end.x), bounds.maxX);
+        if (cutMax - cutMin < minPartLength) return;
+        parts = subtractInterval(
+          parts,
+          ratioAt(cutMin, segment.start.x, segment.end.x),
+          ratioAt(cutMax, segment.start.x, segment.end.x),
+        );
+      }
+    });
+
+    parts.forEach((part) => {
+      if (length * (part.to - part.from) < minPartLength) return;
+      result.push({
+        ...segment,
+        start: interpolate(segment, part.from),
+        end: interpolate(segment, part.to),
+      });
+    });
+  });
+
+  return result;
+}
+
+"""
+
+if _helper_marker not in _source:
+    raise RuntimeError("viewer wall graph helper marker was not found")
+_source = _source.replace(_helper_marker, _helper + _helper_marker, 1)
+
+_graph_marker = """  const removedBoundaryEndpoints = pendingWallSegments
+    .filter((segment) => (
+      isRemovedOpenPlanDiagonal(segment)
+      || segmentRunsThroughOpenPlanRoom(segment, wallThickness)
+    ))
+    .flatMap((segment) => [segment.start, segment.end]);"""
+_graph_replacement = _graph_marker + r"""
+  const legacySolidLineWallMode = (() => {
+    const namedSegments = pendingWallSegments.filter((segment) => (
+      segment.roomSource && !String(segment.roomName || "").startsWith("class_")
+    ));
+    if (namedSegments.length < 18) return false;
+    const wallGridSegments = namedSegments.filter((segment) => (
+      segment.roomSource === "original_wall_grid"
+    )).length;
+    return wallGridSegments / Math.max(1, namedSegments.length) >= .72;
+  })();
+  const drawableWallSegments = pendingWallSegments.filter((segment, segmentIndex) => {
+    if (isRemovedOpenPlanDiagonal(segment)) return false;
+    if (segmentRunsThroughOpenPlanRoom(segment, wallThickness)) return false;
+    return !pendingWallSegments.some((other, otherIndex) => (
+      otherIndex !== segmentIndex && segmentsShareOpenBoundary(segment, other)
+    ));
+  });
+  const renderWallSegments = legacySolidLineWallMode
+    ? buildLegacySolidLineWallSegments(pendingWallSegments, wallThickness)
+    : buildContinuousWallGraph(drawableWallSegments, wallThickness);"""
+if _graph_marker not in _source:
+    raise RuntimeError("viewer wall graph insertion marker was not found")
+_source = _source.replace(_graph_marker, _graph_replacement, 1)
+
+_source = _source.replace(
+    "const endpointHitsWallInterior = (point, segmentIndex, segment) => pendingWallSegments.some((other, otherIndex) => {",
+    "const endpointHitsWallInterior = (point, segmentIndex, segment) => renderWallSegments.some((other, otherIndex) => {",
+    1,
+)
+_source = _source.replace(
+    "  pendingWallSegments.forEach((segment, segmentIndex) => {",
+    "  renderWallSegments.forEach((segment, segmentIndex) => {",
+    1,
+)
+
+# Open-plan boundaries were removed before graph construction, so the two
+# request-time checks below are intentionally neutralized for merged names.
+_source = _source.replace(
+    """    if (pendingWallSegments.some((other, otherIndex) =>
+      otherIndex !== segmentIndex && segmentsShareOpenBoundary(segment, other)
+    )) return;
+    if (segmentRunsThroughOpenPlanRoom(segment, wallThickness)) return;""",
+    """    // Open-plan candidates were filtered before canonical merging.""",
+    1,
+)
+
+# A canonical T-junction reaches the crossing wall centre.  Do not shorten it
+# again; the two wall boxes overlap by half their thickness and stay closed.
+_source = _source.replace(
+    """      startHitsWallInterior ? -wallThickness * .52 : 0,
+      endHitsWallInterior ? -wallThickness * .52 : 0""",
+    """      legacySolidLineWallMode
+        ? (startHitsWallInterior ? -wallThickness * .52 : 0)
+        : (startTouchesRemoved ? 0 : wallThickness * .10),
+      legacySolidLineWallMode
+        ? (endHitsWallInterior ? -wallThickness * .52 : 0)
+        : (endTouchesRemoved ? 0 : wallThickness * .10)""",
+    1,
+)
+_source = _source.replace(
+    """      startHitsWallInterior ? -wallThickness * .62 : 0,
+      endHitsWallInterior ? -wallThickness * .62 : 0""",
+    """      legacySolidLineWallMode
+        ? (startHitsWallInterior ? -wallThickness * .62 : 0)
+        : (startTouchesRemoved ? 0 : wallThickness * .13),
+      legacySolidLineWallMode
+        ? (endHitsWallInterior ? -wallThickness * .62 : 0)
+        : (endTouchesRemoved ? 0 : wallThickness * .13)""",
+    1,
+)
+
+approved_main._VIEWERWALL_JAVASCRIPT = _source
 
 
-_VIEWERWALL_STYLESHEET = _build_viewerwall_stylesheet()
+async def _viewerwall_index_no_cache(_request):
+    """Serve 8004 with a fresh asset version after wall-render patches."""
 
-
-async def _viewerwall_javascript(_request):
-    return Response(
-        _VIEWERWALL_JAVASCRIPT,
-        media_type="application/javascript",
-        headers={"Cache-Control": "no-store"},
-    )
-
-
-async def _viewerwall_stylesheet(_request):
-    return Response(
-        _VIEWERWALL_STYLESHEET,
-        media_type="text/css",
-        headers={"Cache-Control": "no-store"},
-    )
-
-
-async def _viewerwall_index(_request):
-    """Serve the 8004 page with cache-busted 8004-only assets."""
-    source = (base.STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    source = (approved_main.base.STATIC_DIR / "index.html").read_text(encoding="utf-8")
     source = source.replace(
         "/static/styles.css?v=shape-15-square-tooltip",
-        "/static/styles.css?v=viewerwall-blue-20260803",
+        "/static/styles.css?v=viewerwall-linefix-20260820f",
     )
     source = source.replace(
         "/static/viewer.js?v=shape-40-tap-click-tooltip",
-        "/static/viewer.js?v=viewerwall-blue-20260803",
+        "/static/viewer.js?v=viewerwall-linefix-20260820f",
     )
     return Response(
         source,
@@ -1022,17 +1076,75 @@ async def _viewerwall_index(_request):
     )
 
 
-# The stable app mounts /static before this module is imported.  Put the
-# 8004-only JavaScript route first so 8003's source file stays untouched.
-base.app.router.routes.insert(
-    0, Route("/static/viewer.js", endpoint=_viewerwall_javascript, methods=["GET"])
+approved_main.base.app.router.routes.insert(
+    0, Route("/", endpoint=_viewerwall_index_no_cache, methods=["GET"])
 )
-base.app.router.routes.insert(
-    0, Route("/static/styles.css", endpoint=_viewerwall_stylesheet, methods=["GET"])
+
+
+_original_analyze_endpoint = next(
+    route.endpoint
+    for route in approved_main.base.app.router.routes
+    if getattr(route, "path", None) == "/api/analyze"
+    and "POST" in getattr(route, "methods", set())
 )
-base.app.router.routes.insert(
-    0, Route("/", endpoint=_viewerwall_index, methods=["GET"])
+
+
+async def _analyze_cached(file: UploadFile = File(...)):
+    """Reuse completed results while leaving the original analysis untouched."""
+
+    if file.content_type not in {"image/jpeg", "image/png"}:
+        raise HTTPException(415, "PNG 또는 JPG 평면도만 사용할 수 있습니다.")
+
+    content = await file.read()
+    cache_key = hashlib.sha256(
+        (file.content_type + "\0").encode("utf-8") + content
+    ).hexdigest()
+
+    async with _analysis_cache_lock:
+        cached = _analysis_cache.get(cache_key)
+        if cached is not None:
+            _analysis_cache.move_to_end(cache_key)
+            return copy.deepcopy(cached)
+
+    # The endpoint reads the upload itself, so rewind after hashing it.  Every
+    # first-time result is therefore still produced by the approved pipeline.
+    await file.seek(0)
+    result = await _original_analyze_endpoint(file)
+    try:
+        # The approved 8003/8004 result performs one final OCR-to-room anchor
+        # pass after SPA geometry is ready.  Keep this refinement in the
+        # display wrapper instead of restoring the duplicate call in the
+        # shared viewer3d base used by the team pipeline.
+        ocr_response = requests.post(
+            f"{approved_main.base.OCR_URL}/ocr",
+            files={
+                "file": (
+                    file.filename or "floorplan.png",
+                    content,
+                    file.content_type,
+                )
+            },
+            data={"rotate_clockwise": "false"},
+            timeout=240,
+        )
+        ocr_response.raise_for_status()
+        approved_main.base.apply_ocr_display_names(
+            result.get("rooms", []), ocr_response.json()
+        )
+    except (requests.RequestException, ValueError, json.JSONDecodeError):
+        # Geometry remains usable if the optional refinement call is down.
+        _postprocess_display_rooms(result.get("rooms", []))
+    async with _analysis_cache_lock:
+        _analysis_cache[cache_key] = copy.deepcopy(result)
+        _analysis_cache.move_to_end(cache_key)
+        while len(_analysis_cache) > _ANALYSIS_CACHE_LIMIT:
+            _analysis_cache.popitem(last=False)
+    return result
+
+
+# Keep the approved endpoint intact and place only the cache wrapper before it.
+approved_main.base.app.post("/api/analyze", include_in_schema=False)(
+    _analyze_cached
 )
-base.app.title = "SpaceUP Wall-guided 3D Floor Plan Viewer"
-base.app.version = "0.1.0"
-app = base.app
+_cached_analyze_route = approved_main.base.app.router.routes.pop()
+approved_main.base.app.router.routes.insert(0, _cached_analyze_route)

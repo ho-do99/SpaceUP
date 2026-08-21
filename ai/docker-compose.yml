@@ -9,7 +9,9 @@ services:
     restart: unless-stopped
 
   spa:
-    build: ./spa
+    build:
+      context: .
+      dockerfile: spa/Dockerfile
     container_name: spaceup-spa
     ports:
       - "8002:8000"

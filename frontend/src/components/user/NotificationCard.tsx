@@ -18,13 +18,18 @@ export default function NotificationCard({ notification, onSelect }: Notificatio
       }`}
     >
       <span className="flex h-5 w-full items-center justify-between">
-        <span className="flex items-center gap-1.5">
+        <span className="flex min-w-0 items-center gap-1.5">
           {!notification.isRead ? (
             <span className="size-1.5 rounded-full bg-[#2563eb]" aria-hidden="true" />
           ) : null}
           <span className="rounded-[10px] bg-white px-2 py-[3px] text-[9px] leading-[14px] text-[#64748b]">
             {notification.categoryLabel}
           </span>
+          {notification.flowLabel ? (
+            <span className="truncate rounded-[10px] bg-[#dbeafe] px-2 py-[3px] text-[9px] font-medium leading-[14px] text-[#2563eb]">
+              {notification.flowLabel}
+            </span>
+          ) : null}
         </span>
         <span className={`text-[9px] leading-[14px] ${notification.isRead ? 'text-[#94a3b8]' : 'text-[#2563eb]'}`}>
           {notification.occurredAtLabel}
