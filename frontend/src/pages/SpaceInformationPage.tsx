@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Button from '@/components/Button'
 import AnalysisStepIndicator from '@/components/user/AnalysisStepIndicator'
 import FloorPlanPreviewTabs from '@/components/user/FloorPlanPreviewTabs'
+import { isDetectedSpaceName } from '@/components/user/floorPlan3dModel'
 import SpaceSelectionCard from '@/components/user/SpaceSelectionCard'
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
@@ -67,13 +68,26 @@ export default function SpaceInformationPage() {
     return () => { active = false }
   }, [])
 
-  const canContinue = spaces.some((space) => space.selectedForConstruction)
-  const selectedTotalAreaM2 = sumSelectedSpaceAreaM2(spaces)
+  const selectableSpaces = useMemo(
+    () => spaces.filter((space) => isDetectedSpaceName(space.spaceName)),
+    [spaces],
+  )
+  const canContinue = selectableSpaces.some((space) => space.selectedForConstruction)
+  const selectedTotalAreaM2 = sumSelectedSpaceAreaM2(selectableSpaces)
   const summary = createSummary(analysis, ceilingHeight)
 
-  const toggleSpace = (index: number) => {
-    setSpaces((current) => current.map((space, spaceIndex) => (
-      spaceIndex === index
+  const toggleSpace = (target: AnalysisSpaceResponse) => {
+    setSpaces((current) => current.map((space) => {
+      const matches = target.id == null ? space === target : space.id === target.id
+      return matches
+        ? { ...space, selectedForConstruction: !space.selectedForConstruction }
+        : space
+    }))
+  }
+
+  const toggleSpaceById = (spaceId: number) => {
+    setSpaces((current) => current.map((space) => (
+      space.id === spaceId
         ? { ...space, selectedForConstruction: !space.selectedForConstruction }
         : space
     )))
@@ -94,7 +108,9 @@ export default function SpaceInformationPage() {
       spaceAreaM2: space.spaceAreaM2,
       floorAreaM2: space.floorAreaM2,
       wallpaperAreaM2: space.wallpaperAreaM2,
-      selectedForConstruction: space.selectedForConstruction,
+      selectedForConstruction: isDetectedSpaceName(space.spaceName)
+        ? space.selectedForConstruction
+        : false,
     }))
 
     setSaving(true)
@@ -140,7 +156,7 @@ export default function SpaceInformationPage() {
           </section>
 
           <section className="mt-[17px] flex flex-col gap-3">
-            <FloorPlanPreviewTabs requestId={requestId} floorPlanPreviewUrl={floorPlanPreviewUrl} spaces={spaces} />
+            <FloorPlanPreviewTabs requestId={requestId} floorPlanPreviewUrl={floorPlanPreviewUrl} spaces={spaces} onToggleSpace={toggleSpaceById} />
 
             <div role="region" aria-label="공간 정보" className="w-full overflow-hidden rounded-[7px] border border-[#d5dfed] bg-white">
               <h2 className="flex h-7 items-center px-[7px] text-[11px] font-bold text-[#1e293b]">공간 정보</h2>
@@ -175,18 +191,18 @@ export default function SpaceInformationPage() {
             <p id="space-selection-help" className="mt-1 text-[12px] leading-[18px] text-[#475569]">인테리어를 원하는 공간을 여러 개 선택할 수 있습니다.</p>
 
             <div className="mt-3 grid grid-cols-2 gap-2.5">
-              {spaces.map((space, index) => (
+              {selectableSpaces.map((space, index) => (
                 <SpaceSelectionCard
                   key={space.id ?? `${space.sortOrder ?? index}-${space.spaceName}`}
                   spaceName={space.spaceName}
                   areaM2={space.spaceAreaM2}
                   isSelected={space.selectedForConstruction}
-                  onToggle={() => toggleSpace(index)}
+                  onToggle={() => toggleSpace(space)}
                 />
               ))}
             </div>
 
-            {!loading && spaces.length === 0 ? <p role="status" className="mt-3 text-center text-[12px] leading-5 text-[#64748b]">분석된 공간 정보가 없습니다.</p> : null}
+            {!loading && selectableSpaces.length === 0 ? <p role="status" className="mt-3 text-center text-[12px] leading-5 text-[#64748b]">탐지된 공간 정보가 없습니다.</p> : null}
             <p className="mt-2 text-[11px] leading-4 text-[#64748b]">복수 선택 가능</p>
 
             {selectedTotalAreaM2 !== null ? (
