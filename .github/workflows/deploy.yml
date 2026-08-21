@@ -73,7 +73,7 @@ jobs:
     name: Deploy private server
     needs: [resolve, verify-images]
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     environment: production-private
     env:
       PUBLIC_HOST: ${{ secrets.PUBLIC_HOST }}

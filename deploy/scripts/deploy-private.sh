@@ -50,11 +50,12 @@ wait_for_service_http() {
   local url="$2"
   local attempts="${3:-40}"
   local delay="${4:-2}"
+  local request_timeout="${5:-5}"
   local count
 
   for ((count = 1; count <= attempts; count++)); do
     if "${COMPOSE[@]}" exec -T "$service" python -c \
-      "import urllib.request; urllib.request.urlopen('${url}', timeout=5).read()" \
+      "import urllib.request; urllib.request.urlopen('${url}', timeout=${request_timeout}).read()" \
       >/dev/null 2>&1; then
       log "service health check passed: ${service} ${url}"
       return 0
@@ -80,8 +81,8 @@ PREVIOUS_VIEWERWALL_IMAGE="$(docker inspect --format '{{.Config.Image}}' "$VIEWE
 REPLACEMENT_STARTED=0
 
 rollback_private() {
-  local exit_code="$?"
-  trap - ERR
+  local exit_code="${1:-$?}"
+  trap - ERR HUP INT TERM
   if [[ "$REPLACEMENT_STARTED" == "1" && -n "$PREVIOUS_BACKEND_IMAGE" ]]; then
     log "restoring previous private images"
     export BACKEND_IMAGE="$PREVIOUS_BACKEND_IMAGE"
@@ -93,7 +94,10 @@ rollback_private() {
   fi
   exit "$exit_code"
 }
-trap rollback_private ERR
+trap 'rollback_private $?' ERR
+trap 'rollback_private 143' TERM
+trap 'rollback_private 129' HUP
+trap 'rollback_private 130' INT
 
 log "pulling immutable private images before replacement"
 "${COMPOSE[@]}" pull ai ocr spa viewerwall backend
@@ -104,7 +108,8 @@ REPLACEMENT_STARTED=1
 "${COMPOSE[@]}" up -d --no-deps viewerwall
 "${COMPOSE[@]}" up -d --no-deps backend
 wait_for_http "http://${AI_BIND_HOST}:${AI_PORT:-8000}/health" 40 2
-for service in ocr spa viewerwall; do
+wait_for_service_http "ocr" "http://127.0.0.1:8000/health" 60 2 2
+for service in spa viewerwall; do
   wait_for_service_http "$service" "http://127.0.0.1:8000/health" 40 2
 done
 "${COMPOSE[@]}" exec -T viewerwall python -c "import urllib.request, urllib.error; r=urllib.request.Request('http://127.0.0.1:8000/api/analyze', method='POST');
@@ -114,6 +119,6 @@ wait_for_http "http://${BACKEND_BIND_HOST}:${BACKEND_PORT:-8080}/api/rental-tran
 for variant_id in "${floorplan_healthcheck_variant_ids[@]}"; do
   wait_for_http "http://${BACKEND_BIND_HOST}:${BACKEND_PORT:-8080}/api/floorplans/apartments/variants/${variant_id}/image" 10 2
 done
-trap - ERR
+trap - ERR HUP INT TERM
 "${COMPOSE[@]}" ps
 log "private deployment completed at ${REVISION}"
