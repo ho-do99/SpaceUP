@@ -4,6 +4,7 @@ import io
 import json
 import os
 import re
+import time
 from enum import Enum
 from functools import lru_cache
 
@@ -34,6 +35,9 @@ class ResultType(str, Enum):
 
 
 OCR_URL = os.getenv("OCR_URL", "http://ocr:8000/ocr")
+OCR_REQUEST_ATTEMPTS = 2
+OCR_REQUEST_TIMEOUT_SECONDS = 100
+OCR_RETRY_DELAY_SECONDS = 1
 
 ROOM_CLASS_IDS = {
     "침실": 5,
@@ -114,17 +118,28 @@ def room_class(text: str):
 
 
 def ocr_room_labels(content: bytes, content_type: str, image_size):
-    try:
-        response = requests.post(
-            OCR_URL,
-            files={"file": ("floorplan.png", content, content_type)},
-            data={"rotate_clockwise": "false"},
-            timeout=90,
-        )
-        response.raise_for_status()
-        result = response.json()
-    except (requests.RequestException, ValueError):
-        return []
+    for attempt in range(OCR_REQUEST_ATTEMPTS):
+        try:
+            response = requests.post(
+                OCR_URL,
+                files={"file": ("floorplan.png", content, content_type)},
+                data={"rotate_clockwise": "false"},
+                timeout=OCR_REQUEST_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            result = response.json()
+            break
+        except requests.HTTPError as exc:
+            status_code = exc.response.status_code if exc.response is not None else 502
+            if 400 <= status_code < 500:
+                raise HTTPException(status_code, "OCR rejected the floor plan") from exc
+            failure = exc
+        except (requests.RequestException, ValueError) as exc:
+            failure = exc
+        if attempt + 1 < OCR_REQUEST_ATTEMPTS:
+            time.sleep(OCR_RETRY_DELAY_SECONDS)
+            continue
+        raise HTTPException(503, "OCR service did not become ready") from failure
 
     target_width, target_height = image_size
     source_width = max(int(result.get("width", target_width)), 1)
@@ -216,6 +231,16 @@ def ocr_room_labels(content: bytes, content_type: str, image_size):
                 label["room_name"] = label["ocr_text"]
                 label["name_inferred"] = False
     return labels
+
+
+def require_detected_room_names(instances: list) -> None:
+    if any(
+        str(instance.get("room_name") or "").strip()
+        and not str(instance.get("room_name") or "").strip().startswith("class_")
+        for instance in instances
+    ):
+        return
+    raise HTTPException(422, "No recognizable room names were found in the floor plan")
 
 
 def add_wic_fallback_label(original_pixels, mask, labels):
@@ -1232,6 +1257,7 @@ async def segment(
         ocr_labels = add_wic_fallback_label(original_pixels, mask, ocr_labels)
         instances = room_instances(mask, original_pixels, ocr_labels)
         instances = apply_aux_english_ocr(instances, original_pixels)
+        require_detected_room_names(instances)
         instances = fill_small_internal_openings(instances, original_pixels)
         master_bedroom_postprocess = reassign_master_bedroom_lobe(instances)
         boundary_postprocess = (

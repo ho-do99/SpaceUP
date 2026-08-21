@@ -24,9 +24,8 @@ const ROOM_COLORS = [
 ]
 
 function colorForRoom(room: FloorPlanSceneRoom) {
-  if (!room.selectable) return '#cbd5e1'
   if (room.selected) return '#2563eb'
-  return ROOM_COLORS[Math.abs(room.classId) % ROOM_COLORS.length]
+  return ROOM_COLORS[Math.abs(room.colorIndex) % ROOM_COLORS.length]
 }
 
 
@@ -43,7 +42,7 @@ export default function FloorPlanInteractive3DViewer({
     [visualization, spaces],
   )
   const selectableRooms = sceneModel.rooms.filter((room) => room.selectable)
-  const inactiveCount = sceneModel.rooms.length - selectableRooms.length
+  const unidentifiedCount = sceneModel.rooms.filter((room) => !room.detected).length
 
   useEffect(() => {
     const host = hostRef.current
@@ -123,8 +122,8 @@ export default function FloorPlanInteractive3DViewer({
             color: roomColor,
             emissive: room.selected ? new THREE.Color('#1d4ed8') : new THREE.Color('#000000'),
             emissiveIntensity: room.selected ? 0.22 : 0,
-            opacity: room.selectable ? 0.9 : 0.5,
-            transparent: !room.selectable,
+            opacity: 0.9,
+            transparent: false,
             roughness: 0.82,
             metalness: 0,
           })
@@ -311,9 +310,9 @@ export default function FloorPlanInteractive3DViewer({
         </div>
       )}
 
-      {inactiveCount > 0 && (
+      {unidentifiedCount > 0 && (
         <p className="text-[11px] text-slate-400">
-          이름을 확인할 수 없는 공간 {inactiveCount}개는 회색으로 표시되며 선택에서 제외됩니다.
+          이름을 확인할 수 없는 공간 {unidentifiedCount}개는 바닥 형상만 표시됩니다.
         </p>
       )}
     </div>

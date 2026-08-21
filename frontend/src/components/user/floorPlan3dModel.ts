@@ -24,6 +24,7 @@ export interface FloorPlanWallSegment {
 
 export interface FloorPlanSceneRoom {
   key: string
+  colorIndex: number
   label: string
   detected: boolean
   selectable: boolean
@@ -44,6 +45,10 @@ export interface FloorPlanSceneModel {
 export function isDetectedSpaceName(value: string | null | undefined) {
   const normalized = value?.trim() ?? ''
   return Boolean(normalized) && !/^class_/i.test(normalized)
+}
+
+function normalizedSpaceName(value: string | null | undefined) {
+  return (value ?? '').trim().replace(/\s+/g, '').toLocaleLowerCase()
 }
 
 function detectedRoomName(room: FloorplanVisualizationRoom) {
@@ -117,23 +122,30 @@ export function buildFloorPlanScene(
     if (room.class_id === 0 || room.pixel_count <= MIN_RENDERABLE_ROOM_PIXELS || !polygons.length) return []
 
     const detectedName = detectedRoomName(room)
+    const candidateNames = [detectedName, room.room_name]
+      .map(normalizedSpaceName)
+      .filter(Boolean)
     let matchedSpaceIndex = -1
-    if (detectedName) {
+    matchedSpaceIndex = spaces.findIndex((space, spaceIndex) => (
+      !matchedSpaceIndexes.has(spaceIndex)
+      && candidateNames.includes(normalizedSpaceName(space.spaceName))
+    ))
+    // Existing analyses may have saved the pre-OCR class name while the raw
+    // 8004 visualization already contains a display_name. Both collections
+    // are produced in the same order, so sortOrder is a safe compatibility
+    // key when neither textual name matches.
+    if (matchedSpaceIndex < 0) {
       matchedSpaceIndex = spaces.findIndex((space, spaceIndex) => (
-        !matchedSpaceIndexes.has(spaceIndex)
-        && isDetectedSpaceName(space.spaceName)
-        && (
-          space.spaceName === detectedName
-          || (isDetectedSpaceName(room.room_name) && space.spaceName === room.room_name)
-        )
+        !matchedSpaceIndexes.has(spaceIndex) && space.sortOrder === index
       ))
-      if (matchedSpaceIndex >= 0) matchedSpaceIndexes.add(matchedSpaceIndex)
     }
+    if (matchedSpaceIndex >= 0) matchedSpaceIndexes.add(matchedSpaceIndex)
     const matchedSpace = matchedSpaceIndex >= 0 ? spaces[matchedSpaceIndex] : undefined
     const instanceLabel = room.instance_id ?? index + 1
 
     return [{
       key: `room-${instanceLabel}`,
+      colorIndex: index,
       label: detectedName ?? `미인식 공간 ${instanceLabel}`,
       detected: detectedName !== null,
       selectable: matchedSpace?.id != null,
