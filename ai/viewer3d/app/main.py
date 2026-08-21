@@ -65,6 +65,14 @@ def health():
     }
 
 
+def has_detected_room_names(rooms: list) -> bool:
+    for room in rooms:
+        name = str(room.get("room_name") or "").strip()
+        if name and not name.startswith("class_"):
+            return True
+    return False
+
+
 def apply_ocr_display_names(rooms: list, ocr_result: dict):
     """Use high-confidence OCR labels for display without changing SPA results."""
     for item in ocr_result.get("items", []):

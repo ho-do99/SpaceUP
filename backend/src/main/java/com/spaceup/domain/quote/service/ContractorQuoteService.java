@@ -207,6 +207,9 @@ public class ContractorQuoteService {
 		if (!isContractor && !isLandlord) {
 			throw new ForbiddenAccessException("본인이 작성했거나 본인 의뢰에 달린 견적만 조회할 수 있습니다.");
 		}
+		if (isLandlord && !isContractor && quote.getStatus() == QuoteStatus.DRAFT) {
+			throw new ForbiddenAccessException("아직 전송되지 않은 견적은 조회할 수 없습니다.");
+		}
 		return new ContractorQuoteResponse(quote);
 	}
 
@@ -218,7 +221,10 @@ public class ContractorQuoteService {
 				.orElseThrow(() -> new RequestNotFoundException("존재하지 않는 의뢰입니다: " + requestId));
 		List<ContractorQuote> quotes = contractorQuoteRepository.findByRequestId(requestId);
 		boolean isLandlord = request.getOwner().getId().equals(memberId);
-		if (!isLandlord) {
+		if (isLandlord) {
+			quotes = quotes.stream().filter(quote -> quote.getStatus() != QuoteStatus.DRAFT)
+					.collect(Collectors.toList());
+		} else {
 			quotes = quotes.stream().filter(quote -> quote.getContractor().getId().equals(memberId))
 					.collect(Collectors.toList());
 		}
@@ -226,19 +232,17 @@ public class ContractorQuoteService {
 	}
 
 	private QuotePhase resolveQuotePhase(RequestContractor participation) {
-		if (participation.getStatus() == RequestContractorStatus.APPROVED) {
-			return QuotePhase.PRELIMINARY;
-		}
-		if (participation.getStatus() == RequestContractorStatus.SELECTED) {
+		if (participation.getStatus() == RequestContractorStatus.APPROVED
+				|| participation.getStatus() == RequestContractorStatus.SELECTED) {
 			boolean visitCompleted = siteVisitRepository.findByRequestIdAndContractorId(
 					participation.getRequest().getId(), participation.getContractor().getId())
 					.map(visit -> visit.getStatus() == SiteVisitStatus.COMPLETED).orElse(false);
 			if (!visitCompleted) {
-				throw new InvalidStatusTransitionException("실측 방문 완료 후 최종 견적을 작성할 수 있습니다.");
+				throw new InvalidStatusTransitionException("실측 방문 완료 후 견적을 작성할 수 있습니다.");
 			}
 			return QuotePhase.FINAL;
 		}
-		throw new InvalidStatusTransitionException("참여를 승인한 시공사만 1차 예상 견적을 작성할 수 있습니다.");
+		throw new InvalidStatusTransitionException("의뢰를 승인한 시공사만 견적을 작성할 수 있습니다.");
 	}
 
 	private void validateContractorOwnership(ContractorQuote quote, Long contractorId) {

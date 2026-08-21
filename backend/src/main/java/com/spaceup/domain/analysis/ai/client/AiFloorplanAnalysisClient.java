@@ -121,7 +121,7 @@ public class AiFloorplanAnalysisClient {
 				throw new AiFloorplanAnalysisException("AI 응답의 방 필드가 누락되었거나 형식이 잘못되었습니다.");
 			}
 
-			String roomName = roomNameNode.asString();
+			String roomName = resolveDisplayName(room, roomNameNode.asString());
 			long pixelCount = pixelCountNode.asLong();
 			boolean includedInTotalArea = includedNode.asBoolean();
 			if (pixelCount <= 0) {
@@ -136,5 +136,16 @@ public class AiFloorplanAnalysisClient {
 			throw new AiFloorplanAnalysisException("AI 응답에서 유효한 방을 찾을 수 없습니다.");
 		}
 		return new AiFloorplanAnalysisResponse(totalAreaPixelCount, List.copyOf(rooms), responseJson);
+	}
+
+	private String resolveDisplayName(JsonNode room, String roomName) {
+		JsonNode displayNameNode = room.get("display_name");
+		if (displayNameNode != null && displayNameNode.isTextual()) {
+			String displayName = displayNameNode.asString().trim();
+			if (!displayName.isBlank() && !displayName.toLowerCase().startsWith("class_")) {
+				return displayName;
+			}
+		}
+		return roomName.trim();
 	}
 }

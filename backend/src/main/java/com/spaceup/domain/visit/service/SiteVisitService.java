@@ -3,6 +3,7 @@ package com.spaceup.domain.visit.service;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import com.spaceup.domain.request.repository.QuoteRequestRepository;
 import com.spaceup.domain.request.repository.RequestContractorRepository;
 import com.spaceup.domain.visit.dto.SiteVisitResponse;
 import com.spaceup.domain.visit.entity.SiteVisit;
+import com.spaceup.domain.visit.entity.SiteVisitStatus;
 import com.spaceup.domain.visit.repository.SiteVisitRepository;
 import com.spaceup.global.error.ForbiddenAccessException;
 import com.spaceup.global.error.RequestNotFoundException;
@@ -79,6 +81,13 @@ public class SiteVisitService {
 			String managerName, String note) {
 		SiteVisit visit = findByRequestOrThrow(requestId, contractorId);
 		validateContractor(visit, contractorId);
+		if (visit.getStatus() == SiteVisitStatus.SCHEDULED
+				&& Objects.equals(visit.getVisitDate(), visitDate)
+				&& Objects.equals(visit.getVisitTime(), visitTime)
+				&& sameText(visit.getManagerName(), managerName)
+				&& sameText(visit.getNote(), note)) {
+			return new SiteVisitResponse(visit);
+		}
 		visit.schedule(visitDate, visitTime, managerName, note);
 		String content = String.format("현장 방문 일정이 %s %s로 등록되었습니다.", visitDate, visitTime);
 		notifyVisit(visit, visit.getRequest().getOwner().getId(), "현장방문 일정이 등록되었습니다",
@@ -92,6 +101,12 @@ public class SiteVisitService {
 			LocalTime requestedTime, String reason) {
 		SiteVisit visit = findOrThrow(visitId);
 		validateLandlord(visit.getRequest(), landlordId);
+		if (visit.getStatus() == SiteVisitStatus.CHANGE_REQUESTED
+				&& Objects.equals(visit.getRequestedDate(), requestedDate)
+				&& Objects.equals(visit.getRequestedTime(), requestedTime)
+				&& sameText(visit.getRequestReason(), reason)) {
+			return new SiteVisitResponse(visit);
+		}
 		visit.requestChange(requestedDate, requestedTime, reason);
 		String content = String.format("사용자가 방문 일정 변경을 요청했습니다: %s %s (%s)", requestedDate,
 				requestedTime, reason);
@@ -140,6 +155,9 @@ public class SiteVisitService {
 	public SiteVisitResponse complete(Long visitId, Long contractorId, String note) {
 		SiteVisit visit = findOrThrow(visitId);
 		validateContractor(visit, contractorId);
+		if (visit.getStatus() == SiteVisitStatus.COMPLETED) {
+			return new SiteVisitResponse(visit);
+		}
 		visit.complete(note);
 		String content = "시공사가 현장 방문 완료를 처리했습니다. 이제 최종 견적서를 작성할 수 있습니다.";
 		notifyVisit(visit, visit.getRequest().getOwner().getId(), "현장방문이 완료되었습니다", content);
@@ -150,6 +168,14 @@ public class SiteVisitService {
 	private void notifyVisit(SiteVisit visit, Long receiverId, String title, String content) {
 		notificationService.notifyForRequest(receiverId, NotificationType.VISIT, title, content,
 				visit.getRequest().getId(), visit.getContractor().getId());
+	}
+
+	private boolean sameText(String left, String right) {
+		return Objects.equals(normalizeText(left), normalizeText(right));
+	}
+
+	private String normalizeText(String value) {
+		return value == null || value.isBlank() ? null : value.trim();
 	}
 
 

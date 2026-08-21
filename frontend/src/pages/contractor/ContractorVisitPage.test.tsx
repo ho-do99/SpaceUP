@@ -36,7 +36,7 @@ describe('ContractorVisitPage live schedule', () => {
 
   afterEach(cleanup)
 
-  it('shows an empty live schedule without injecting the default July visit', async () => {
+  it('does not expose an empty registration form when the live status lookup fails', async () => {
     render(
       <MemoryRouter initialEntries={['/contractor/requests/99/visit']}>
         <Routes>
@@ -45,7 +45,9 @@ describe('ContractorVisitPage live schedule', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByText('등록된 방문 일정이 없습니다')).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('방문 일정이 없습니다.')
+    expect(screen.getByRole('button', { name: '다시 불러오기' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '방문 일정 등록' })).not.toBeInTheDocument()
     expect(screen.queryByText(/2026\.07\.24/)).not.toBeInTheDocument()
   })
 })

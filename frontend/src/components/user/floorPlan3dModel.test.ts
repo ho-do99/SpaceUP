@@ -83,7 +83,7 @@ describe('buildFloorPlanScene', () => {
     ])
   })
 
-  it('keeps OCR-named geometry inactive when no saved space can be matched', () => {
+  it('matches an OCR display name to a space saved with the pre-OCR class name', () => {
     const visualization: FloorplanVisualization = {
       image_width: 200,
       image_height: 100,
@@ -110,10 +110,35 @@ describe('buildFloorPlanScene', () => {
     expect(scene.rooms[0]).toMatchObject({
       label: '거실',
       detected: true,
-      selectable: false,
-      selected: false,
-      matchedSpaceId: null,
+      selectable: true,
+      selected: true,
+      matchedSpaceId: 99,
     })
+  })
+
+  it('matches names after removing whitespace differences', () => {
+    const visualization: FloorplanVisualization = {
+      image_width: 200,
+      image_height: 100,
+      total_area_pixel_count: 900,
+      rooms: [{
+        instance_id: 1,
+        room_name: '주방/식당',
+        class_id: 6,
+        pixel_count: 900,
+        included_in_total_area: true,
+        viewer_polygons: [[[0, 0], [200, 0], [200, 100], [0, 100]]],
+      }],
+    }
+
+    const scene = buildFloorPlanScene(visualization, [{
+      id: 42,
+      sortOrder: 0,
+      spaceName: '주방 / 식당',
+      selectedForConstruction: true,
+    }])
+
+    expect(scene.rooms[0]).toMatchObject({ selectable: true, matchedSpaceId: 42 })
   })
 
 
