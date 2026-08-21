@@ -1103,8 +1103,10 @@ async def _analyze_cached(file: UploadFile = File(...)):
     async with _analysis_cache_lock:
         cached = _analysis_cache.get(cache_key)
         if cached is not None:
-            _analysis_cache.move_to_end(cache_key)
-            return copy.deepcopy(cached)
+            if approved_main.base.has_detected_room_names(cached.get("rooms", [])):
+                _analysis_cache.move_to_end(cache_key)
+                return copy.deepcopy(cached)
+            _analysis_cache.pop(cache_key, None)
 
     # The endpoint reads the upload itself, so rewind after hashing it.  Every
     # first-time result is therefore still produced by the approved pipeline.
@@ -1134,6 +1136,11 @@ async def _analyze_cached(file: UploadFile = File(...)):
     except (requests.RequestException, ValueError, json.JSONDecodeError):
         # Geometry remains usable if the optional refinement call is down.
         _postprocess_display_rooms(result.get("rooms", []))
+    if not approved_main.base.has_detected_room_names(result.get("rooms", [])):
+        raise HTTPException(
+            422,
+            "No OCR-detected room names are available for this floor plan",
+        )
     async with _analysis_cache_lock:
         _analysis_cache[cache_key] = copy.deepcopy(result)
         _analysis_cache.move_to_end(cache_key)

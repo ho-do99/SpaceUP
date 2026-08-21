@@ -3,9 +3,9 @@ from __future__ import annotations
 import io
 import re
 import sys
+import threading
 from collections import Counter
 from enum import Enum
-from functools import lru_cache
 from pathlib import Path
 from typing import List
 
@@ -164,8 +164,7 @@ def _read_adjacent_room_number(
     return refined_text, refined_bbox
 
 
-@lru_cache(maxsize=1)
-def engines():
+def _initialize_engines():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     idx2char = {index: char for index, char in enumerate(VOCABULARY)}
     idx2char[len(idx2char)] = "@"
@@ -184,6 +183,20 @@ def engines():
     detector.conf = 0.4
     detector.iou = 0.5
     return detector, crnn, device, idx2char
+
+
+_engines_cache = None
+_engines_load_lock = threading.Lock()
+
+
+def engines():
+    global _engines_cache
+    if _engines_cache is not None:
+        return _engines_cache
+    with _engines_load_lock:
+        if _engines_cache is None:
+            _engines_cache = _initialize_engines()
+        return _engines_cache
 
 
 def read_image(content: bytes, rotate_clockwise: bool) -> np.ndarray:
@@ -236,11 +249,20 @@ def annotated_response(image: np.ndarray, items: list[OCRText]):
 
 @app.get("/health")
 def health():
+    models_present = all((AIHUB_ROOT / "model" / name).is_file() for name in (
+        "OCR_crnn_pretrained.pt", "OCR_yolov5_pretrained.pt"
+    ))
+    if not models_present:
+        raise HTTPException(503, "OCR model files are missing")
+    try:
+        engines()
+    except Exception as exc:
+        raise HTTPException(503, "OCR models are not ready") from exc
     return {
         "status": "ok",
         "service": "ocr",
-        "models_present": all((AIHUB_ROOT / "model" / name).is_file() for name in (
-            "OCR_crnn_pretrained.pt", "OCR_yolov5_pretrained.pt")),
+        "models_present": models_present,
+        "models_loaded": True,
     }
 
 

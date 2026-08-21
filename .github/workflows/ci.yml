@@ -71,7 +71,7 @@ jobs:
         run: npm run build:dev
 
   ai:
-    name: Core AI test
+    name: Core and service AI tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -83,13 +83,29 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: ai/requirements.txt
+          cache-dependency-path: |
+            ai/requirements.txt
+            ai/viewer3d/requirements.txt
 
       - name: Install AI dependencies
         run: python -m pip install --disable-pip-version-check -r ai/requirements.txt
 
+      - name: Install lightweight service test dependencies
+        run: >-
+          python -m pip install --disable-pip-version-check
+          -r ai/viewer3d/requirements.txt pytesseract==0.3.10
+
       - name: Run core AI tests
         run: python -m pytest ai/tests
+
+      - name: Run SPA service tests
+        run: PYTHONPATH=.:ai/spa python -m pytest ai/spa/tests
+
+      - name: Run viewer3d service tests
+        run: PYTHONPATH=ai/viewer3d python -m pytest ai/viewer3d/tests
+
+      - name: Run OCR readiness tests
+        run: PYTHONPATH=ai/ocr python -m pytest ai/ocr/tests
 
   deployment-config:
     name: Validate deployment configuration
