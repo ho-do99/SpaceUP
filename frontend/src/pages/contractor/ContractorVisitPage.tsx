@@ -460,16 +460,25 @@ export default function ContractorVisitPage() {
               <label className="block text-[11px] font-bold text-[#1e293b]">
                 방문 시간
 
-                <input
-                  type="time"
+                <select
                   required
                   disabled={isMutating}
                   value={time}
                   onChange={(event) =>
                     setTime(event.target.value)
                   }
-                  className="mt-1 h-12 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-xs font-normal outline-none focus:border-[#2563eb]"
-                />
+                  className="mt-1 h-12 w-full appearance-none rounded-lg border border-[#e2e8f0] bg-white px-3 text-xs font-normal outline-none focus:border-[#2563eb]"
+                >
+                  <option value="">방문 시간을 선택해주세요.</option>
+                  <option value="09:00">오전 9:00</option>
+                  <option value="10:00">오전 10:00</option>
+                  <option value="11:00">오전 11:00</option>
+                  <option value="13:00">오후 1:00</option>
+                  <option value="14:00">오후 2:00</option>
+                  <option value="15:00">오후 3:00</option>
+                  <option value="16:00">오후 4:00</option>
+                  <option value="17:00">오후 5:00</option>
+                </select>
               </label>
 
               <label className="block text-[11px] font-bold text-[#1e293b]">

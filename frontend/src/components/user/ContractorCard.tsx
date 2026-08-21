@@ -114,6 +114,7 @@ export default function ContractorCard({
       <div className="absolute bottom-[10px] right-[11px] flex items-center gap-[9px]">
         <Link
           to={`/contractors/${contractor.id}`}
+          state={{ contractor }}
           aria-label={`${contractor.companyName} 포트폴리오 보기`}
           className="flex h-[34px] w-[138px] shrink-0 items-center justify-center rounded-[8px] border border-[#2563eb] bg-white px-[10px] text-[12px] font-medium text-[#2563eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
         >
