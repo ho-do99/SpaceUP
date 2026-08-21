@@ -42,6 +42,7 @@ import com.spaceup.domain.visit.entity.SiteVisit;
 import com.spaceup.domain.visit.entity.SiteVisitStatus;
 import com.spaceup.domain.visit.repository.SiteVisitRepository;
 import com.spaceup.domain.visit.service.SiteVisitService;
+import com.spaceup.global.error.ForbiddenAccessException;
 
 @ExtendWith(MockitoExtension.class)
 class ContractorQuoteMultiContractorTest {
@@ -55,6 +56,35 @@ class ContractorQuoteMultiContractorTest {
 	@Mock SiteVisitRepository siteVisitRepository;
 	@Mock AnalysisJobRepository analysisJobRepository;
 	@InjectMocks ContractorQuoteService service;
+
+	@Test
+	void landlordCannotReadAContractorDraftBeforeItIsSubmitted() {
+		Member owner = Member.builder().id(10L).name("owner").build();
+		Member contractor = Member.builder().id(20L).name("contractor").build();
+		QuoteRequest request = QuoteRequest.builder().id(1L).owner(owner).build();
+		ContractorQuote quote = ContractorQuote.builder().id(100L).request(request).contractor(contractor)
+				.status(QuoteStatus.DRAFT).totalAmount(1_000_000L).build();
+		when(contractorQuoteRepository.findById(100L)).thenReturn(Optional.of(quote));
+
+		assertThrows(ForbiddenAccessException.class, () -> service.getQuote(100L, 10L));
+		assertEquals(100L, service.getQuote(100L, 20L).getId());
+	}
+
+	@Test
+	void landlordQuoteListExcludesUnsubmittedDrafts() {
+		Member owner = Member.builder().id(10L).name("owner").build();
+		Member contractor = Member.builder().id(20L).name("contractor").build();
+		QuoteRequest request = QuoteRequest.builder().id(1L).owner(owner).build();
+		ContractorQuote draft = ContractorQuote.builder().id(100L).request(request).contractor(contractor)
+				.status(QuoteStatus.DRAFT).totalAmount(1_000_000L).build();
+		ContractorQuote submitted = ContractorQuote.builder().id(101L).request(request).contractor(contractor)
+				.status(QuoteStatus.SUBMITTED).totalAmount(1_100_000L).build();
+		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
+		when(contractorQuoteRepository.findByRequestId(1L)).thenReturn(List.of(draft, submitted));
+
+		assertEquals(List.of(101L), service.getQuotesByRequest(1L, 10L).stream()
+				.map(response -> response.getId()).toList());
+	}
 
 	@Test
 	void submittedQuoteNotificationKeepsItsRequestAndContractorContext() {
@@ -137,6 +167,77 @@ class ContractorQuoteMultiContractorTest {
 	}
 
 	@Test
+	void createsFinalDraftForApprovedContractorAfterCompletedVisit() {
+		Member owner = Member.builder().id(10L).name("owner").build();
+		Member contractor = Member.builder().id(20L).name("contractor").build();
+		MaterialProduct flooring = material("바닥재", "30000");
+		MaterialProduct wallpaper = material("벽지", "10000");
+		MaterialProduct lighting = lighting("조명", "50000");
+		QuoteRequest request = QuoteRequest.builder().id(1L).owner(owner)
+				.selectedFlooringProduct(flooring).selectedWallpaperProduct(wallpaper)
+				.selectedLightingProduct(lighting).status(RequestStatus.QUOTE_REQUESTED).build();
+		RequestContractor participation = RequestContractor.builder().id(100L).request(request)
+				.contractor(contractor).status(RequestContractorStatus.APPROVED).build();
+		SiteVisit completedVisit = SiteVisit.builder().id(30L).request(request).contractor(contractor)
+				.status(SiteVisitStatus.COMPLETED).build();
+
+		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
+		when(requestContractorRepository.findByRequestIdAndContractorId(1L, 20L)).thenReturn(Optional.of(participation));
+		when(memberRepository.findById(20L)).thenReturn(Optional.of(contractor));
+		when(siteVisitRepository.findByRequestIdAndContractorId(1L, 20L)).thenReturn(Optional.of(completedVisit));
+
+		service.createDraft(20L, quoteDraftRequest(1L));
+
+		ArgumentCaptor<ContractorQuote> quoteCaptor = ArgumentCaptor.forClass(ContractorQuote.class);
+		verify(contractorQuoteRepository).save(quoteCaptor.capture());
+		assertEquals(QuotePhase.FINAL, quoteCaptor.getValue().getPhase());
+		assertEquals(4_015_000L, quoteCaptor.getValue().getTotalAmount());
+	}
+
+	@Test
+	void finalDraftRecalculatesAdditionalCostVatAndTotalOnTheServer() {
+		Member owner = Member.builder().id(10L).name("owner").build();
+		Member contractor = Member.builder().id(20L).name("contractor").build();
+		MaterialProduct flooring = material("바닥재", "30000");
+		MaterialProduct wallpaper = material("벽지", "10000");
+		MaterialProduct lighting = lighting("조명", "50000");
+		QuoteRequest request = QuoteRequest.builder().id(1L).owner(owner)
+				.selectedFlooringProduct(flooring).selectedWallpaperProduct(wallpaper)
+				.selectedLightingProduct(lighting).status(RequestStatus.QUOTE_REQUESTED).build();
+		RequestContractor participation = RequestContractor.builder().id(100L).request(request)
+				.contractor(contractor).status(RequestContractorStatus.APPROVED).build();
+		SiteVisit completedVisit = SiteVisit.builder().id(30L).request(request).contractor(contractor)
+				.status(SiteVisitStatus.COMPLETED).build();
+		ContractorQuoteCreateRequest dto = quoteDraftRequest(1L);
+		ContractorQuoteItemRequest additional = new ContractorQuoteItemRequest();
+		additional.setCategory("추가비용");
+		additional.setDescription("총 시공비");
+		additional.setAmount(400_000L);
+		dto.setItems(List.of(additional));
+		dto.setMaterialCost(1L);
+		dto.setLaborCost(2L);
+		dto.setVat(3L);
+		dto.setDiscount(999_999L);
+
+		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
+		when(requestContractorRepository.findByRequestIdAndContractorId(1L, 20L)).thenReturn(Optional.of(participation));
+		when(memberRepository.findById(20L)).thenReturn(Optional.of(contractor));
+		when(siteVisitRepository.findByRequestIdAndContractorId(1L, 20L)).thenReturn(Optional.of(completedVisit));
+
+		service.createDraft(20L, dto);
+
+		ArgumentCaptor<ContractorQuote> quoteCaptor = ArgumentCaptor.forClass(ContractorQuote.class);
+		verify(contractorQuoteRepository).save(quoteCaptor.capture());
+		ContractorQuote saved = quoteCaptor.getValue();
+		assertEquals(4, saved.getItems().size());
+		assertEquals(3_650_000L, saved.getMaterialCost());
+		assertEquals(400_000L, saved.getLaborCost());
+		assertEquals(405_000L, saved.getVat());
+		assertEquals(0L, saved.getDiscount());
+		assertEquals(4_455_000L, saved.getTotalAmount());
+	}
+
+	@Test
 	void blocksFinalDraftUntilSiteVisitIsCompleted() {
 		Member owner = Member.builder().id(10L).name("owner").build();
 		Member contractor = Member.builder().id(20L).name("contractor").build();
@@ -144,6 +245,23 @@ class ContractorQuoteMultiContractorTest {
 				.status(RequestStatus.APPROVED).build();
 		RequestContractor participation = RequestContractor.builder().id(100L).request(request)
 				.contractor(contractor).status(RequestContractorStatus.SELECTED).build();
+
+		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
+		when(requestContractorRepository.findByRequestIdAndContractorId(1L, 20L)).thenReturn(Optional.of(participation));
+		when(siteVisitRepository.findByRequestIdAndContractorId(1L, 20L)).thenReturn(Optional.empty());
+
+		assertThrows(com.spaceup.global.error.InvalidStatusTransitionException.class,
+				() -> service.createDraft(20L, quoteDraftRequest(1L)));
+	}
+
+	@Test
+	void blocksApprovedContractorDraftUntilSiteVisitIsCompleted() {
+		Member owner = Member.builder().id(10L).name("owner").build();
+		Member contractor = Member.builder().id(20L).name("contractor").build();
+		QuoteRequest request = QuoteRequest.builder().id(1L).owner(owner)
+				.status(RequestStatus.QUOTE_REQUESTED).build();
+		RequestContractor participation = RequestContractor.builder().id(100L).request(request)
+				.contractor(contractor).status(RequestContractorStatus.APPROVED).build();
 
 		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
 		when(requestContractorRepository.findByRequestIdAndContractorId(1L, 20L)).thenReturn(Optional.of(participation));

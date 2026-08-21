@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
   type FormEvent,
 } from 'react'
@@ -32,6 +33,7 @@ import ContractorRequestNotFound from './ContractorRequestNotFound'
 import useContractorRequest from '@/hooks/useContractorRequest'
 import type { SiteVisit } from '@/types/backendContractor'
 import { acceptVisitChange, completeVisit as completeVisitApi, getVisit, proposeVisitChange, registerVisit as registerVisitApi, rejectVisitChange } from '@/api/visitApi'
+import { ApiClientError } from '@/api/axiosInstance'
 
 export default function ContractorVisitPage() {
   const { requestId } = useParams()
@@ -84,6 +86,25 @@ export default function ContractorVisitPage() {
   const [completionOpen, setCompletionOpen] =
     useState(false)
 
+  const [isVisitLoading, setIsVisitLoading] =
+    useState(isLive)
+
+  const [visitLoadVersion, setVisitLoadVersion] =
+    useState(0)
+
+  const [isMutating, setIsMutating] =
+    useState(false)
+
+  const actionInFlightRef = useRef(false)
+
+  const applyLiveVisit = (visit: SiteVisit) => {
+    setLiveVisit(visit)
+    setDate(visit.visitDate ?? '')
+    setTime(visit.visitTime?.slice(0, 5) ?? '')
+    setManagerName(visit.managerName ?? '')
+    setNote(visit.note ?? '')
+  }
+
   useEffect(() => {
     if (!isLive || !requestId) return
     let active = true
@@ -93,20 +114,20 @@ export default function ContractorVisitPage() {
     setManagerName('')
     setNote('')
     setErrorMessage('')
+    setIsVisitLoading(true)
     void getVisit(Number(requestId))
       .then((visit) => {
         if (!active) return
-        setLiveVisit(visit)
-        setDate(visit.visitDate ?? '')
-        setTime(visit.visitTime?.slice(0, 5) ?? '')
-        setManagerName(visit.managerName ?? '')
-        setNote(visit.note ?? '')
+        applyLiveVisit(visit)
       })
       .catch((error: unknown) => {
         if (active) setErrorMessage(error instanceof Error ? error.message : '방문 일정을 불러오지 못했습니다.')
       })
+      .finally(() => {
+        if (active) setIsVisitLoading(false)
+      })
     return () => { active = false }
-  }, [isLive, requestId])
+  }, [isLive, requestId, visitLoadVersion])
 
   if (isLive && liveRequest.loading) {
     return <ContractorMobileShell><main className="flex min-h-dvh items-center justify-center text-sm text-[#64748b]">방문 일정을 불러오는 중입니다.</main></ContractorMobileShell>
@@ -114,6 +135,23 @@ export default function ContractorVisitPage() {
 
   if (!request) {
     return <ContractorRequestNotFound />
+  }
+
+  if (isLive && isVisitLoading) {
+    return <ContractorMobileShell><main className="flex min-h-dvh items-center justify-center text-sm text-[#64748b]">방문 일정 상태를 확인하는 중입니다.</main></ContractorMobileShell>
+  }
+
+  if (isLive && !liveVisit) {
+    return (
+      <ContractorMobileShell>
+        <ContractorAppBar title="현장 방문 일정" back />
+        <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <p role="alert" className="text-sm font-bold text-[#dc2626]">{errorMessage || '방문 일정 상태를 확인하지 못했습니다.'}</p>
+          <p className="mt-2 text-xs leading-5 text-[#64748b]">상태 확인 전에는 중복 등록을 막기 위해 일정 입력을 열지 않습니다.</p>
+          <button type="button" onClick={() => setVisitLoadVersion((version) => version + 1)} className="mt-5 h-11 rounded-lg bg-[#2563eb] px-6 text-xs font-bold text-white">다시 불러오기</button>
+        </main>
+      </ContractorMobileShell>
+    )
   }
 
   const isCompletedView =
@@ -185,6 +223,42 @@ export default function ContractorVisitPage() {
       }
     : changeRequest
 
+  const isInitialScheduleRequest = Boolean(
+    isLive &&
+    liveVisit?.status === 'CHANGE_REQUESTED' &&
+    (!liveVisit.visitDate || (
+      liveVisit.visitDate === liveVisit.requestedDate &&
+      liveVisit.visitTime?.slice(0, 5) === liveVisit.requestedTime?.slice(0, 5) &&
+      !liveVisit.managerName
+    )),
+  )
+
+  const beginLiveAction = () => {
+    if (actionInFlightRef.current) return false
+    actionInFlightRef.current = true
+    setIsMutating(true)
+    setErrorMessage('')
+    return true
+  }
+
+  const endLiveAction = () => {
+    actionInFlightRef.current = false
+    setIsMutating(false)
+  }
+
+  const handleLiveActionError = async (error: unknown, fallback: string) => {
+    let message = error instanceof Error ? error.message : fallback
+    if (error instanceof ApiClientError && error.status === 409 && requestId) {
+      try {
+        applyLiveVisit(await getVisit(Number(requestId)))
+        message = '일정 상태가 이미 변경되어 최신 상태를 불러왔습니다.'
+      } catch {
+        // 원래 처리 오류를 유지합니다.
+      }
+    }
+    setErrorMessage(message)
+  }
+
   const register = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
@@ -207,13 +281,16 @@ export default function ContractorVisitPage() {
       note: note.trim(),
     }
     if (isLive && requestId) {
+      if (!beginLiveAction()) return
       try {
-        setLiveVisit(await registerVisitApi(Number(requestId), {
+        applyLiveVisit(await registerVisitApi(Number(requestId), {
           visitDate: date, visitTime: time, managerName: schedule.managerName, note: schedule.note,
         }))
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : '방문 일정 등록에 실패했습니다.')
+        await handleLiveActionError(error, '방문 일정 등록에 실패했습니다.')
         return
+      } finally {
+        endLiveAction()
       }
     } else {
       registerVisit(schedule)
@@ -248,22 +325,28 @@ export default function ContractorVisitPage() {
 
   const acceptChange = async () => {
     if (isLive && liveVisit) {
-      try { setLiveVisit(await acceptVisitChange(liveVisit.id)) } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : '일정 변경 승인에 실패했습니다.')
+      if (!beginLiveAction()) return
+      try { applyLiveVisit(await acceptVisitChange(liveVisit.id)) } catch (error) {
+        await handleLiveActionError(error, '일정 승인에 실패했습니다.')
+      } finally {
+        endLiveAction()
       }
     } else acceptChangeRequest()
   }
 
   const proposeChange = async (schedule: ContractorVisitSchedule) => {
     if (isLive && liveVisit) {
+      if (!beginLiveAction()) return
       try {
-        setLiveVisit(await proposeVisitChange(liveVisit.id, {
+        applyLiveVisit(await proposeVisitChange(liveVisit.id, {
           visitDate: schedule.date, visitTime: schedule.time,
           managerName: schedule.managerName, note: schedule.note,
         }))
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : '새 일정 제안에 실패했습니다.')
+        await handleLiveActionError(error, '새 일정 제안에 실패했습니다.')
         return
+      } finally {
+        endLiveAction()
       }
     } else proposeVisit(schedule)
     setProposalOpen(false)
@@ -271,9 +354,12 @@ export default function ContractorVisitPage() {
 
   const rejectChange = async () => {
     if (isLive && liveVisit) {
-      try { setLiveVisit(await rejectVisitChange(liveVisit.id)) } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : '일정 변경 거절에 실패했습니다.')
+      if (!beginLiveAction()) return
+      try { applyLiveVisit(await rejectVisitChange(liveVisit.id)) } catch (error) {
+        await handleLiveActionError(error, '일정 요청 거절에 실패했습니다.')
         return
+      } finally {
+        endLiveAction()
       }
     } else rejectChangeRequest()
     setRejectOpen(false)
@@ -281,9 +367,12 @@ export default function ContractorVisitPage() {
 
   const finishVisit = async () => {
     if (isLive && liveVisit) {
-      try { setLiveVisit(await completeVisitApi(liveVisit.id, currentSchedule.note)) } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : '방문 완료 처리에 실패했습니다.')
+      if (!beginLiveAction()) return
+      try { applyLiveVisit(await completeVisitApi(liveVisit.id, currentSchedule.note)) } catch (error) {
+        await handleLiveActionError(error, '방문 완료 처리에 실패했습니다.')
         return
+      } finally {
+        endLiveAction()
       }
     } else completeVisit()
     setCompletionOpen(false)
@@ -311,6 +400,7 @@ export default function ContractorVisitPage() {
                 availableStatuses
               }
               onSelect={selectStatus}
+              changeRequestLabel={isInitialScheduleRequest ? '일정 요청' : undefined}
             />
           </div>
 
@@ -328,6 +418,12 @@ export default function ContractorVisitPage() {
               연락처 {request.maskedPhone}
             </p>
           </section>
+
+          {errorMessage ? (
+            <p role="alert" className="mt-3 text-center text-xs font-semibold text-[#dc2626]">
+              {errorMessage}
+            </p>
+          ) : null}
 
           {effectiveVisitStatus ===
           'UNSCHEDULED' ? (
@@ -352,6 +448,7 @@ export default function ContractorVisitPage() {
                 <input
                   type="date"
                   required
+                  disabled={isMutating}
                   value={date}
                   onChange={(event) =>
                     setDate(event.target.value)
@@ -366,6 +463,7 @@ export default function ContractorVisitPage() {
                 <input
                   type="time"
                   required
+                  disabled={isMutating}
                   value={time}
                   onChange={(event) =>
                     setTime(event.target.value)
@@ -391,6 +489,7 @@ export default function ContractorVisitPage() {
                 <input
                   type="text"
                   readOnly={!isLive}
+                  disabled={isMutating}
                   value={managerName}
                   onChange={(event) => setManagerName(event.target.value)}
                   className="mt-1 h-12 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-xs font-normal text-[#64748b]"
@@ -402,6 +501,7 @@ export default function ContractorVisitPage() {
 
                 <textarea
                   value={note}
+                  disabled={isMutating}
                   onChange={(event) =>
                     setNote(event.target.value)
                   }
@@ -410,20 +510,12 @@ export default function ContractorVisitPage() {
                 />
               </label>
 
-              {errorMessage ? (
-                <p
-                  role="alert"
-                  className="text-xs font-semibold text-[#dc2626]"
-                >
-                  {errorMessage}
-                </p>
-              ) : null}
-
               <button
                 type="submit"
-                className="h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white"
+                disabled={isMutating}
+                className="h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                방문 일정 등록
+                {isMutating ? '등록 중' : '방문 일정 등록'}
               </button>
             </form>
           ) : null}
@@ -463,7 +555,8 @@ export default function ContractorVisitPage() {
                 onClick={() =>
                   setCompletionOpen(true)
                 }
-                className="h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white"
+                disabled={isMutating}
+                className="h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 현장 확인 완료 처리
               </button>
@@ -475,16 +568,16 @@ export default function ContractorVisitPage() {
             <div className="mt-4 space-y-3">
               <section className="rounded-xl border border-[#fed7aa] bg-[#fff7ed] p-3 text-[#c2410c]">
                 <h2 className="text-[13px] font-bold">
-                  일정 변경 요청
+                  {isInitialScheduleRequest ? '방문 일정 요청' : '일정 변경 요청'}
                 </h2>
 
                 <p className="mt-1 text-[11px]">
-                  사용자가 현장 방문 일정 변경을
+                  사용자가 현장 방문 {isInitialScheduleRequest ? '일정을' : '일정 변경을'}
                   요청했습니다.
                 </p>
               </section>
 
-              <section className="rounded-xl border border-[#e2e8f0] bg-white p-4">
+              {!isInitialScheduleRequest ? <section className="rounded-xl border border-[#e2e8f0] bg-white p-4">
                 <h2 className="text-sm font-bold">
                   기존 일정
                 </h2>
@@ -500,11 +593,11 @@ export default function ContractorVisitPage() {
                 <p className="mt-1 break-words text-xs text-[#64748b]">
                   {request.property.address}
                 </p>
-              </section>
+              </section> : null}
 
               <section className="rounded-xl border border-[#e2e8f0] bg-white p-4">
                 <h2 className="text-sm font-bold">
-                  변경 요청
+                  {isInitialScheduleRequest ? '요청 일정' : '변경 요청'}
                 </h2>
 
                 <p className="mt-3 text-xs text-[#64748b]">
@@ -528,9 +621,10 @@ export default function ContractorVisitPage() {
               <button
                 type="button"
                 onClick={() => { void acceptChange() }}
-                className="h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white"
+                disabled={isMutating}
+                className="h-12 w-full rounded-lg bg-[#2563eb] text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                변경 일정 승인
+                {isMutating ? '처리 중' : isInitialScheduleRequest ? '방문 일정 확정' : '변경 일정 승인'}
               </button>
 
               <button
@@ -538,7 +632,8 @@ export default function ContractorVisitPage() {
                 onClick={() =>
                   setProposalOpen(true)
                 }
-                className="h-12 w-full rounded-lg border border-[#2563eb] bg-white text-sm font-bold text-[#2563eb]"
+                disabled={isMutating}
+                className="h-12 w-full rounded-lg border border-[#2563eb] bg-white text-sm font-bold text-[#2563eb] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 다른 일정 제안
               </button>
@@ -548,9 +643,10 @@ export default function ContractorVisitPage() {
                 onClick={() =>
                   setRejectOpen(true)
                 }
-                className="h-12 w-full rounded-lg border border-[#ef4444] bg-white text-sm font-bold text-[#ef4444]"
+                disabled={isMutating}
+                className="h-12 w-full rounded-lg border border-[#ef4444] bg-white text-sm font-bold text-[#ef4444] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                변경 요청 거절
+                {isInitialScheduleRequest ? '방문 요청 거절' : '변경 요청 거절'}
               </button>
             </div>
           ) : null}
@@ -629,6 +725,7 @@ export default function ContractorVisitPage() {
 
       <ContractorVisitChangeRejectDialog
         open={rejectOpen}
+        initialRequest={isInitialScheduleRequest}
         onClose={() => setRejectOpen(false)}
         onConfirm={() => { void rejectChange() }}
       />

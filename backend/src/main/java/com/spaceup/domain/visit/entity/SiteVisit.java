@@ -99,10 +99,7 @@ public class SiteVisit extends BaseTimeEntity {
 
 	// ⭐ 임대인(고객)이 다른 일정을 요청 - 이미 일정이 잡혀 있어야만 변경을 요청할 수 있습니다.
 	public void requestChange(LocalDate requestedDate, LocalTime requestedTime, String reason) {
-		if (status == SiteVisitStatus.UNSCHEDULED) {
-			this.visitDate = requestedDate;
-			this.visitTime = requestedTime;
-		} else {
+		if (status != SiteVisitStatus.UNSCHEDULED) {
 			validateStatus(SiteVisitStatus.SCHEDULED);
 		}
 		this.requestedDate = requestedDate;
@@ -123,7 +120,9 @@ public class SiteVisit extends BaseTimeEntity {
 	// ⭐ 시공사가 임대인의 변경 요청을 거절 - 기존 일정 유지
 	public void rejectChangeRequest() {
 		validateStatus(SiteVisitStatus.CHANGE_REQUESTED);
-		this.status = SiteVisitStatus.SCHEDULED;
+		this.status = this.visitDate == null || this.visitTime == null
+				? SiteVisitStatus.UNSCHEDULED
+				: SiteVisitStatus.SCHEDULED;
 		clearChangeRequest();
 	}
 
