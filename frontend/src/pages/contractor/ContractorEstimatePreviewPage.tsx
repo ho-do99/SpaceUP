@@ -54,7 +54,7 @@ export default function ContractorEstimatePreviewPage() {
     : estimateLifecycleStatus === 'REVISION_REQUESTED'
 
   const activeDraft = isLive
-    ? (estimateDraft?.requestId === requestId ? estimateDraft : liveQuote.draft)
+    ? liveQuote.draft
     : estimateDraft
 
   const isCompletedView =

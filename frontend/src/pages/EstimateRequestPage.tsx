@@ -69,6 +69,7 @@ export default function EstimateRequestPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const contractorId = getContractorIdFromNavigationState(location.state as unknown)
+  const activeRequestId = getActiveRequestId()
   const [contractor, setContractor] = useState<ContractorSummary | undefined>(() => getContractorById(contractorId ?? undefined))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -90,13 +91,16 @@ export default function EstimateRequestPage() {
   }, [contractorId])
 
   useEffect(() => {
-    const requestId = getActiveRequestId()
     const memberId = getMemberId()
-    if (!requestId || !memberId) return
+    if (!activeRequestId) {
+      setSubmitError('진행 중인 의뢰 정보를 확인할 수 없습니다. 주택 정보 입력부터 다시 진행해 주세요.')
+      return
+    }
+    if (!memberId) return
     let active = true
     Promise.all([
-      getRequest(requestId),
-      getAnalysis(requestId).catch(() => null),
+      getRequest(activeRequestId),
+      getAnalysis(activeRequestId).catch(() => null),
       getMember(memberId),
     ]).then(([request, analysis, member]) => {
       if (!active) return
@@ -116,10 +120,13 @@ export default function EstimateRequestPage() {
       if (active) setSubmitError(error instanceof Error ? error.message : '기존 의뢰 정보를 불러오지 못했습니다.')
     })
     return () => { active = false }
-  }, [])
+  }, [activeRequestId])
 
   const canSubmit = Boolean(
-    contractor &&
+    activeRequestId &&
+      contractor &&
+      Number.isSafeInteger(Number(contractor.id)) &&
+      Number(contractor.id) > 0 &&
       form.name.trim() &&
       form.phone.trim() &&
       form.region.trim() &&
@@ -138,22 +145,23 @@ export default function EstimateRequestPage() {
     event.preventDefault()
     if (!canSubmit || !contractor) return
 
-    const requestId = getActiveRequestId()
     const numericContractorId = Number(contractor.id)
+    if (!activeRequestId || !Number.isSafeInteger(numericContractorId) || numericContractorId <= 0) {
+      setSubmitError('의뢰 번호와 시공사 정보를 확인할 수 없습니다. 이전 단계부터 다시 진행해 주세요.')
+      return
+    }
     setIsSubmitting(true)
     setSubmitError('')
     try {
-      if (requestId && Number.isSafeInteger(numericContractorId)) {
-        const budget = parseBudgetRange(form.budget)
-        await updateRequest(requestId, {
-          region: form.region.trim(),
-          budgetMin: budget.budgetMin,
-          budgetMax: budget.budgetMax,
-          desiredDate: form.preferredDate || undefined,
-          requestedItems: selectedItems.join(','),
-        })
-        await inviteContractor(requestId, numericContractorId)
-      }
+      const budget = parseBudgetRange(form.budget)
+      await updateRequest(activeRequestId, {
+        region: form.region.trim(),
+        budgetMin: budget.budgetMin,
+        budgetMax: budget.budgetMax,
+        desiredDate: form.preferredDate || undefined,
+        requestedItems: selectedItems.join(','),
+      })
+      await inviteContractor(activeRequestId, numericContractorId)
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : '견적 요청에 실패했습니다.')
       setIsSubmitting(false)
@@ -162,7 +170,7 @@ export default function EstimateRequestPage() {
     setIsSubmitting(false)
     navigate('/estimate/request/complete', {
       state: {
-        requestId,
+        requestId: activeRequestId,
         contractorId: contractor.id,
         contractorName: contractor.companyName,
         budget: form.budget,

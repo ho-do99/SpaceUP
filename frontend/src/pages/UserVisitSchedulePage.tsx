@@ -166,7 +166,9 @@ export default function UserVisitSchedulePage() {
     }
   }, [numericContractorId, numericRequestId])
 
+  const canRequestSchedule = visit?.status === 'UNSCHEDULED' || visit?.status === 'SCHEDULED'
   const canSubmit =
+    canRequestSchedule &&
     visitDate.trim().length > 0 &&
     visitTime.trim().length > 0 &&
     (!visit || requestMessage.trim().length > 0)
@@ -192,7 +194,25 @@ export default function UserVisitSchedulePage() {
         })
         setVisit(updatedVisit)
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : '방문 일정 변경 요청에 실패했습니다.')
+        let nextMessage = error instanceof Error ? error.message : '방문 일정 변경 요청에 실패했습니다.'
+        if (
+          error instanceof ApiClientError &&
+          error.status === 409 &&
+          numericRequestId &&
+          numericContractorId
+        ) {
+          try {
+            const currentVisit = await getVisit(numericRequestId, numericContractorId)
+            setVisit(currentVisit)
+            setVisitDate(currentVisit.requestedDate ?? currentVisit.visitDate ?? '')
+            setVisitTime(toInputTime(currentVisit.requestedTime ?? currentVisit.visitTime))
+            setRequestMessage(currentVisit.requestReason ?? currentVisit.note ?? '')
+            nextMessage = '일정 상태가 이미 변경되어 최신 상태를 불러왔습니다.'
+          } catch {
+            // 원래 처리 오류를 유지합니다.
+          }
+        }
+        setErrorMessage(nextMessage)
         setIsSubmitting(false)
         return
       }
@@ -287,6 +307,29 @@ export default function UserVisitSchedulePage() {
             </section>
           ) : null}
 
+          {visit?.status === 'CHANGE_REQUESTED' ? (
+            <section className="mt-5 rounded-[10px] border border-[#fed7aa] bg-[#fff7ed] px-4 py-4 text-[#c2410c]">
+              <h2 className="text-[12px] font-bold">시공사 확인을 기다리고 있습니다.</h2>
+              <p className="mt-2 text-[10px] leading-[17px]">
+                요청한 방문 일정은 한 번만 전달됩니다. 시공사가 확정하거나 다른 일정을 제안하면 다시 변경할 수 있습니다.
+              </p>
+            </section>
+          ) : null}
+
+          {visit?.status === 'SCHEDULED' ? (
+            <section className="mt-5 rounded-[10px] border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-4 text-[#047857]">
+              <h2 className="text-[12px] font-bold">현장 방문 일정이 확정되었습니다.</h2>
+              <p className="mt-2 text-[10px] leading-[17px]">일정 변경이 필요하면 아래 날짜와 시간을 수정해 요청해 주세요.</p>
+            </section>
+          ) : null}
+
+          {visit?.status === 'COMPLETED' ? (
+            <section className="mt-5 rounded-[10px] border border-[#a7f3d0] bg-[#ecfdf5] px-4 py-4 text-[#047857]">
+              <h2 className="text-[12px] font-bold">현장 방문이 완료되었습니다.</h2>
+              <p className="mt-2 text-[10px] leading-[17px]">완료된 방문 일정은 다시 변경할 수 없습니다.</p>
+            </section>
+          ) : null}
+
           {/* 일정 입력 */}
           {visit ? <section className="mt-5">
             <label className="block">
@@ -297,7 +340,7 @@ export default function UserVisitSchedulePage() {
               <input
                 type="date"
                 value={visitDate}
-                disabled={submitted || isLoading || isSubmitting}
+                disabled={!canRequestSchedule || submitted || isLoading || isSubmitting}
                 onChange={(event) =>
                   setVisitDate(event.target.value)
                 }
@@ -312,7 +355,7 @@ export default function UserVisitSchedulePage() {
 
               <select
                 value={visitTime}
-                disabled={submitted || isLoading || isSubmitting}
+                disabled={!canRequestSchedule || submitted || isLoading || isSubmitting}
                 onChange={(event) =>
                   setVisitTime(event.target.value)
                 }
@@ -341,10 +384,7 @@ export default function UserVisitSchedulePage() {
               <input
                 type="text"
                 value={address}
-                disabled={submitted || isLoading || isSubmitting}
-                onChange={(event) =>
-                  setAddress(event.target.value)
-                }
+                readOnly
                 placeholder="방문 주소를 입력해주세요."
                 className="mt-2 h-12 w-full rounded-[7px] border border-[#cbd5e1] bg-white px-3 text-[12px] font-medium text-[#1e293b] outline-none placeholder:text-[#94a3b8] focus:border-[#2563eb] disabled:bg-[#f8fafc]"
               />
@@ -358,7 +398,7 @@ export default function UserVisitSchedulePage() {
               <textarea
                 value={requestMessage}
                 maxLength={200}
-                disabled={submitted || isLoading || isSubmitting}
+                disabled={!canRequestSchedule || submitted || isLoading || isSubmitting}
                 onChange={(event) =>
                   setRequestMessage(event.target.value)
                 }
@@ -381,7 +421,7 @@ export default function UserVisitSchedulePage() {
           </section>
         </main>
 
-        <footer className={`grid shrink-0 gap-3 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))] pt-2 ${visit ? 'grid-cols-[1fr_1.4fr]' : 'grid-cols-1'}`}>
+        <footer className={`grid shrink-0 gap-3 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))] pt-2 ${visit && canRequestSchedule ? 'grid-cols-[1fr_1.4fr]' : 'grid-cols-1'}`}>
           <button
             type="button"
             disabled={submitted || isSubmitting}
@@ -391,7 +431,7 @@ export default function UserVisitSchedulePage() {
             {visit ? '취소' : '채팅으로 돌아가기'}
           </button>
 
-          {visit ? <button
+          {visit && canRequestSchedule ? <button
             type="button"
             disabled={!canSubmit || submitted || isLoading || isSubmitting}
             onClick={() => { void submitSchedule() }}
@@ -401,7 +441,9 @@ export default function UserVisitSchedulePage() {
               ? '요청 완료'
               : isSubmitting
                 ? '요청 중'
-              : '방문 일정 요청하기'}
+               : visit.status === 'SCHEDULED'
+                 ? '일정 변경 요청하기'
+                 : '방문 일정 요청하기'}
           </button> : null}
         </footer>
       </div>

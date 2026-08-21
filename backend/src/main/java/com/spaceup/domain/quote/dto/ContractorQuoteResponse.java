@@ -2,6 +2,7 @@ package com.spaceup.domain.quote.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,6 +42,7 @@ public class ContractorQuoteResponse {
 	private final List<Long> revisionTargetItemIds;
 	private final Long revisionRequestedAmount;
 	private final Integer revisionCount;
+	private final LocalDateTime createdAt;
 	private final List<ItemView> items;
 
 	public ContractorQuoteResponse(ContractorQuote quote) {
@@ -74,6 +76,7 @@ public class ContractorQuoteResponse {
 								.collect(Collectors.toList());
 		this.revisionRequestedAmount = quote.getRevisionRequestedAmount();
 		this.revisionCount = quote.getRevisionCount();
+		this.createdAt = quote.getCreatedAt();
 		this.items = quote.getItems().stream()
 				.map(item -> new ItemView(item.getCategory(), item.getDescription(), item.getQuantity(),
 						item.getMeasurementUnit(), item.getUnitPrice(), item.getAmount()))

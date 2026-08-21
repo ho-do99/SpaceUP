@@ -71,6 +71,11 @@ export function requestToContractorDetail(
   const floorPlan = images.find((image) => image.imageType === 'FLOOR_PLAN')
   const photos = images.filter((image) => image.imageType === 'PHOTO')
   const generatedImages = images.filter((image) => image.imageType === 'AI_GENERATED')
+  const latestGeneratedImage = generatedImages.reduce<RequestImageResponse | undefined>((latest, image) => {
+    if (!latest || image.sortOrder > latest.sortOrder) return image
+    if (image.sortOrder === latest.sortOrder && image.id > latest.id) return image
+    return latest
+  }, undefined)
   const resolveImage = (image?: RequestImageResponse) => image
     ? resolveApiAssetUrl(image.imageUrl) || image.imageUrl
     : undefined
@@ -91,7 +96,7 @@ export function requestToContractorDetail(
     floorPlanImage: linkedFloorPlanImage,
     hasLinkedFloorPlan: Boolean(linkedFloorPlanImage),
     beforeImage: resolveImage(photos[0]),
-    afterImage: resolveImage(generatedImages[0]),
+    afterImage: resolveImage(latestGeneratedImage),
     selectedTheme: request.selectedTheme || undefined,
     photos: photos.map((photo, index) => ({
       id: String(photo.id), label: `공간 사진 ${index + 1}`,

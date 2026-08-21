@@ -1,7 +1,7 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getVisit } from '@/api/visitApi'
+import { acceptVisitChange, getVisit, registerVisit } from '@/api/visitApi'
 import ContractorPortalFlowProvider from '@/components/contractor/ContractorPortalFlowProvider'
 import useContractorRequest from '@/hooks/useContractorRequest'
 import ContractorVisitPage from './ContractorVisitPage'
@@ -13,6 +13,8 @@ vi.mock('@/api/visitApi', () => ({
 vi.mock('@/hooks/useContractorRequest', () => ({ default: vi.fn() }))
 
 const getVisitMock = vi.mocked(getVisit)
+const acceptVisitChangeMock = vi.mocked(acceptVisitChange)
+const registerVisitMock = vi.mocked(registerVisit)
 const useContractorRequestMock = vi.mocked(useContractorRequest)
 
 function requestFixture() {
@@ -38,6 +40,8 @@ describe('ContractorVisitPage live/mock boundary', () => {
   beforeEach(() => {
     useContractorRequestMock.mockReset().mockReturnValue({ request: requestFixture(), loading: false, error: '' })
     getVisitMock.mockReset().mockResolvedValue({ id: 3, requestId: 99, contractorId: 7, status: 'UNSCHEDULED' })
+    acceptVisitChangeMock.mockReset()
+    registerVisitMock.mockReset()
   })
   afterEach(cleanup)
 
@@ -63,5 +67,58 @@ describe('ContractorVisitPage live/mock boundary', () => {
 
     const link = await screen.findByRole('link', { name: '견적 작성으로 이동' })
     expect(link).toHaveAttribute('href', '/contractor/requests/99/estimate?mode=completed')
+  })
+
+  it('shows the first user schedule request as a confirmation flow', async () => {
+    getVisitMock.mockResolvedValue({
+      id: 3, requestId: 99, contractorId: 7, status: 'CHANGE_REQUESTED',
+      requestedDate: '2026-09-08', requestedTime: '14:00:00', requestReason: '오후 방문 희망',
+    })
+    renderVisit()
+
+    expect(await screen.findByRole('heading', { name: '방문 일정 요청' })).toBeInTheDocument()
+    expect(screen.queryByText('기존 일정')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '방문 일정 확정' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '방문 요청 거절' })).toBeInTheDocument()
+  })
+
+  it('prevents duplicate confirmation requests while the first action is pending', async () => {
+    getVisitMock.mockResolvedValue({
+      id: 3, requestId: 99, contractorId: 7, status: 'CHANGE_REQUESTED',
+      requestedDate: '2026-09-08', requestedTime: '14:00:00', requestReason: '오후 방문 희망',
+    })
+    let resolveAccept!: (value: Awaited<ReturnType<typeof acceptVisitChange>>) => void
+    acceptVisitChangeMock.mockImplementation(() => new Promise((resolve) => { resolveAccept = resolve }))
+    renderVisit()
+
+    const confirm = await screen.findByRole('button', { name: '방문 일정 확정' })
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
+    expect(acceptVisitChangeMock).toHaveBeenCalledTimes(1)
+
+    resolveAccept({
+      id: 3, requestId: 99, contractorId: 7, status: 'SCHEDULED',
+      visitDate: '2026-09-08', visitTime: '14:00:00',
+    })
+    await waitFor(() => expect(screen.getByText('현장 방문 예정')).toBeInTheDocument())
+  })
+
+  it('prevents duplicate initial registration requests', async () => {
+    let resolveRegister!: (value: Awaited<ReturnType<typeof registerVisit>>) => void
+    registerVisitMock.mockImplementation(() => new Promise((resolve) => { resolveRegister = resolve }))
+    renderVisit()
+
+    fireEvent.change(await screen.findByLabelText('방문 날짜'), { target: { value: '2026-09-08' } })
+    fireEvent.change(screen.getByLabelText('방문 시간'), { target: { value: '14:00' } })
+    const submit = screen.getByRole('button', { name: '방문 일정 등록' })
+    fireEvent.click(submit)
+    fireEvent.click(submit)
+    expect(registerVisitMock).toHaveBeenCalledTimes(1)
+
+    resolveRegister({
+      id: 3, requestId: 99, contractorId: 7, status: 'SCHEDULED',
+      visitDate: '2026-09-08', visitTime: '14:00:00',
+    })
+    await waitFor(() => expect(screen.getByText('현장 방문 예정')).toBeInTheDocument())
   })
 })
