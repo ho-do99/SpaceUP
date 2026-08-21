@@ -12,9 +12,21 @@ const api = vi.hoisted(() => ({
   getFloorplanVisualization: vi.fn(),
 }))
 
-vi.mock('@/components/user/FloorPlan3DViewer', () => ({
-  default: ({ visualization }: { visualization: FloorplanVisualization }) => (
-    <p>저장된 3D 모델 {visualization.image_width}</p>
+vi.mock('@/components/user/FloorPlanInteractive3DViewer', () => ({
+  default: ({
+    visualization,
+    spaces: viewerSpaces,
+    onToggleSpace,
+  }: {
+    visualization: FloorplanVisualization
+    spaces: AnalysisSpaceResponse[]
+    onToggleSpace?: (spaceId: number) => void
+  }) => (
+    <div>
+      <p>저장된 3D 모델 {visualization.image_width}</p>
+      <p>도면 선택 {viewerSpaces.filter((space) => space.selectedForConstruction).map((space) => space.spaceName).join(',')}</p>
+      <button type="button" aria-label="3D 공간 선택" onClick={() => onToggleSpace?.(2)}>3D 침실1 선택</button>
+    </div>
   ),
 }))
 
@@ -119,6 +131,30 @@ describe('SpaceInformationPage', () => {
     expect(screen.getByRole('tab', { name: '3D 분석' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.queryByRole('img', { name: '분석한 평면도' })).not.toBeInTheDocument()
     expect(await screen.findByText('저장된 3D 모델 100')).toBeInTheDocument()
+  })
+
+  it('synchronizes selection in both directions between the 3D room and the space card', async () => {
+    renderPage()
+
+    expect(await screen.findByText('도면 선택 안방,드레스룸')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '3D 공간 선택' }))
+    expect(screen.getByRole('button', { name: /침실1/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByText('도면 선택 안방,침실1,드레스룸')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /침실1/ }))
+    expect(await screen.findByText('도면 선택 안방,드레스룸')).toBeInTheDocument()
+  })
+
+  it('does not expose an OCR-unmatched class name as a selectable space', async () => {
+    api.getAnalysisSpaces.mockResolvedValueOnce([
+      ...spaces,
+      { id: 99, sortOrder: 99, spaceName: 'class_8_2', spaceAreaM2: null, floorAreaM2: null, wallpaperAreaM2: null, selectedForConstruction: true },
+    ])
+    renderPage()
+
+    expect(await screen.findByText('안방')).toBeInTheDocument()
+    expect(screen.queryByText('class_8_2')).not.toBeInTheDocument()
   })
 
 
