@@ -56,6 +56,9 @@ const fieldOrder: readonly ContractorEstimateField[] = [
 const finiteOrZero = (value: number) =>
   Number.isFinite(value) ? value : 0
 
+const numericInputValue = (value: number) =>
+  value === 0 ? '' : value
+
 async function loadSelectedMaterials(request: RequestResponse): Promise<SelectedFinalEstimateMaterials> {
   const theme = request.selectedTheme
   if (!theme || !request.selectedFlooringProductId || !request.selectedWallpaperProductId || !request.selectedLightingProductId) {
@@ -383,6 +386,14 @@ export default function ContractorEstimateEditPage() {
               {request.property.areaLabel}
             </ContractorEstimateInfoRow>
 
+            {request.analysis.selectedAreaM2 != null ? (
+              <ContractorEstimateInfoRow label="선택면적">
+                {request.analysis.selectedAreaM2.toLocaleString('ko-KR', {
+                  maximumFractionDigits: 1,
+                })}㎡
+              </ContractorEstimateInfoRow>
+            ) : null}
+
             <ContractorEstimateInfoRow label="희망 일정">
               {request.desiredSchedule}
             </ContractorEstimateInfoRow>
@@ -416,7 +427,7 @@ export default function ContractorEstimateEditPage() {
                 max="1000"
                 step="0.1"
                 value={
-                  draft.measurement.floorArea
+                  numericInputValue(draft.measurement.floorArea)
                 }
                 aria-invalid={Boolean(
                   errors.floorArea,
@@ -455,8 +466,9 @@ export default function ContractorEstimateEditPage() {
                 max="2000"
                 step="0.1"
                 value={
-                  draft.measurement
-                    .wallpaperArea
+                  numericInputValue(
+                    draft.measurement.wallpaperArea,
+                  )
                 }
                 aria-invalid={Boolean(
                   errors.wallpaperArea,
@@ -494,7 +506,7 @@ export default function ContractorEstimateEditPage() {
                 min="1"
                 max="1000"
                 step="1"
-                value={draft.measurement.lightingQuantity}
+                value={numericInputValue(draft.measurement.lightingQuantity)}
                 aria-invalid={Boolean(errors.lightingQuantity)}
                 aria-describedby={errors.lightingQuantity ? 'lightingQuantity-error' : undefined}
                 onChange={(event) =>
@@ -517,8 +529,9 @@ export default function ContractorEstimateEditPage() {
                 max="10"
                 step="0.1"
                 value={
-                  draft.measurement
-                    .ceilingHeight
+                  numericInputValue(
+                    draft.measurement.ceilingHeight,
+                  )
                 }
                 aria-invalid={Boolean(
                   errors.ceilingHeight,
@@ -557,7 +570,7 @@ export default function ContractorEstimateEditPage() {
                 max="20"
                 step="1"
                 value={
-                  draft.measurement.rooms
+                  numericInputValue(draft.measurement.rooms)
                 }
                 aria-invalid={Boolean(
                   errors.rooms,
@@ -596,8 +609,9 @@ export default function ContractorEstimateEditPage() {
                 max="20"
                 step="1"
                 value={
-                  draft.measurement
-                    .bathrooms
+                  numericInputValue(
+                    draft.measurement.bathrooms,
+                  )
                 }
                 aria-invalid={Boolean(
                   errors.bathrooms,

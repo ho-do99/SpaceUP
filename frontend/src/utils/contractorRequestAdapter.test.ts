@@ -36,6 +36,16 @@ describe('contractor request adapter', () => {
     expect(result.estimatedCostLabel).toBe('626~765만원')
   })
 
+  it('passes the total area of the spaces selected for construction', () => {
+    const result = requestToContractorDetail(requestFixture, [], {
+      requestId: 1,
+      status: 'COMPLETED',
+      totalFloorAreaM2: 27,
+    })
+
+    expect(result.analysis.selectedAreaM2).toBe(27)
+  })
+
   it('passes the latest AI simulation result to the contractor', () => {
     const result = requestToContractorDetail(requestFixture, [
       { id: 22, imageType: 'AI_GENERATED', imageUrl: '/api/files/images/wood.png', sortOrder: 1 },

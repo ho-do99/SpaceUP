@@ -46,7 +46,7 @@ describe('ContractorEstimateEditPage confirmed calculation', () => {
         property: { region: '광주', address: '광주 서구', propertyType: '아파트', areaLabel: '84㎡' },
         budgetLabel: '협의', estimatedCostLabel: '분석 완료', matchScore: 90,
         desiredSchedule: '2026-09-01', status: 'in_progress', statusLabel: '진행 중',
-        lastActivityLabel: '2026-08-20', analysis: { rooms: 3, bathrooms: 1, hasBalcony: true, kitchenType: '오픈형', ceilingHeight: '2.4m' },
+        lastActivityLabel: '2026-08-20', analysis: { rooms: 3, bathrooms: 1, hasBalcony: true, kitchenType: '오픈형', ceilingHeight: '2.4m', selectedAreaM2: 27 },
         selectedItems: ['바닥재 교체', '벽지 교체', '조명 교체'], lightingNotice: '', hasLinkedFloorPlan: false, photos: [],
       },
       loading: false,
@@ -66,6 +66,47 @@ describe('ContractorEstimateEditPage confirmed calculation', () => {
   })
 
   afterEach(cleanup)
+
+  it('shows the selected construction area under the exclusive area', async () => {
+    render(
+      <MemoryRouter initialEntries={['/contractor/requests/108/estimate?mode=completed']}>
+        <Routes>
+          <Route path="/contractor/requests/:requestId/estimate" element={<ContractorPortalFlowProvider><ContractorEstimateEditPage /></ContractorPortalFlowProvider>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText(/FLOORING 선택 자재/)
+    expect(screen.getByText('선택면적')).toBeInTheDocument()
+    expect(screen.getByText('27㎡')).toBeInTheDocument()
+  })
+
+  it('leaves zero measurement fields empty and allows deleting an entered number', async () => {
+    render(
+      <MemoryRouter initialEntries={['/contractor/requests/108/estimate?mode=completed']}>
+        <Routes>
+          <Route path="/contractor/requests/:requestId/estimate" element={<ContractorPortalFlowProvider><ContractorEstimateEditPage /></ContractorPortalFlowProvider>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText(/FLOORING 선택 자재/)
+    const measurementLabels = [
+      '바닥 시공 면적(㎡)',
+      '벽지 시공 면적(㎡)',
+      '조명 수량(개)',
+      '층고(m)',
+      '방 개수',
+      '욕실 개수',
+    ]
+    measurementLabels.forEach((label) => expect(screen.getByLabelText(label)).toHaveValue(null))
+
+    const floorArea = screen.getByLabelText('바닥 시공 면적(㎡)')
+    fireEvent.change(floorArea, { target: { value: '12' } })
+    expect(floorArea).toHaveValue(12)
+    fireEvent.change(floorArea, { target: { value: '' } })
+    expect(floorArea).toHaveValue(null)
+  })
 
   it('updates material, additional, VAT, and final totals immediately', async () => {
     render(

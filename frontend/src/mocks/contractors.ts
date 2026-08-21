@@ -11,6 +11,9 @@ export interface ContractorSummary {
   rating: number
   reviewCount: number
   matchingScore: number
+  reviewScore?: number
+  priceScore?: number
+  responseSpeedScore?: number
   similarProjectCount: number
   specialties: readonly string[]
   recommendation: string
