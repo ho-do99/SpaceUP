@@ -81,6 +81,24 @@ class AiFloorplanAnalysisClientTest {
 	}
 
 	@Test
+	void prefersOcrDisplayNameOverInternalClassName() {
+		server.expect(requestTo("https://ai.test/api/analyze"))
+				.andRespond(withSuccess("""
+						{
+						  "total_area_pixel_count": 3000,
+						  "rooms": [
+						    {"room_name": "class_4_1", "display_name": "거실", "class_id": 4,
+						     "pixel_count": 1000, "included_in_total_area": true}
+						  ]
+						}
+						""", MediaType.APPLICATION_JSON));
+
+		AiFloorplanAnalysisResponse response = client.analyze(new byte[] { 1 }, "plan.png", "image/png");
+
+		assertThat(response.rooms()).containsExactly(new AiFloorplanRoom("거실", 4, 1000, true));
+	}
+
+	@Test
 	void rejectsNonPositiveTotalAreaPixelCount() {
 		server.expect(requestTo("https://ai.test/api/analyze"))
 				.andRespond(withSuccess("""
