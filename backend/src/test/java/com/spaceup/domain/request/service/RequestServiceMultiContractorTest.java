@@ -2,7 +2,6 @@ package com.spaceup.domain.request.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -124,23 +123,6 @@ class RequestServiceMultiContractorTest {
 				1L, 20L);
 	}
 
-	@Test
-	void ownerCanSoftDeleteRequestWithoutPhysicallyDeletingRelatedHistory() {
-		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
-
-		service.deleteRequest(1L, 10L);
-
-		assertNotNull(request.getDeletedAt());
-		verify(quoteRequestRepository, never()).delete(any());
-	}
-
-	@Test
-	void nonOwnerCannotDeleteRequest() {
-		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
-
-		assertThrows(com.spaceup.global.error.ForbiddenAccessException.class,
-				() -> service.deleteRequest(1L, 99L));
-	}
 	private RequestContractor selectedParticipation() {
 		return RequestContractor.builder().request(request).contractor(Member.builder().id(20L).build())
 				.status(RequestContractorStatus.SELECTED).build();

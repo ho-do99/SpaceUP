@@ -193,15 +193,6 @@ public class QuoteRequest extends BaseTimeEntity {
 		this.warningSent = true;
 	}
 
-	/**
-	 * 사용자 화면에서 삭제한 의뢰는 연결된 견적·채팅·방문 이력을 보존하면서 모든 일반 조회에서 숨깁니다.
-	 */
-	public void softDelete() {
-		if (this.deletedAt == null) {
-			this.deletedAt = LocalDateTime.now();
-		}
-	}
-
 	// ⭐ [프론트 연동] PATCH /api/requests/{requestId} - 예산/희망일정/요청항목은 화면 뒤쪽 단계(자재선택
 	// 이후)에서 입력되는데 의뢰는 그 전에 이미 생성돼 있어야 해서(AI 분석에 requestId 필요), 나중에 채워
 	// 넣을 수 있는 부분 수정 API가 필요합니다. 값을 보낸 필드만 반영되고 null인 필드는 기존 값을 유지합니다.

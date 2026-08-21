@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiRequest } from './axiosInstance'
-import { attachRequestImage, createRequest, deleteEstimateRequest, deleteRequestImage, getRequestImages, updateRequest } from './requestApi'
+import { attachRequestImage, createRequest, deleteRequestImage, getRequestImages, updateRequest } from './requestApi'
 import type { RequestUpdateInput } from '@/types/request'
 
 vi.mock('./axiosInstance', async (importOriginal) => {
@@ -54,13 +54,4 @@ describe('requestApi', () => {
     }))
   })
 
-  it('deletes the authenticated landlord request', async () => {
-    mockedApiRequest.mockResolvedValue({ success: true, message: 'ok', data: null })
-
-    await expect(deleteEstimateRequest(17)).resolves.toBeUndefined()
-
-    expect(mockedApiRequest).toHaveBeenCalledWith(expect.objectContaining({
-      method: 'DELETE', url: '/api/requests/17', authenticated: true,
-    }))
-  })
 })

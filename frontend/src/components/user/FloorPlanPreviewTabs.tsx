@@ -3,15 +3,16 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { getFloorplanVisualization } from '@/api/analysisApi'
 import type { AnalysisSpaceResponse, FloorplanVisualization } from '@/types/analysis'
 
-const FloorPlan3DViewer = lazy(() => import('@/components/user/FloorPlan3DViewer'))
+const FloorPlan3DViewer = lazy(() => import('@/components/user/FloorPlanInteractive3DViewer'))
 
 interface Props {
   requestId: number | null
   floorPlanPreviewUrl: string | null
   spaces: AnalysisSpaceResponse[]
+  onToggleSpace: (spaceId: number) => void
 }
 
-export default function FloorPlanPreviewTabs({ requestId, floorPlanPreviewUrl, spaces }: Props) {
+export default function FloorPlanPreviewTabs({ requestId, floorPlanPreviewUrl, spaces, onToggleSpace }: Props) {
   const [tab, setTab] = useState<'original' | '3d'>('3d')
   const [data, setData] = useState<FloorplanVisualization | null>(null)
   const [loading, setLoading] = useState(false)
@@ -68,7 +69,7 @@ export default function FloorPlanPreviewTabs({ requestId, floorPlanPreviewUrl, s
           <div className="flex h-full flex-col items-center justify-center gap-3 px-3 text-center"><p role="alert" className="text-[11px] text-[#dc2626]">{error}</p><button type="button" className="rounded border border-[#2563eb] px-3 py-1 text-[10px] text-[#2563eb]" onClick={retry3d}>다시 시도</button></div>
         ) : data ? (
           <Suspense fallback={<p role="status" className="flex h-full items-center justify-center text-[11px] text-[#475569]">3D 화면을 준비하는 중...</p>}>
-            <FloorPlan3DViewer visualization={data} spaces={spaces} />
+            <FloorPlan3DViewer visualization={data} spaces={spaces} onToggleSpace={onToggleSpace} />
           </Suspense>
         ) : null}
       </div>

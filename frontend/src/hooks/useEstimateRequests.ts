@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ACTIVE_REQUEST_ID_KEY, deleteEstimateRequest, getMyEstimateRequests, getRequest } from '@/api/requestApi'
+import { getMyEstimateRequests, getRequest } from '@/api/requestApi'
 import { getQuotesByRequest } from '@/api/estimateApi'
 import { getEstimateRequestById, type EstimateRequestSummary } from '@/mocks/estimateRequests'
 import type { QuoteResponse } from '@/types/backendContractor'
@@ -58,25 +58,12 @@ export function useEstimateRequestHistory() {
     return () => { active = false }
   }, [attempt])
 
-  const removeRequest = async (requestId: string) => {
-    const numericId = Number(requestId)
-    if (!Number.isInteger(numericId) || numericId <= 0) {
-      throw new Error('삭제할 견적 요청을 확인할 수 없습니다.')
-    }
-    await deleteEstimateRequest(numericId)
-    setRequests((current) => current.filter((request) => request.id !== requestId))
-    if (sessionStorage.getItem(ACTIVE_REQUEST_ID_KEY) === requestId) {
-      sessionStorage.removeItem(ACTIVE_REQUEST_ID_KEY)
-    }
-  }
-
   return {
     requests,
     usingLiveData: true,
     loading,
     error,
     retry: () => setAttempt((value) => value + 1),
-    removeRequest,
   }
 }
 
