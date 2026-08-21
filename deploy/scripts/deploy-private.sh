@@ -63,6 +63,8 @@ wait_for_service_http() {
     sleep "$delay"
   done
 
+  "${COMPOSE[@]}" ps "$service" >&2 || true
+  "${COMPOSE[@]}" logs --tail 200 "$service" >&2 || true
   printf '[spaceup-deploy] ERROR: service health check failed: %s %s\n' \
     "$service" "$url" >&2
   return 1
