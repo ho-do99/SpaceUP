@@ -12,6 +12,10 @@ function budgetLabel(min?: number | null, max?: number | null) {
 }
 
 export function recommendationToSummary(item: RecommendedContractor): ContractorSummary {
+  const reviewScore = Math.round(item.reviewScore ?? 0)
+  const priceScore = Math.round(item.priceScore ?? 0)
+  const responseSpeedScore = Math.round(item.scheduleScore ?? 0)
+
   return {
     id: String(item.contractorId),
     companyName: item.companyName || `시공사 #${item.contractorId}`,
@@ -21,14 +25,21 @@ export function recommendationToSummary(item: RecommendedContractor): Contractor
     rating: item.rating ?? 0,
     reviewCount: item.reviewCount ?? 0,
     matchingScore: Math.round(item.matchScore ?? 0),
+    reviewScore,
+    priceScore,
+    responseSpeedScore,
     similarProjectCount: 0,
     specialties: ['바닥재', '도배', '조명'],
-    recommendation: `가격 ${item.priceScore}점 · 일정 ${item.scheduleScore}점 기준 추천`,
-    description: '요청 조건과 업체의 견적 범위·가능 일정을 기준으로 추천된 시공사입니다.',
+    recommendation: `리뷰 ${reviewScore}점 · 가격 ${priceScore}점 · 응답속도 ${responseSpeedScore}점`,
+    description: '리뷰 평가, 예상 견적 적합도, 응답속도를 종합해 추천된 시공사입니다.',
     budgetRangeLabel: budgetLabel(item.estimateMin, item.estimateMax),
     availableDateLabel: item.availableDate ? `${item.availableDate} 이후` : '일정 협의',
-    responseTimeLabel: '채팅으로 확인',
-    recommendationReasons: [`종합 매칭 ${Math.round(item.matchScore ?? 0)}점`, `추천 순위 ${item.recommendationRank}위`],
+    responseTimeLabel: '빠른 응답 가능',
+    recommendationReasons: [
+      `리뷰 ${reviewScore}점 · 평점 ${Number(item.rating ?? 0).toFixed(1)} / 후기 ${item.reviewCount ?? 0}건`,
+      `가격 ${priceScore}점 · 요청 예산과 업체 견적 범위 반영`,
+      `응답속도 ${responseSpeedScore}점 · 상담 응답 기준 반영`,
+    ],
     iconSrc: contractorBuildingIcon,
     portfolioSrc: spaceDesignPortfolio,
     portfolioAlt: `${item.companyName} 포트폴리오`,

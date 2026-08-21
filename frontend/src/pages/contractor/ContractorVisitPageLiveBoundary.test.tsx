@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { acceptVisitChange, getVisit, registerVisit } from '@/api/visitApi'
@@ -52,6 +52,24 @@ describe('ContractorVisitPage live/mock boundary', () => {
     expect(screen.getByLabelText('방문 날짜')).toHaveValue('')
     expect(screen.getByLabelText('방문 시간')).toHaveValue('')
     expect(screen.getByLabelText('담당자')).toHaveValue('')
+  })
+
+  it('uses the same fixed visit-time selector as the user schedule screen', async () => {
+    renderVisit()
+
+    await screen.findByText('등록된 방문 일정이 없습니다')
+    const timeSelect = screen.getByRole('combobox', { name: '방문 시간' })
+    expect(within(timeSelect).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      '방문 시간을 선택해주세요.',
+      '오전 9:00',
+      '오전 10:00',
+      '오전 11:00',
+      '오후 1:00',
+      '오후 2:00',
+      '오후 3:00',
+      '오후 4:00',
+      '오후 5:00',
+    ])
   })
 
   it('does not force completed mode without a completed API visit', async () => {

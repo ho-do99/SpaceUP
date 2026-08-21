@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import FloorPlan3DViewer from '@/components/user/FloorPlanInteractive3DViewer'
@@ -44,7 +44,7 @@ const spaces: AnalysisSpaceResponse[] = [
 describe('FloorPlan3DViewer', () => {
   afterEach(cleanup)
 
-  it('offers only OCR-detected rooms for selection and sends the matched space id', () => {
+  it('shows only the 3D plan without a duplicated room selection list', () => {
     const onToggleSpace = vi.fn()
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
@@ -56,12 +56,9 @@ describe('FloorPlan3DViewer', () => {
       />,
     )
 
-    const livingRoom = screen.getByRole('button', { name: '거실 선택 해제' })
-    expect(livingRoom).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.queryByText('class_8_2')).not.toBeInTheDocument()
-
-    fireEvent.click(livingRoom)
-    expect(onToggleSpace).toHaveBeenCalledWith(11)
+    expect(screen.getByLabelText('3D 평면도')).toBeInTheDocument()
+    expect(screen.queryByLabelText('탐지된 공간 선택')).not.toBeInTheDocument()
+    expect(screen.queryByText('23.00m²')).not.toBeInTheDocument()
     consoleError.mockRestore()
   })
 

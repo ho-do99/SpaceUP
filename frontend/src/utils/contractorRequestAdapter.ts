@@ -90,6 +90,7 @@ export function requestToContractorDetail(
       hasBalcony: analysis?.hasBalcony ?? false,
       kitchenType: analysis?.kitchenType || '분석 대기 중',
       ceilingHeight: analysis?.ceilingHeightM != null ? `${analysis.ceilingHeightM}m` : '미입력',
+      selectedAreaM2: analysis?.totalFloorAreaM2 ?? undefined,
     },
     selectedItems: request.requestedItems?.split(',').map((value) => value.trim()).filter(Boolean) ?? [],
     lightingNotice: '조명은 현장 전기 배선 확인 후 최종 견적이 확정됩니다.',

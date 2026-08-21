@@ -342,6 +342,7 @@ export interface AnalysisSummary {
   hasBalcony: boolean
   kitchenType: string
   ceilingHeight: string
+  selectedAreaM2?: number
 }
 
 export interface ContractorRequest {

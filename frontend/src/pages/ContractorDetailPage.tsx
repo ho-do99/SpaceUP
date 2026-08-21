@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getContractor } from '@/api/contractorApi'
 import Button from '@/components/Button'
 import UserHeader from '@/components/user/UserHeader'
@@ -10,13 +10,37 @@ import { profileToSummary } from '@/utils/contractorAdapter'
 
 export default function ContractorDetailPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { contractorId } = useParams<{ contractorId: string }>()
-  const [contractor, setContractor] = useState<ContractorSummary | undefined>(() => getContractorById(contractorId))
+  const recommendedContractor = (location.state as { contractor?: ContractorSummary } | null)?.contractor
+  const [contractor, setContractor] = useState<ContractorSummary | undefined>(
+    () => recommendedContractor ?? getContractorById(contractorId),
+  )
 
   useEffect(() => {
     if (!contractorId || !/^\d+$/.test(contractorId)) return
-    getContractor(Number(contractorId)).then((profile) => setContractor(profileToSummary(profile))).catch(() => setContractor(undefined))
-  }, [contractorId])
+    getContractor(Number(contractorId))
+      .then((profile) => {
+        const profileSummary = profileToSummary(profile)
+        setContractor((current) => {
+          const recommendation = current?.id === contractorId ? current : recommendedContractor
+          if (!recommendation) return profileSummary
+
+          return {
+            ...profileSummary,
+            experienceLabel: recommendation.experienceLabel,
+            matchingScore: recommendation.matchingScore,
+            reviewScore: recommendation.reviewScore,
+            priceScore: recommendation.priceScore,
+            responseSpeedScore: recommendation.responseSpeedScore,
+            recommendation: recommendation.recommendation,
+            recommendationReasons: recommendation.recommendationReasons,
+            responseTimeLabel: recommendation.responseTimeLabel,
+          }
+        })
+      })
+      .catch(() => setContractor(undefined))
+  }, [contractorId, recommendedContractor])
 
   if (!contractor) {
     return (
@@ -111,14 +135,52 @@ export default function ContractorDetailPage() {
             </p>
           </section>
 
-          <section className="mt-3 rounded-[10px] border border-[#e2e8f0] bg-white p-[13px]">
-            <h2 className="text-[12px] font-bold text-[#1e293b]">추천 이유</h2>
-            <ul className="mt-3 space-y-1 text-[10px] leading-4 text-[#64748b]">
-              {contractor.recommendationReasons.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
-          </section>
+          {contractor.reviewScore != null &&
+          contractor.priceScore != null &&
+          contractor.responseSpeedScore != null ? (
+            <section className="mt-3 rounded-[10px] border border-[#dbeafe] bg-white p-[13px]">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-[12px] font-bold text-[#1e293b]">매칭 점수 산정</h2>
+                <strong className="text-[12px] font-bold text-[#2563eb]">
+                  총 {contractor.matchingScore}점
+                </strong>
+              </div>
+              <p className="mt-1 text-[9px] leading-4 text-[#64748b]">
+                리뷰·가격·응답속도 세 항목을 합산한 추천 점수예요.
+              </p>
+              <dl className="mt-3 grid grid-cols-3 gap-2">
+                {[
+                  ['리뷰', contractor.reviewScore],
+                  ['가격', contractor.priceScore],
+                  ['응답속도', contractor.responseSpeedScore],
+                ].map(([label, score]) => (
+                  <div key={label} className="rounded-[8px] bg-[#eff6ff] px-2 py-3 text-center">
+                    <dt className="text-[9px] font-medium text-[#64748b]">{label}</dt>
+                    <dd className="mt-1 text-[13px] font-bold text-[#2563eb]">
+                      {label} {score}점
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <ul className="mt-3 space-y-1.5 border-t border-[#e2e8f0] pt-3 text-[10px] leading-4 text-[#64748b]">
+                {contractor.recommendationReasons.map((reason) => (
+                  <li key={reason} className="flex gap-1.5">
+                    <span aria-hidden="true" className="text-[#2563eb]">•</span>
+                    <span>{reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : (
+            <section className="mt-3 rounded-[10px] border border-[#e2e8f0] bg-white p-[13px]">
+              <h2 className="text-[12px] font-bold text-[#1e293b]">추천 이유</h2>
+              <ul className="mt-3 space-y-1 text-[10px] leading-4 text-[#64748b]">
+                {contractor.recommendationReasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </section>
+          )}
         </main>
 
         <footer className="grid shrink-0 grid-cols-2 gap-3 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
