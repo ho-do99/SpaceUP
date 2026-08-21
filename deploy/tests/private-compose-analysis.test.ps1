@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $compose = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../compose.private.yml"
 $workflow = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../.github/workflows/ci.yml"
+$deployWorkflow = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../.github/workflows/deploy.yml"
 $deploy = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../scripts/deploy-private.sh"
 $spaDockerfile = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../ai/spa/Dockerfile"
 $ocrDockerfile = Get-Content -Raw -Encoding utf8 "$PSScriptRoot/../../ai/ocr/Dockerfile"
@@ -22,6 +23,26 @@ foreach ($health in @('/health', '/api/analyze', '/api/floorplans/apartments/var
 
 foreach ($retryMarker in @('wait_for_service_http()', 'count <= attempts', 'wait_for_service_http "$service"')) {
     if (-not $deploy.Contains($retryMarker)) { throw "private service health check does not retry: $retryMarker" }
+}
+
+if (-not $deploy.Contains('wait_for_service_http "ocr" "http://127.0.0.1:8000/health" 60 2 2')) {
+    throw 'OCR cold-start health check budget is too short'
+}
+
+if (-not $deploy.Contains('local request_timeout="${5:-5}"')) {
+    throw 'private service health check request timeout is not configurable'
+}
+
+if ($deployWorkflow -notmatch '(?ms)^  deploy-private:.*?^    timeout-minutes:\s*30\s*$') {
+    throw 'private deployment job timeout does not cover cold starts and rollback'
+}
+
+foreach ($signalMarker in @(
+    "trap 'rollback_private 143' TERM",
+    "trap 'rollback_private 129' HUP",
+    "trap 'rollback_private 130' INT"
+)) {
+    if (-not $deploy.Contains($signalMarker)) { throw "missing signal rollback: $signalMarker" }
 }
 
 if (-not $deploy.Contains('FLOORPLAN_HEALTHCHECK_VARIANT_IDS')) {
