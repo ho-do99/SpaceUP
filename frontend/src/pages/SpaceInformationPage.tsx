@@ -55,7 +55,10 @@ export default function SpaceInformationPage() {
       .then(([liveAnalysis, liveSpaces]) => {
         if (!active) return
         setAnalysis(liveAnalysis)
-        setSpaces(liveSpaces)
+        setSpaces(liveSpaces.map((space) => ({
+          ...space,
+          selectedForConstruction: false,
+        })))
         setCeilingHeight(liveAnalysis.ceilingHeightM == null ? '2.4' : String(liveAnalysis.ceilingHeightM))
       })
       .catch((error) => {
