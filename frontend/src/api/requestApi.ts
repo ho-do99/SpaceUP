@@ -34,13 +34,6 @@ export async function updateRequest(requestId: number, input: RequestUpdateInput
 	unwrapEmptyApiResponse(response, '의뢰 수정에 실패했습니다.')
 }
 
-export async function deleteEstimateRequest(requestId: number) {
-  const response = await apiRequest<ApiResponse<null>>({
-    method: 'DELETE', url: `/api/requests/${requestId}`, authenticated: true,
-  })
-  unwrapEmptyApiResponse(response, '견적 요청 삭제에 실패했습니다.')
-}
-
 export async function attachRequestImage(requestId: number, input: RequestImageInput) {
   const response = await apiRequest<ApiResponse<number>, RequestImageInput>({
     method: 'POST', url: `/api/requests/${requestId}/images`, data: input, authenticated: true,

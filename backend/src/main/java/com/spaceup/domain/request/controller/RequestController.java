@@ -61,13 +61,6 @@ public class RequestController {
 		return ResponseEntity.ok(ApiResponse.success("의뢰 정보가 수정되었습니다.", null));
 	}
 
-	@DeleteMapping("/{requestId}")
-	public ResponseEntity<ApiResponse<Void>> deleteRequest(@PathVariable Long requestId,
-			Authentication authentication) {
-		requestService.deleteRequest(requestId, getMemberId(authentication));
-		return ResponseEntity.ok(ApiResponse.success("견적 요청이 삭제되었습니다.", null));
-	}
-
 	// ⭐ PDF "의뢰 목록" 화면 (시공사 로그인 기준 - 본인에게 배정된 의뢰만 조회, 페이지네이션)
 	@GetMapping("/contractor/me")
 	public ResponseEntity<ApiResponse<Page<RequestResponse>>> getMyRequestsAsContractor(

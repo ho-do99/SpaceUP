@@ -119,15 +119,6 @@ public class RequestService {
 		request.touch();
 	}
 
-	@Transactional
-	public void deleteRequest(Long requestId, Long landlordId) {
-		QuoteRequest request = findRequestOrThrow(requestId);
-		if (!request.getOwner().getId().equals(landlordId)) {
-			throw new ForbiddenAccessException("본인이 등록한 의뢰만 삭제할 수 있습니다.");
-		}
-		request.softDelete();
-	}
-
 	private MaterialProduct resolveSelectedMaterial(Long productId, MaterialWorkType expectedWorkType,
 			MaterialTheme selectedTheme) {
 		if (productId == null) {
