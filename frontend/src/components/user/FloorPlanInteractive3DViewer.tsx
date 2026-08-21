@@ -41,8 +41,6 @@ export default function FloorPlanInteractive3DViewer({
     () => buildFloorPlanScene(visualization, spaces),
     [visualization, spaces],
   )
-  const selectableRooms = sceneModel.rooms.filter((room) => room.selectable)
-  const unidentifiedCount = sceneModel.rooms.filter((room) => !room.detected).length
 
   useEffect(() => {
     const host = hostRef.current
@@ -266,7 +264,7 @@ export default function FloorPlanInteractive3DViewer({
   }, [onToggleSpace, sceneModel])
 
   return (
-    <div className="space-y-3">
+    <div>
       <div className="relative h-[270px] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
         <div ref={hostRef} className="absolute inset-0" aria-label="3D 평면도" />
         <div ref={labelsRef} className="pointer-events-none absolute inset-0 overflow-hidden" />
@@ -276,45 +274,6 @@ export default function FloorPlanInteractive3DViewer({
           </div>
         )}
       </div>
-
-      {selectableRooms.length > 0 && (
-        <div className="flex flex-wrap gap-2" aria-label="탐지된 공간 선택">
-          {selectableRooms.map((room) => {
-            const matchedSpace = spaces.find((space) => space.id === room.matchedSpaceId)
-            return (
-              <button
-                key={`${room.key}-${room.matchedSpaceId}`}
-                type="button"
-                aria-label={`${room.label} ${room.selected ? '선택 해제' : '선택'}`}
-                aria-pressed={room.selected}
-                onClick={() => onToggleSpace(room.matchedSpaceId!)}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  room.selected
-                    ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50'
-                }`}
-              >
-                <span
-                  className="h-2.5 w-2.5 rounded-sm ring-1 ring-black/5"
-                  style={{ backgroundColor: colorForRoom(room) }}
-                />
-                {room.label}
-                {matchedSpace?.spaceAreaM2 != null && (
-                  <span className={room.selected ? 'text-blue-100' : 'text-slate-400'}>
-                    {matchedSpace.spaceAreaM2.toFixed(2)}m²
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      {unidentifiedCount > 0 && (
-        <p className="text-[11px] text-slate-400">
-          이름을 확인할 수 없는 공간 {unidentifiedCount}개는 바닥 형상만 표시됩니다.
-        </p>
-      )}
     </div>
   )
 }

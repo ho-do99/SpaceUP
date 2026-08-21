@@ -83,8 +83,8 @@ describe('SpaceInformationPage', () => {
     }
     expect(screen.getByText('12㎡ (3.63평)')).toBeInTheDocument()
     expect(screen.getByText('면적 산정 제외')).toBeInTheDocument()
-    expect(screen.getByText('20㎡ (6.05평)')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /안방/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByText('20㎡ (6.05평)')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /안방/ })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('button', { name: /침실1/ })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByText('3개')).toBeInTheDocument()
 
@@ -119,6 +119,7 @@ describe('SpaceInformationPage', () => {
     const input = screen.getByRole('spinbutton', { name: '층고' })
     expect(input).toHaveValue(2.4)
     fireEvent.change(input, { target: { value: '2.7' } })
+    fireEvent.click(screen.getByRole('button', { name: /안방/ }))
     fireEvent.click(screen.getByRole('button', { name: '다음' }))
 
     await waitFor(() => expect(api.updateAnalysis).toHaveBeenCalledWith(77, { ceilingHeightM: 2.7 }))
@@ -136,14 +137,14 @@ describe('SpaceInformationPage', () => {
   it('synchronizes selection in both directions between the 3D room and the space card', async () => {
     renderPage()
 
-    expect(await screen.findByText('도면 선택 안방,드레스룸')).toBeInTheDocument()
+    expect(await screen.findByText('도면 선택')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '3D 공간 선택' }))
     expect(screen.getByRole('button', { name: /침실1/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(await screen.findByText('도면 선택 안방,침실1,드레스룸')).toBeInTheDocument()
+    expect(await screen.findByText('도면 선택 침실1')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /침실1/ }))
-    expect(await screen.findByText('도면 선택 안방,드레스룸')).toBeInTheDocument()
+    expect(await screen.findByText('도면 선택')).toBeInTheDocument()
   })
 
   it('does not expose an OCR-unmatched class name as a selectable space', async () => {
@@ -171,7 +172,7 @@ describe('SpaceInformationPage', () => {
     await waitFor(() => expect(api.replaceAnalysisSpaces).toHaveBeenCalledOnce())
     expect(api.replaceAnalysisSpaces).toHaveBeenCalledWith(77, expect.arrayContaining([
       expect.objectContaining({ spaceName: '침실1', selectedForConstruction: true }),
-      expect.objectContaining({ spaceName: '드레스룸', selectedForConstruction: true }),
+      expect.objectContaining({ spaceName: '드레스룸', selectedForConstruction: false }),
       expect.objectContaining({ spaceName: '복도', selectedForConstruction: false }),
       expect.objectContaining({ spaceName: '다용도실', selectedForConstruction: false }),
       expect.objectContaining({ spaceName: '침실2', selectedForConstruction: false }),
@@ -185,7 +186,8 @@ describe('SpaceInformationPage', () => {
     api.replaceAnalysisSpaces.mockRejectedValue(new Error('공간 저장 실패'))
     renderPage()
 
-    fireEvent.click(await screen.findByRole('button', { name: '다음' }))
+    fireEvent.click(await screen.findByRole('button', { name: /안방/ }))
+    fireEvent.click(screen.getByRole('button', { name: '다음' }))
 
     expect(await screen.findByText('공간 저장 실패')).toBeInTheDocument()
     expect(screen.queryByText('style page')).not.toBeInTheDocument()
@@ -198,7 +200,8 @@ describe('SpaceInformationPage', () => {
       .mockRejectedValueOnce(new Error('재조회 실패'))
     renderPage()
 
-    fireEvent.click(await screen.findByRole('button', { name: '다음' }))
+    fireEvent.click(await screen.findByRole('button', { name: /안방/ }))
+    fireEvent.click(screen.getByRole('button', { name: '다음' }))
 
     expect(await screen.findByText('공간 정보는 저장되었지만 최신 정보를 불러오지 못했습니다. 재조회 실패')).toBeInTheDocument()
     expect(screen.queryByText('style page')).not.toBeInTheDocument()
