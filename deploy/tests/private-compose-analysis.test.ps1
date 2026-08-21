@@ -79,4 +79,18 @@ foreach ($ocrBuildDependency in @('build-essential', 'pybind11==')) {
     if (-not $ocrDockerfile.Contains($ocrBuildDependency)) { throw "OCR image is missing fastwer build dependency: $ocrBuildDependency" }
 }
 
+foreach ($ocrRuntimeDependency in @('numpy==1.26.4', 'ipython==', 'matplotlib==', 'psutil==', 'requests==', 'scipy==', 'seaborn==')) {
+    if (-not $ocrDockerfile.Contains($ocrRuntimeDependency)) {
+        throw "OCR image is missing YOLO runtime dependency: $ocrRuntimeDependency"
+    }
+}
+
+$serviceLogMarker = '"${COMPOSE[@]}" logs --tail 200 "$service"'
+if (-not $deploy.Contains($serviceLogMarker)) {
+    throw 'failed private service health checks do not emit container logs'
+}
+if ($deploy.IndexOf($serviceLogMarker) -gt $deploy.IndexOf("printf '[spaceup-deploy] ERROR: service health check failed")) {
+    throw 'private service logs must be emitted before the failure message'
+}
+
 Write-Output 'private floorplan analysis deployment configuration is complete'

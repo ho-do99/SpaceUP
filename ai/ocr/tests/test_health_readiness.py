@@ -1,7 +1,10 @@
+import logging
 import sys
 import threading
 import time
 import types
+
+import pytest
 
 
 torch = types.ModuleType("torch")
@@ -63,3 +66,17 @@ def test_engine_initialization_is_single_flight(monkeypatch):
 
     assert calls == ["initialize"]
     assert results == [engine_set, engine_set]
+
+
+def test_health_logs_engine_initialization_failure(monkeypatch, caplog):
+    def fail_to_initialize():
+        raise RuntimeError("missing YOLO runtime dependency")
+
+    monkeypatch.setattr(main, "engines", fail_to_initialize)
+    monkeypatch.setattr(main.Path, "is_file", lambda _path: True)
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(main.HTTPException) as error:
+            main.health()
+    assert error.value.status_code == 503
+    assert "OCR engine initialization failed" in caplog.text

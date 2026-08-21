@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import re
 import sys
 import threading
@@ -31,6 +32,7 @@ from OCREvaluation import (  # noqa: E402
 )
 
 app = FastAPI(title="SpaceUP AI Hub OCR API", version="1.0.0")
+logger = logging.getLogger(__name__)
 
 VOCABULARY = list(
     "갱토/덱설름축자벨f펌탈밀밭A접목R즐월팬입의식매서합맘메종콘총온정채건막카뒷α판애절책점베린척측승쓰회스트나패동펜약시창방홀이붙더제면탁어례놀남랙지향층키납울악근현머엌클통필쪽응용E임물,법침당진취든살락마확소일큰대커디초신주발력범P탕강무 녀조컨속변첫게단둘니련해거파갑레리프벽냉I촌증듈좌잔늘욕S영아데도투처실계간코로별준휴링열기요농업랑탱역툇표공숙넌후원에옥테집님감부고오(육램평타장출1+튜렛캐구환송활화손V경체템)노태튼겸&위및다압암급르닥룸관포복김모삭썬젠T블보유누알함짝광각중음비한연품생H상저박플란사탑선즈라.적래픈N텔청우택외번량국인수작뜰치안천분난내예샤팅바피씽닝문벤황배루겐터재독퍼획러a림드크운뮤티할세Y등L브명잭가워행횡센전개옷습형호차풍갤하반족페톡째붕양폰미-여본민"
@@ -257,6 +259,7 @@ def health():
     try:
         engines()
     except Exception as exc:
+        logger.exception("OCR engine initialization failed")
         raise HTTPException(503, "OCR models are not ready") from exc
     return {
         "status": "ok",
