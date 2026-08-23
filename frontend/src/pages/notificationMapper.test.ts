@@ -50,16 +50,22 @@ describe('mapNotification', () => {
     expect(result.destination).toBe('/mypage/requests/98/chat/20')
   })
 
-  it('routes a quote notification to its request detail and exposes the shared request code', () => {
+  it('routes a quote notification to the newest sent quote from the matching contractor', () => {
     const result = mapNotification({
       id: 14, type: 'QUOTE', title: '새 견적이 도착했습니다', content: '마블건축님이 견적을 보냈습니다.',
       read: false, requestId: 114, contractorId: 19, createdAt: '2026-08-20T16:25:00',
     }, new Date('2026-08-20T18:00:00'), [{
       requestId: 114, contractorId: 19, requestCode: 'REQ-260820-000114', counterpartName: '마블건축',
       requestStatus: 'QUOTE_REQUESTED', participationStatus: 'APPROVED', contactable: true, unreadCount: 0,
+    }], [{
+      id: 77, requestId: 114, contractorId: 19, contractorName: '마블건축', totalAmount: 5_171_518,
+      status: 'SUBMITTED', phase: 'FINAL', revisionCount: 1, createdAt: '2026-08-20T16:24:00', items: [],
+    }, {
+      id: 88, requestId: 114, contractorId: 20, contractorName: '다른 시공사', totalAmount: 4_900_000,
+      status: 'SUBMITTED', phase: 'FINAL', revisionCount: 1, createdAt: '2026-08-20T16:26:00', items: [],
     }])
 
-    expect(result.destination).toBe('/mypage/requests/114')
+    expect(result.destination).toBe('/estimate/77')
     expect(result.flowLabel).toBe('의뢰 REQ-260820-000114')
   })
 
