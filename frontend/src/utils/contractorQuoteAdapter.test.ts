@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { quoteToContractorSentEstimate } from './contractorQuoteAdapter'
+import { quoteLifecycleStatus, quoteToContractorSentEstimate } from './contractorQuoteAdapter'
 import type { QuoteResponse } from '@/types/backendContractor'
 import type { RequestResponse } from '@/types/request'
 
@@ -21,5 +21,13 @@ describe('contractor quote adapter', () => {
     expect(result.customerName).toBe('시연 임대인')
     expect(result.finalAmount).toBe(5500000)
     expect(result.initialValidUntil).toBe('2026-09-15')
+  })
+
+  it('treats backend revision one as the first submission', () => {
+    expect(quoteLifecycleStatus({ ...quote, revisionCount: 1 })).toBe('SUBMITTED')
+  })
+
+  it('treats backend revision two as a resubmission', () => {
+    expect(quoteLifecycleStatus({ ...quote, revisionCount: 2 })).toBe('RESUBMITTED')
   })
 })
