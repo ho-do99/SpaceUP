@@ -7,6 +7,7 @@ import {
 } from 'react'
 
 import {
+  Link,
   useNavigate,
   useParams,
 } from 'react-router-dom'
@@ -17,13 +18,14 @@ import {
   readChat,
   sendChatMessage,
 } from '@/api/chatApi'
+import { getQuotesByRequest } from '@/api/estimateApi'
 import { readChatContextNotifications } from '@/api/notificationApi'
 import { getVisit } from '@/api/visitApi'
 
 import UserHeader from '@/components/user/UserHeader'
 import UserScreenShell from '@/components/user/UserScreenShell'
 import useRealtime from '@/contexts/useRealtime'
-import type { ChatThread, SiteVisit } from '@/types/backendContractor'
+import type { ChatThread, QuoteResponse, SiteVisit } from '@/types/backendContractor'
 import { formatBrowserKoreanDate, formatBrowserTime } from '@/utils/browserDateTime'
 
 interface DisplayMessage {
@@ -178,6 +180,24 @@ function formatMessageDate(value?: string) {
   return formatBrowserKoreanDate(value) || '오늘'
 }
 
+function latestSentQuote(
+  quotes: readonly QuoteResponse[],
+  requestId: number,
+  contractorId: number,
+) {
+  return quotes
+    .filter((quote) =>
+      quote.requestId === requestId &&
+      quote.contractorId === contractorId &&
+      quote.status !== 'DRAFT',
+    )
+    .sort((left, right) => {
+      const leftCreatedAt = left.createdAt ? Date.parse(left.createdAt) : 0
+      const rightCreatedAt = right.createdAt ? Date.parse(right.createdAt) : 0
+      return rightCreatedAt - leftCreatedAt || right.id - left.id
+    })[0] ?? null
+}
+
 function LandlordChatComposer({
   onSend,
   sending,
@@ -315,6 +335,7 @@ export default function LandlordChatPage() {
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [error, setError] = useState<string | null>(null)
   const [visit, setVisit] = useState<SiteVisit | null>(null)
+  const [quote, setQuote] = useState<QuoteResponse | null>(null)
   const [sending, setSending] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(true)
 
@@ -339,14 +360,16 @@ export default function LandlordChatPage() {
     setContractorName('')
     setMessages([])
     setVisit(null)
+    setQuote(null)
     setLoadingMessages(true)
 
     Promise.all([
       getChatMessages(numericRequestId, numericContractorId),
       getChatThreads(),
       getVisit(numericRequestId, numericContractorId).catch(() => null),
+      getQuotesByRequest(numericRequestId).catch(() => []),
     ])
-      .then(([chatMessages, threads, currentVisit]) => {
+      .then(([chatMessages, threads, currentVisit, quotes]) => {
         if (!active) return
         const matchingThread = threads.find((item) =>
           item.requestId === numericRequestId && item.contractorId === numericContractorId,
@@ -363,6 +386,7 @@ export default function LandlordChatPage() {
           createdAt: message.createdAt,
         })))
         setVisit(currentVisit)
+        setQuote(latestSentQuote(quotes, numericRequestId, numericContractorId))
         setLoadingMessages(false)
         void acknowledgeRoom()
       })
@@ -400,6 +424,22 @@ export default function LandlordChatPage() {
       .catch(() => undefined)
     return () => { active = false }
   }, [acknowledgeRoom, latestEvent, numericContractorId, numericRequestId])
+
+  useEffect(() => {
+    if (
+      latestEvent?.type !== 'NOTIFICATION_CHANGED' ||
+      latestEvent.requestId !== numericRequestId ||
+      latestEvent.contractorId !== numericContractorId
+    ) return
+
+    let active = true
+    void getQuotesByRequest(numericRequestId)
+      .then((quotes) => {
+        if (active) setQuote(latestSentQuote(quotes, numericRequestId, numericContractorId))
+      })
+      .catch(() => undefined)
+    return () => { active = false }
+  }, [latestEvent, numericContractorId, numericRequestId])
 
   const send = async (
     content: string,
@@ -612,6 +652,31 @@ export default function LandlordChatPage() {
               )
             })}
           </div>
+
+          {quote ? (
+            <article className="mt-4 w-[280px] overflow-hidden rounded-[12px] border border-[#bfdbfe] bg-white shadow-sm">
+              <div className="bg-[#eff6ff] px-4 py-3">
+                <p className="text-[13px] font-bold text-[#1e293b]">견적서가 도착했어요</p>
+                <p className="mt-1 text-[10px] leading-4 text-[#64748b]">
+                  {quote.contractorName}에서 보낸 실측 견적입니다.
+                </p>
+              </div>
+
+              <div className="px-4 py-3">
+                <p className="text-[10px] text-[#64748b]">최종 견적 금액</p>
+                <p className="mt-1 text-[18px] font-bold text-[#2563eb]">
+                  {quote.totalAmount.toLocaleString('ko-KR')}원
+                </p>
+
+                <Link
+                  to={`/estimate/${quote.id}`}
+                  className="mt-3 flex h-10 w-full items-center justify-center rounded-[8px] bg-[#2563eb] text-[12px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
+                >
+                  견적서 확인하기
+                </Link>
+              </div>
+            </article>
+          ) : null}
 
           {error ? (
             <p

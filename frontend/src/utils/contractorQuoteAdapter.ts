@@ -5,7 +5,7 @@ import type { RequestResponse } from '@/types/request'
 export function quoteLifecycleStatus(quote: QuoteResponse): ContractorEstimateLifecycleStatus {
   if (quote.status === 'ACCEPTED') return 'ACCEPTED'
   if (quote.revisionRequestNote) return 'REVISION_REQUESTED'
-  return quote.revisionCount > 0 ? 'RESUBMITTED' : 'SUBMITTED'
+  return quote.revisionCount > 1 ? 'RESUBMITTED' : 'SUBMITTED'
 }
 
 export function quoteToContractorSentEstimate(quote: QuoteResponse, request: RequestResponse): ContractorSentEstimate {

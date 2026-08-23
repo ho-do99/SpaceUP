@@ -295,41 +295,12 @@ export default function ContractorEstimatePreviewPage() {
                 )}
               </ContractorEstimateInfoRow>
 
-              <ContractorEstimateInfoRow label="완료 예정일">
-                {activeDraft.condition.completionDate.replace(
-                  /-/g,
-                  '.',
-                )}
-              </ContractorEstimateInfoRow>
-
               <ContractorEstimateInfoRow label="예상 기간">
                 {
                   activeDraft.condition
                     .durationDays
                 }
                 일
-              </ContractorEstimateInfoRow>
-
-              <ContractorEstimateInfoRow label="결제 조건">
-                계약금{' '}
-                {
-                  activeDraft.condition
-                    .paymentTerms
-                    .depositPercent
-                }
-                % · 중도금{' '}
-                {
-                  activeDraft.condition
-                    .paymentTerms
-                    .interimPercent
-                }
-                % · 잔금{' '}
-                {
-                  activeDraft.condition
-                    .paymentTerms
-                    .balancePercent
-                }
-                %
               </ContractorEstimateInfoRow>
 
               <ContractorEstimateInfoRow label="A/S 기간">

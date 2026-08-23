@@ -129,4 +129,39 @@ describe('ContractorEstimateEditPage confirmed calculation', () => {
       expect(screen.getByText('1,100,000원')).toBeInTheDocument()
     })
   })
+
+  it('leaves zero additional costs empty and formats large amounts while typing', async () => {
+    render(
+      <MemoryRouter initialEntries={['/contractor/requests/108/estimate?mode=completed']}>
+        <Routes>
+          <Route path="/contractor/requests/:requestId/estimate" element={<ContractorPortalFlowProvider><ContractorEstimateEditPage /></ContractorPortalFlowProvider>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText(/FLOORING 선택 자재/)
+    const additionalAmounts = screen.getAllByLabelText('금액(원)')
+    additionalAmounts.forEach((input) => expect(input).toHaveValue(''))
+
+    fireEvent.change(additionalAmounts[0], { target: { value: '1000000000000' } })
+
+    expect(additionalAmounts[0]).toHaveValue('1,000,000,000,000')
+    expect(screen.getAllByText('1,000,000,000,000원').length).toBeGreaterThan(0)
+  })
+
+  it('does not show a completion date in the estimate form conditions', async () => {
+    render(
+      <MemoryRouter initialEntries={['/contractor/requests/108/estimate?mode=completed']}>
+        <Routes>
+          <Route path="/contractor/requests/:requestId/estimate" element={<ContractorPortalFlowProvider><ContractorEstimateEditPage /></ContractorPortalFlowProvider>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText(/FLOORING 선택 자재/)
+    expect(screen.queryByText('완료 예정일')).not.toBeInTheDocument()
+    expect(screen.getByText('시공 시작 예정일')).toBeInTheDocument()
+    expect(screen.getByText('예상 시공 기간(일)')).toBeInTheDocument()
+    expect(screen.getByText('A/S 보증기간')).toBeInTheDocument()
+  })
 })
