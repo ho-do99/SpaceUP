@@ -24,21 +24,6 @@ interface InformationRowProps {
   valueClassName?: string
 }
 
-interface StoredEstimateState {
-  status?: string
-  requestId?: string
-  estimateId?: string
-  contractorId?: string
-  contractorName?: string
-  contractorMeta?: string
-  estimateNumber?: string
-  totalAmount?: string
-  startDate?: string
-  endDate?: string
-  durationDays?: number
-  approvedAt?: string
-}
-
 function InformationRow({
   label,
   value,
@@ -57,32 +42,6 @@ function InformationRow({
       </dd>
     </div>
   )
-}
-
-function getApprovedEstimate(
-  requestId?: string,
-): StoredEstimateState | null {
-  if (!requestId) return null
-
-  const raw = sessionStorage.getItem(
-    `spaceup-request-estimate-${requestId}`,
-  )
-
-  if (!raw) return null
-
-  try {
-    const parsed = JSON.parse(
-      raw,
-    ) as StoredEstimateState
-
-    if (parsed.status !== 'APPROVED') {
-      return null
-    }
-
-    return parsed
-  } catch {
-    return null
-  }
 }
 
 function displayQuoteTitle(title?: string | null) {
@@ -135,9 +94,6 @@ export default function EstimateRequestDetailPage() {
     error,
   } = useEstimateRequestDetail(requestId)
 
-  const approvedEstimate =
-    getApprovedEstimate(requestId)
-
   if (loading || error) {
     return <UserScreenShell className="h-dvh"><UserHeader variant="detail" title="견적 요청 상세" onBack={() => navigate('/mypage/requests')} /><main className="flex flex-1 items-center justify-center px-6 text-center"><p role={error ? 'alert' : 'status'} className={`text-[13px] ${error ? 'text-[#dc2626]' : 'text-[#64748b]'}`}>{error || '견적 요청 정보를 불러오는 중입니다.'}</p></main></UserScreenShell>
   }
@@ -177,9 +133,40 @@ export default function EstimateRequestDetailPage() {
     )
   }
 
-  const scheduleContractorId =
-    approvedEstimate?.contractorId ??
-    '1'
+  const visibleQuotes = quotes.filter(
+    (quote) => quote.status !== 'DRAFT',
+  )
+  const acceptedFinalQuote = visibleQuotes.find(
+    (quote) =>
+      quote.status === 'ACCEPTED' &&
+      quote.phase === 'FINAL',
+  )
+  const acceptedPreliminaryQuote = visibleQuotes.find(
+    (quote) =>
+      quote.status === 'ACCEPTED' &&
+      quote.phase === 'PRELIMINARY',
+  )
+  const acceptedQuote =
+    acceptedFinalQuote ?? acceptedPreliminaryQuote
+  const nextStepRoute = acceptedFinalQuote
+    ? `/estimate/${acceptedFinalQuote.id}?step=payment`
+    : acceptedPreliminaryQuote
+      ? `/mypage/requests/${requestId}/visit/${acceptedPreliminaryQuote.contractorId}`
+      : null
+  const nextStepLabel = acceptedFinalQuote
+    ? '결제 단계 확인'
+    : '방문 일정 확인'
+  const acceptedPhaseLabel = acceptedFinalQuote
+    ? '실측 최종 견적'
+    : '1차 예상 견적'
+  const acceptedProgressTitle = acceptedFinalQuote
+    ? '최종 견적 승인 완료 · 결제 준비'
+    : '1차 견적 승인 완료 · 현장 방문 준비'
+  const acceptedProgressDescription = acceptedFinalQuote
+    ? '승인한 최종 견적을 기준으로 결제 단계를 확인해 주세요.'
+    : '선택한 시공사와 현장 방문 일정을 확인해 주세요.'
+  const displayContractorName =
+    acceptedQuote?.contractorName ?? request.contractorName
 
   return (
     <UserScreenShell className="h-dvh">
@@ -201,18 +188,18 @@ export default function EstimateRequestDetailPage() {
             요청 내용과 진행 상태를 확인하세요.
           </p>
 
-          {approvedEstimate ? (
+          {acceptedQuote && nextStepRoute ? (
             <section className="mt-4 rounded-[12px] border border-[#bfdbfe] bg-[#eff6ff] p-4">
               <div className="flex items-start gap-2">
                 <ProgressIcon />
 
                 <div className="min-w-0 flex-1">
                   <h2 className="text-[13px] font-bold leading-5 text-[#2563eb]">
-                    견적 승인 완료 · 시공 준비 중
+                    {acceptedProgressTitle}
                   </h2>
 
                   <p className="mt-1 text-[10px] leading-[17px] text-[#64748b]">
-                    승인한 견적을 기준으로 시공 일정이 진행됩니다.
+                    {acceptedProgressDescription}
                   </p>
                 </div>
               </div>
@@ -224,19 +211,17 @@ export default function EstimateRequestDetailPage() {
                   </span>
 
                   <strong className="text-[#2563eb]">
-                    {approvedEstimate.totalAmount ??
-                      '5,500,000원'}
+                    {formatWon(acceptedQuote.totalAmount ?? 0)}
                   </strong>
                 </div>
 
                 <div className="mt-2 flex items-center justify-between text-[10px]">
                   <span className="text-[#64748b]">
-                    시공 시작 예정일
+                    견적 단계
                   </span>
 
                   <strong className="text-[#1e293b]">
-                    {approvedEstimate.startDate ??
-                      '2026.08.05'}
+                    {acceptedPhaseLabel}
                   </strong>
                 </div>
               </div>
@@ -244,13 +229,11 @@ export default function EstimateRequestDetailPage() {
               <button
                 type="button"
                 onClick={() =>
-                  navigate(
-                    `/mypage/requests/${requestId}/schedule/${scheduleContractorId}`,
-                  )
+                  navigate(nextStepRoute)
                 }
                 className="mt-3 h-11 w-full rounded-[8px] bg-[#2563eb] text-[12px] font-bold text-white"
               >
-                시공 일정 확인
+                {nextStepLabel}
               </button>
             </section>
           ) : null}
@@ -259,7 +242,7 @@ export default function EstimateRequestDetailPage() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-[14px] font-bold leading-[18px] text-[#1e293b]">
-                  {request.contractorName}
+                  {displayContractorName}
                 </h2>
 
                 <p className="mt-[7px] text-[10px] leading-[16px] text-[#64748b]">
@@ -270,7 +253,7 @@ export default function EstimateRequestDetailPage() {
               <span
                 className={`shrink-0 rounded-full px-3 py-2 text-[10px] font-bold ${statusClass[request.status]}`}
               >
-                {approvedEstimate
+                {acceptedQuote
                   ? '견적 승인'
                   : request.statusLabel}
               </span>
@@ -285,8 +268,8 @@ export default function EstimateRequestDetailPage() {
               <InformationRow
                 label="진행 단계"
                 value={
-                  approvedEstimate
-                    ? '견적 승인 완료 · 시공 준비 중'
+                  acceptedQuote
+                    ? acceptedProgressTitle
                     : request.progressLabel
                 }
               />
@@ -294,7 +277,7 @@ export default function EstimateRequestDetailPage() {
           </section>
 
           {usingLiveData &&
-          !approvedEstimate ? (
+          !acceptedQuote ? (
             <section className="mt-3 rounded-[12px] border border-[#bfdbfe] bg-[#f8fbff] p-[13px]">
               <h2 className="text-[12px] font-bold text-[#1e293b]">
                 도착한 견적 비교
@@ -306,8 +289,8 @@ export default function EstimateRequestDetailPage() {
               </p>
 
               <div className="mt-3 space-y-2">
-                {quotes.length ? (
-                  quotes.map((quote) => {
+                {visibleQuotes.length ? (
+                  visibleQuotes.map((quote) => {
                     return (
                       <article
                         key={quote.id}
@@ -348,12 +331,12 @@ export default function EstimateRequestDetailPage() {
                             채팅하기
                           </Link>
 
-                          <button
-                            type="button"
-                            className="h-9 rounded-md bg-[#2563eb] text-[10px] font-bold text-white"
+                          <Link
+                            to={`/estimate/${quote.id}`}
+                            className="flex h-9 items-center justify-center rounded-md bg-[#2563eb] text-[10px] font-bold text-white"
                           >
-                            결제 하기
-                          </button>
+                            견적서 확인하기
+                          </Link>
                         </div>
                       </article>
                     )
@@ -423,13 +406,13 @@ export default function EstimateRequestDetailPage() {
             <dl className="mt-4 space-y-[13px]">
               <InformationRow
                 label="업체명"
-                value={request.contractorName}
+                value={displayContractorName}
               />
 
               <InformationRow
                 label="답변 상태"
                 value={
-                  approvedEstimate
+                  acceptedQuote
                     ? '견적 승인 완료'
                     : request.responseStatusLabel
                 }
@@ -439,17 +422,15 @@ export default function EstimateRequestDetailPage() {
         </main>
 
         <footer className="shrink-0 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
-          {approvedEstimate ? (
+          {acceptedQuote && nextStepRoute ? (
             <button
               type="button"
               onClick={() =>
-                navigate(
-                  `/mypage/requests/${requestId}/schedule/${scheduleContractorId}`,
-                )
+                navigate(nextStepRoute)
               }
               className="h-12 w-full rounded-[5px] bg-[#2563eb] text-[12px] font-bold text-white"
             >
-              시공 일정 확인
+              {nextStepLabel}
             </button>
           ) : (
             <Link

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   Link,
   Navigate,
@@ -5,6 +6,7 @@ import {
   useSearchParams,
 } from 'react-router-dom'
 
+import { getQuotesByRequest } from '@/api/estimateApi'
 import ContractorAppBar from '@/components/contractor/ContractorAppBar'
 import ContractorEstimateInfoRow from '@/components/contractor/ContractorEstimateInfoRow'
 import {
@@ -24,8 +26,71 @@ export default function ContractorEstimateSentPage() {
   const { requestId } = useParams()
   const [searchParams] = useSearchParams()
   const isLive = /^\d+$/.test(requestId ?? '')
-  const quoteId = isLive && requestId ? getStoredQuoteId(Number(requestId)) : null
+  const numericRequestId = isLive && requestId ? Number(requestId) : null
+  const storedQuoteId = numericRequestId ? getStoredQuoteId(numericRequestId) : null
+  const [quoteId, setQuoteId] = useState<number | null>(storedQuoteId)
+  const [quoteLookup, setQuoteLookup] = useState({
+    loading: Boolean(numericRequestId && !storedQuoteId),
+    error: '',
+  })
   const liveQuote = useContractorQuote(quoteId ? String(quoteId) : undefined)
+
+  useEffect(() => {
+    if (!numericRequestId) {
+      setQuoteId(null)
+      setQuoteLookup({ loading: false, error: '' })
+      return
+    }
+
+    let active = true
+    setQuoteId(storedQuoteId)
+    setQuoteLookup({ loading: !storedQuoteId, error: '' })
+
+    void getQuotesByRequest(numericRequestId)
+      .then((quotes) => {
+        if (!active) return
+
+        const submittedQuotes = quotes
+          .filter((quote) => quote.status !== 'DRAFT')
+          .sort((left, right) => {
+            const leftCreatedAt = left.createdAt
+              ? Date.parse(left.createdAt)
+              : 0
+            const rightCreatedAt = right.createdAt
+              ? Date.parse(right.createdAt)
+              : 0
+            const dateDifference =
+              (Number.isNaN(rightCreatedAt) ? 0 : rightCreatedAt) -
+              (Number.isNaN(leftCreatedAt) ? 0 : leftCreatedAt)
+
+            return dateDifference === 0
+              ? right.id - left.id
+              : dateDifference
+          })
+        const storedQuote = submittedQuotes.find(
+          (quote) => quote.id === storedQuoteId,
+        )
+
+        setQuoteId((storedQuote ?? submittedQuotes[0])?.id ?? null)
+        setQuoteLookup({ loading: false, error: '' })
+      })
+      .catch((reason: unknown) => {
+        if (!active) return
+
+        setQuoteLookup({
+          loading: false,
+          error: storedQuoteId
+            ? ''
+            : reason instanceof Error
+              ? reason.message
+              : '전송한 견적을 불러오지 못했습니다.',
+        })
+      })
+
+    return () => {
+      active = false
+    }
+  }, [numericRequestId, storedQuoteId])
 
   const {
     estimateDraft,
@@ -49,15 +114,15 @@ export default function ContractorEstimateSentPage() {
   const isCompletedView = searchParams.get('mode') === 'completed'
   const completedQuery = isCompletedView ? '?mode=completed' : ''
 
-  if (isLive && quoteId && liveQuote.loading) {
+  if (isLive && (quoteLookup.loading || (quoteId && liveQuote.loading))) {
     return <ContractorMobileShell><main className="flex min-h-dvh items-center justify-center text-sm text-[#64748b]">보낸 견적을 불러오는 중입니다.</main></ContractorMobileShell>
   }
 
-  if (isLive && (!quoteId || liveQuote.error)) {
+  if (isLive && (!quoteId || quoteLookup.error || liveQuote.error)) {
     return (
       <ContractorMobileShell>
         <main className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[#64748b]">
-          <p role="alert">{liveQuote.error || '저장된 견적을 찾을 수 없습니다.'}</p>
+          <p role="alert">{quoteLookup.error || liveQuote.error || '전송한 견적을 찾을 수 없습니다.'}</p>
           <Link className="font-bold text-[#2563eb]" to={`/contractor/requests/${requestId}/estimate${completedQuery}`}>견적 작성으로 돌아가기</Link>
         </main>
       </ContractorMobileShell>

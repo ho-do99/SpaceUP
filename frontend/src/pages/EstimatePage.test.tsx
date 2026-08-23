@@ -63,6 +63,10 @@ function renderEstimate(routeId = '77') {
   )
 }
 
+function checkApprovalAgreements() {
+  screen.getAllByRole('checkbox').forEach((checkbox) => fireEvent.click(checkbox))
+}
+
 describe('EstimatePage live final quote', () => {
   beforeEach(() => {
     mockedGetQuote.mockReset().mockResolvedValue(quote)
@@ -114,5 +118,19 @@ describe('EstimatePage live final quote', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('견적을 찾을 수 없습니다.')
     expect(screen.queryByText('5,500,000원')).not.toBeInTheDocument()
     expect(mockedGetRequest).not.toHaveBeenCalled()
+  })
+
+  it('opens the payment preparation screen after accepting a final quote', async () => {
+    renderEstimate()
+
+    await screen.findByText('실측 최종 견적')
+    checkApprovalAgreements()
+    fireEvent.click(screen.getByRole('button', { name: '견적 승인' }))
+
+    await waitFor(() => expect(mockedAcceptQuote).toHaveBeenCalledWith(77))
+    expect(await screen.findByRole('heading', { name: '결제 기능 준비 중입니다' }, { timeout: 2_000 })).toBeInTheDocument()
+    expect(screen.getByText('스페이스업 인테리어')).toBeInTheDocument()
+    expect(screen.getByText('REQ-260821-000021')).toBeInTheDocument()
+    expect(screen.getByText('1,100,000원')).toBeInTheDocument()
   })
 })
