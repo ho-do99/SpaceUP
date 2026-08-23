@@ -36,7 +36,13 @@ export default function useContractorQuotes() {
             return []
           }
         }))
-        if (active) setItems(groups.flat())
+        if (active) {
+          setItems(groups.flat().sort((left, right) => {
+            const leftCreatedAt = left.quote.createdAt ? Date.parse(left.quote.createdAt) : 0
+            const rightCreatedAt = right.quote.createdAt ? Date.parse(right.quote.createdAt) : 0
+            return rightCreatedAt - leftCreatedAt || right.quote.id - left.quote.id
+          }))
+        }
       })
       .catch((reason: unknown) => {
         if (active) { setItems([]); setError(reason instanceof Error ? reason.message : '견적 목록을 불러오지 못했습니다.') }

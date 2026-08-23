@@ -59,6 +59,14 @@ const finiteOrZero = (value: number) =>
 const numericInputValue = (value: number) =>
   value === 0 ? '' : value
 
+const formattedAmountInputValue = (value: number) =>
+  value === 0 ? '' : value.toLocaleString('ko-KR')
+
+const parseAmountInputValue = (value: string) => {
+  const digits = value.replace(/\D/g, '')
+  return digits ? finiteOrZero(Number(digits)) : 0
+}
+
 async function loadSelectedMaterials(request: RequestResponse): Promise<SelectedFinalEstimateMaterials> {
   const theme = request.selectedTheme
   if (!theme || !request.selectedFlooringProductId || !request.selectedWallpaperProductId || !request.selectedLightingProductId) {
@@ -692,12 +700,10 @@ export default function ContractorEstimateEditPage() {
                 <label className="text-[10px] font-semibold text-[#64748b]">
                   금액(원)
                   <input
-                    type="number"
+                    type="text"
                     inputMode="numeric"
-                    min="0"
-                    step="1000"
-                    value={item.amount}
-                    onChange={(event) => updateAdditionalCost(item.id, 'amount', finiteOrZero(event.target.valueAsNumber))}
+                    value={formattedAmountInputValue(item.amount)}
+                    onChange={(event) => updateAdditionalCost(item.id, 'amount', parseAmountInputValue(event.target.value))}
                     className={numericClass}
                   />
                 </label>
@@ -833,10 +839,6 @@ export default function ContractorEstimateEditPage() {
                 errors={errors}
               />
             </label>
-
-            <ContractorEstimateInfoRow label="완료 예정일">
-              2026.08.07
-            </ContractorEstimateInfoRow>
 
             <ContractorEstimateInfoRow label="A/S 보증기간">
               {
