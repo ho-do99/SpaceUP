@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { acceptQuote, getQuote, requestQuoteRevision } from '@/api/estimateApi'
 import { getRequest } from '@/api/requestApi'
@@ -74,6 +74,7 @@ function CategoryEstimate({ category, items }: { category: string; items: QuoteI
 export default function EstimatePage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
   const quoteRouteId = id && /^\d+$/.test(id) ? Number(id) : null
 
   const [quote, setQuote] = useState<QuoteResponse | null>(null)
@@ -159,7 +160,10 @@ export default function EstimatePage() {
       await acceptQuote(quote.id)
       setQuote((current) => current ? { ...current, status: 'ACCEPTED' } : current)
       setActionMessage('견적 승인이 완료되었습니다.')
-      window.setTimeout(() => navigate(`/mypage/requests/${quote.requestId}`), 900)
+      const destination = quote.phase === 'FINAL'
+        ? `/estimate/${quote.id}?step=payment`
+        : `/mypage/requests/${quote.requestId}`
+      window.setTimeout(() => navigate(destination), 900)
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : '견적 승인에 실패했습니다.')
       setProcessing(false)
@@ -181,6 +185,51 @@ export default function EstimatePage() {
     } finally {
       setRevisionSubmitting(false)
     }
+  }
+
+  if (searchParams.get('step') === 'payment') {
+    const paymentReady = quote.phase === 'FINAL' && quote.status === 'ACCEPTED'
+    return (
+      <UserScreenShell className="h-dvh bg-[#f8fafc]">
+        <UserHeader variant="detail" title="결제" onBack={() => navigate(`/estimate/${quote.id}`)} />
+
+        <div className="flex min-h-0 flex-1 flex-col">
+          <main className="scrollbar-hide min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#f8fafc] px-4 pb-8 pt-5">
+            <section className="rounded-[16px] border border-[#bfdbfe] bg-white px-5 py-7 text-center shadow-sm">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[#eff6ff] text-[22px] text-[#2563eb]" aria-hidden="true">
+                ✓
+              </div>
+              <h1 className="mt-4 text-[19px] font-bold text-[#0f172a]">
+                {paymentReady ? '결제 기능 준비 중입니다' : '결제 단계를 확인할 수 없습니다'}
+              </h1>
+              <p className="mt-2 text-[12px] leading-5 text-[#64748b]">
+                {paymentReady
+                  ? '최종 견적 승인이 완료되었습니다. 실제 결제 기능은 추후 제공될 예정입니다.'
+                  : '최종 견적을 승인한 후 결제 단계로 이동해 주세요.'}
+              </p>
+            </section>
+
+            <EstimateSection title="결제 예정 정보">
+              <div className="space-y-3">
+                <InformationRow label="시공사" value={quote.contractorName} strong />
+                <InformationRow label="의뢰코드" value={request.requestCode ?? `REQ-ID-${request.id}`} />
+                <InformationRow label="최종 견적 금액" value={formatWon(quote.totalAmount)} strong blue />
+              </div>
+            </EstimateSection>
+
+            <section className="rounded-[12px] bg-[#eff6ff] px-4 py-4 text-[11px] leading-5 text-[#2563eb]">
+              현재 단계에서는 결제가 진행되거나 금액이 청구되지 않습니다.
+            </section>
+          </main>
+
+          <footer className="shrink-0 border-t border-[#e2e8f0] bg-white px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-4">
+            <button type="button" onClick={() => navigate(`/mypage/requests/${quote.requestId}`)} className="h-12 w-full rounded-[10px] bg-[#2563eb] text-[13px] font-bold text-white">
+              견적 요청 상세로 돌아가기
+            </button>
+          </footer>
+        </div>
+      </UserScreenShell>
+    )
   }
 
   return (

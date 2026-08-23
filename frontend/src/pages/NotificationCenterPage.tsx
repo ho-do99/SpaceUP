@@ -10,7 +10,8 @@ import {
 } from '@/mocks/notifications'
 import { getNotifications, readAllNotifications, readNotification } from '@/api/notificationApi'
 import { getChatThreads } from '@/api/chatApi'
-import { mapNotification } from './notificationMapper'
+import { getQuotesByRequest } from '@/api/estimateApi'
+import { mapNotification, notificationContextFor } from './notificationMapper'
 import useRealtime from '@/contexts/useRealtime'
 
 export default function NotificationCenterPage() {
@@ -29,7 +30,15 @@ export default function NotificationCenterPage() {
         getNotifications({ size: 50 }),
         getChatThreads().catch(() => []),
       ])
-      setNotifications(page.content.map((notification) => mapNotification(notification, new Date(), threads)))
+      const quoteRequestIds = [...new Set(page.content
+        .filter((notification) => notification.type === 'QUOTE')
+        .map((notification) => notificationContextFor(notification, threads).requestId)
+        .filter((requestId): requestId is number => typeof requestId === 'number'))]
+      const quotes = (await Promise.all(quoteRequestIds.map((requestId) =>
+        getQuotesByRequest(requestId).catch(() => []),
+      ))).flat()
+      setNotifications(page.content.map((notification) =>
+        mapNotification(notification, new Date(), threads, quotes)))
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : '알림을 불러오지 못했습니다.')
     } finally {

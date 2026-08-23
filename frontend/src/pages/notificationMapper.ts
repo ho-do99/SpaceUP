@@ -1,6 +1,6 @@
 import type { NotificationResponse, NotificationType } from '@/api/notificationApi'
 import type { NotificationCategory, UserNotification } from '@/mocks/notifications'
-import type { ChatThread } from '@/types/backendContractor'
+import type { ChatThread, QuoteResponse } from '@/types/backendContractor'
 import { formatBrowserTime, parseApiDateTime } from '@/utils/browserDateTime'
 
 const categoryByType: Record<NotificationType, NotificationCategory> = {
@@ -17,7 +17,7 @@ function isSameDay(left: Date, right: Date) {
     && left.getDate() === right.getDate()
 }
 
-function destinationFor(value: NotificationResponse, threads: readonly ChatThread[]) {
+export function notificationContextFor(value: NotificationResponse, threads: readonly ChatThread[]) {
   const exactThread = value.requestId && value.contractorId
     ? threads.find((candidate) => candidate.requestId === value.requestId && candidate.contractorId === value.contractorId)
     : threads.find((candidate) => `${value.title} ${value.content}`.includes(candidate.requestCode))
@@ -27,7 +27,29 @@ function destinationFor(value: NotificationResponse, threads: readonly ChatThrea
     : undefined)
   const requestId = value.requestId ?? thread?.requestId
   const contractorId = value.contractorId ?? thread?.contractorId
-  if (value.type === 'QUOTE' && requestId) return `/mypage/requests/${requestId}`
+  return { requestId, contractorId, thread }
+}
+
+function destinationFor(
+  value: NotificationResponse,
+  threads: readonly ChatThread[],
+  quotes: readonly QuoteResponse[],
+) {
+  const { requestId, contractorId } = notificationContextFor(value, threads)
+  if (value.type === 'QUOTE' && requestId) {
+    const quote = contractorId
+      ? quotes
+        .filter((candidate) => candidate.requestId === requestId
+          && candidate.contractorId === contractorId
+          && candidate.status !== 'DRAFT')
+        .sort((left, right) => {
+          const leftCreatedAt = left.createdAt ? Date.parse(left.createdAt) : 0
+          const rightCreatedAt = right.createdAt ? Date.parse(right.createdAt) : 0
+          return rightCreatedAt - leftCreatedAt || right.id - left.id
+        })[0]
+      : undefined
+    return quote ? `/estimate/${quote.id}` : `/mypage/requests/${requestId}`
+  }
   if (value.type === 'PROJECT' && requestId) return `/mypage/requests/${requestId}`
   if (value.type === 'REQUEST' && requestId && !value.title.includes('승인')) {
     return `/mypage/requests/${requestId}`
@@ -40,16 +62,16 @@ function destinationFor(value: NotificationResponse, threads: readonly ChatThrea
   return `/mypage/requests/${requestId}`
 }
 
-export function mapNotification(value: NotificationResponse, now = new Date(), threads: readonly ChatThread[] = []): UserNotification {
+export function mapNotification(
+  value: NotificationResponse,
+  now = new Date(),
+  threads: readonly ChatThread[] = [],
+  quotes: readonly QuoteResponse[] = [],
+): UserNotification {
   const createdAt = parseApiDateTime(value.createdAt)
   const category = categoryByType[value.type]
   const occurredToday = createdAt ? isSameDay(createdAt, now) : false
-  const matchedThread = value.requestId && value.contractorId
-    ? threads.find((thread) => thread.requestId === value.requestId && thread.contractorId === value.contractorId)
-    : threads.find((thread) => `${value.title} ${value.content}`.includes(thread.requestCode)
-      || (value.type === 'QUOTE' && thread.counterpartName
-        && `${value.title} ${value.content}`.includes(thread.counterpartName)))
-  const requestId = value.requestId ?? matchedThread?.requestId
+  const { requestId, thread: matchedThread } = notificationContextFor(value, threads)
   return {
     id: String(value.id), category, categoryLabel: labelByCategory[category], title: value.title,
     message: value.content, isRead: value.read,
@@ -60,6 +82,6 @@ export function mapNotification(value: NotificationResponse, now = new Date(), t
     flowLabel: matchedThread?.requestCode
       ? `의뢰 ${matchedThread.requestCode}`
       : requestId ? `의뢰 REQ-ID-${requestId}` : undefined,
-    destination: destinationFor(value, threads),
+    destination: destinationFor(value, threads, quotes),
   }
 }
