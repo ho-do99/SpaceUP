@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
@@ -259,6 +260,7 @@ public class RequestService {
 	private RequestResponse toResponse(QuoteRequest request, RequestContractorStatus participationStatus,
 			Integer matchingScore, boolean includeContractorNames) {
 		Long requestId = request.getId();
+		Optional<ContractorQuote> acceptedQuote = lookupAcceptedQuote(requestId);
 		Long floorPlanVariantId = request.getFloorPlanVariant() != null
 				? request.getFloorPlanVariant().getId()
 				: floorPlanVariantRepository
@@ -274,15 +276,16 @@ public class RequestService {
 								.orElse(contractor.getName()))
 						.distinct().toList()
 				: List.of();
-		return new RequestResponse(request, matchingScore, lookupAcceptedQuoteAmount(requestId), participationStatus,
+		return new RequestResponse(request, matchingScore,
+				acceptedQuote.map(ContractorQuote::getTotalAmount).orElse(null),
+				acceptedQuote.map(ContractorQuote::getPhase).orElse(null), participationStatus,
 				floorPlanVariantId, contractorNames);
 	}
 
-	// ⭐ [고도화] "임대인 예상 공사비 vs 시공사 확정 견적" 비교용 - 수락된 견적이 없으면 null(아직 비교 불가)
-	private Long lookupAcceptedQuoteAmount(Long requestId) {
+	// 목록과 상세 화면이 동일한 승인 견적을 기준으로 상태와 금액을 표시하도록 견적 자체를 조회합니다.
+	private Optional<ContractorQuote> lookupAcceptedQuote(Long requestId) {
 		return contractorQuoteRepository
-				.findFirstByRequestIdAndStatusOrderByUpdatedAtDesc(requestId, QuoteStatus.ACCEPTED)
-				.map(ContractorQuote::getTotalAmount).orElse(null);
+				.findFirstByRequestIdAndStatusOrderByUpdatedAtDesc(requestId, QuoteStatus.ACCEPTED);
 	}
 
 	private QuoteRequest findRequestOrThrow(Long requestId) {

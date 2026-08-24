@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.math.BigDecimal;
@@ -30,7 +31,11 @@ import com.spaceup.domain.material.entity.MaterialWorkType;
 import com.spaceup.domain.member.entity.Member;
 import com.spaceup.domain.member.repository.MemberRepository;
 import com.spaceup.domain.notification.service.NotificationService;
+import com.spaceup.domain.quote.entity.ContractorQuote;
+import com.spaceup.domain.quote.entity.QuotePhase;
+import com.spaceup.domain.quote.entity.QuoteStatus;
 import com.spaceup.domain.quote.repository.ContractorQuoteRepository;
+import com.spaceup.domain.request.dto.RequestResponse;
 import com.spaceup.domain.request.entity.Property;
 import com.spaceup.domain.request.entity.QuoteRequest;
 import com.spaceup.domain.request.entity.RequestStatus;
@@ -142,6 +147,30 @@ class RequestServiceMatchingTest {
 		requestService.updateRequest(REQUEST_ID, LANDLORD_ID, update);
 
 		assertSame(flooring, request.getSelectedFlooringProduct());
+	}
+
+	@Test
+	void exposesTheAcceptedQuotePhaseForTheLandlordRequestList() {
+		requestService = new RequestService(quoteRequestRepository, requestContractorRepository, propertyRepository, memberRepository,
+				matchingScoreCalculator, contractorProfileRepository, floorPlanVariantRepository, analysisJobService, analysisJobRepository,
+				contractorQuoteRepository, notificationService, siteVisitService, materialProductRepository);
+		QuoteRequest request = requestWithLandlordOwner();
+		ContractorQuote acceptedFinalQuote = ContractorQuote.builder()
+				.id(31L)
+				.request(request)
+				.contractor(contractor())
+				.status(QuoteStatus.ACCEPTED)
+				.phase(QuotePhase.FINAL)
+				.totalAmount(2_555_630L)
+				.build();
+		when(quoteRequestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
+		when(contractorQuoteRepository.findFirstByRequestIdAndStatusOrderByUpdatedAtDesc(
+				REQUEST_ID, QuoteStatus.ACCEPTED)).thenReturn(Optional.of(acceptedFinalQuote));
+
+		RequestResponse response = requestService.getRequest(REQUEST_ID, LANDLORD_ID);
+
+		assertEquals(2_555_630L, response.getAcceptedQuoteAmount());
+		assertEquals(QuotePhase.FINAL, response.getAcceptedQuotePhase());
 	}
 
 	private QuoteRequest requestWithLandlordOwner() {

@@ -8,6 +8,7 @@ import com.spaceup.domain.request.entity.RejectReason;
 import com.spaceup.domain.request.entity.RequestStatus;
 import com.spaceup.domain.request.entity.RequestContractorStatus;
 import com.spaceup.domain.material.entity.MaterialTheme;
+import com.spaceup.domain.quote.entity.QuotePhase;
 
 import lombok.Getter;
 
@@ -45,25 +46,27 @@ public class RequestResponse {
 	// ⭐ [고도화] "임대인 예상 공사비(budget) vs 시공사 확정 견적" 비교용 - 수락(ACCEPTED)된 견적이 있으면 그 금액,
 	// 아직 없으면 null. matchingScore와 같은 방식으로 RequestService가 조회해 주입합니다.
 	private final Long acceptedQuoteAmount;
+	private final QuotePhase acceptedQuotePhase;
 	private final RequestContractorStatus participationStatus;
 	private final Long floorPlanVariantId;
 	private final List<String> contractorNames;
 	private final LocalDateTime createdAt;
 
 	public RequestResponse(QuoteRequest request) {
-		this(request, null, null, null, null, List.of());
+		this(request, null, null, null, null, null, List.of());
 	}
 
 	public RequestResponse(QuoteRequest request, Integer matchingScore, Long acceptedQuoteAmount) {
-		this(request, matchingScore, acceptedQuoteAmount, null, null, List.of());
+		this(request, matchingScore, acceptedQuoteAmount, null, null, null, List.of());
 	}
 
 	public RequestResponse(QuoteRequest request, Integer matchingScore, Long acceptedQuoteAmount,
 			RequestContractorStatus participationStatus) {
-		this(request, matchingScore, acceptedQuoteAmount, participationStatus, null, List.of());
+		this(request, matchingScore, acceptedQuoteAmount, null, participationStatus, null, List.of());
 	}
 
 	public RequestResponse(QuoteRequest request, Integer matchingScore, Long acceptedQuoteAmount,
+			QuotePhase acceptedQuotePhase,
 			RequestContractorStatus participationStatus, Long floorPlanVariantId, List<String> contractorNames) {
 		this.id = request.getId();
 		this.requestCode = request.getRequestCode();
@@ -94,6 +97,7 @@ public class RequestResponse {
 		this.lastActivityAt = request.getLastActivityAt();
 		this.matchingScore = matchingScore;
 		this.acceptedQuoteAmount = acceptedQuoteAmount;
+		this.acceptedQuotePhase = acceptedQuotePhase;
 		this.participationStatus = participationStatus;
 		this.floorPlanVariantId = floorPlanVariantId;
 		this.contractorNames = List.copyOf(contractorNames);
