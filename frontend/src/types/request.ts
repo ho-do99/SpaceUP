@@ -39,6 +39,7 @@ export interface RequestResponse extends RequestCreateInput {
   rejectReasonDetail?: string | null
   matchingScore?: number | null
   acceptedQuoteAmount?: number | null
+  acceptedQuotePhase?: 'PRELIMINARY' | 'FINAL' | null
   participationStatus?: 'INVITED' | 'APPROVED' | 'REJECTED' | 'SELECTED' | 'CLOSED' | null
 	floorPlanVariantId?: number | null
 	contractorNames?: string[]

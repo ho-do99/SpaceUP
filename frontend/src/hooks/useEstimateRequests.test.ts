@@ -46,4 +46,33 @@ describe('toEstimateRequestSummary', () => {
       progressLabel: '최종 시공사 선택 완료',
     })
   })
+
+  it('shows payment-ready status when the accepted quote is final', () => {
+    const result = toEstimateRequestSummary(request({
+      status: 'APPROVED',
+      contractorId: 15,
+      acceptedQuoteAmount: 2_555_630,
+      acceptedQuotePhase: 'FINAL',
+    }))
+
+    expect(result).toMatchObject({
+      status: 'requested',
+      statusLabel: '결제 준비',
+      progressLabel: '최종 견적 승인 완료',
+      responseStatusLabel: '최종 견적 승인 완료',
+    })
+  })
+
+  it('keeps a preliminary acceptance in the visit-ready stage', () => {
+    const result = toEstimateRequestSummary(request({
+      status: 'APPROVED',
+      acceptedQuoteAmount: 1_500_000,
+      acceptedQuotePhase: 'PRELIMINARY',
+    }))
+
+    expect(result).toMatchObject({
+      statusLabel: '방문 준비',
+      progressLabel: '1차 견적 승인 완료',
+    })
+  })
 })
