@@ -7,7 +7,9 @@ import type { RequestResponse } from '@/types/request'
 
 const won = new Intl.NumberFormat('ko-KR')
 
-function requestStatus(status?: string) {
+function requestStatus(status?: string, acceptedQuotePhase?: RequestResponse['acceptedQuotePhase']) {
+  if (acceptedQuotePhase === 'FINAL') return { status: 'requested' as const, label: '결제 준비', progress: '최종 견적 승인 완료' }
+  if (acceptedQuotePhase === 'PRELIMINARY') return { status: 'requested' as const, label: '방문 준비', progress: '1차 견적 승인 완료' }
   if (status === 'NEW') return { status: 'requested' as const, label: '요청 완료', progress: '시공사 참여 요청 전' }
   if (status === 'REVIEWING') return { status: 'reviewing' as const, label: '검토 중', progress: '여러 시공사 참여 확인 중' }
   if (status === 'QUOTE_REQUESTED') return { status: 'reviewing' as const, label: '견적 비교', progress: '시공사 견적 접수 중' }
@@ -19,7 +21,7 @@ function requestStatus(status?: string) {
 
 export function toEstimateRequestSummary(request: RequestResponse): EstimateRequestSummary {
   const selectedItems = request.requestedItems?.split(',').map((item) => item.trim()).filter(Boolean) ?? []
-  const state = requestStatus(request.status)
+  const state = requestStatus(request.status, request.acceptedQuotePhase)
   const budget = request.budgetMax ?? request.budget ?? request.budgetMin
   const contractorName = request.contractorNames?.length ? request.contractorNames.join(', ') : request.contractorId ? `선택 시공사 #${request.contractorId}` : '여러 시공사 견적 비교'
   return {
