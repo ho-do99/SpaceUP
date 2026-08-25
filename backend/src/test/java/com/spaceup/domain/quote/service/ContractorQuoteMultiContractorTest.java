@@ -167,6 +167,33 @@ class ContractorQuoteMultiContractorTest {
 	}
 
 	@Test
+	void rejectsFinalDraftWhenSelectedFlooringUnitPriceIsZero() {
+		Member owner = Member.builder().id(10L).name("owner").build();
+		Member contractor = Member.builder().id(20L).name("contractor").build();
+		MaterialProduct flooring = mock(MaterialProduct.class);
+		MaterialProduct wallpaper = mock(MaterialProduct.class);
+		MaterialProduct lighting = mock(MaterialProduct.class);
+		when(flooring.getNormalizedPriceM2()).thenReturn(BigDecimal.ZERO);
+		QuoteRequest request = QuoteRequest.builder().id(1L).owner(owner)
+				.selectedFlooringProduct(flooring).selectedWallpaperProduct(wallpaper)
+				.selectedLightingProduct(lighting).status(RequestStatus.QUOTE_REQUESTED).build();
+		RequestContractor participation = RequestContractor.builder().id(100L).request(request)
+				.contractor(contractor).status(RequestContractorStatus.APPROVED).build();
+		SiteVisit completedVisit = SiteVisit.builder().id(30L).request(request).contractor(contractor)
+				.status(SiteVisitStatus.COMPLETED).build();
+
+		when(quoteRequestRepository.findById(1L)).thenReturn(Optional.of(request));
+		when(requestContractorRepository.findByRequestIdAndContractorId(1L, 20L))
+				.thenReturn(Optional.of(participation));
+		when(memberRepository.findById(20L)).thenReturn(Optional.of(contractor));
+		when(siteVisitRepository.findByRequestIdAndContractorId(1L, 20L))
+				.thenReturn(Optional.of(completedVisit));
+
+		assertThrows(com.spaceup.global.error.InvalidStatusTransitionException.class,
+				() -> service.createDraft(20L, quoteDraftRequest(1L)));
+	}
+
+	@Test
 	void blocksAnotherFinalDraftAfterTheFinalQuoteIsAccepted() {
 		Member owner = Member.builder().id(10L).name("owner").build();
 		Member contractor = Member.builder().id(20L).name("contractor").build();
