@@ -169,6 +169,7 @@ export default function ContractorChatPage({
   const hasCompletedVisit = liveRequestId
     ? activeLiveVisitState?.visit?.status === 'COMPLETED'
     : completed
+  const hasAcceptedFinalQuote = request?.acceptedQuotePhase === 'FINAL'
   const visitPagePath = liveRequestId
     ? `/contractor/requests/${requestId}/visit`
     : hasCompletedVisit
@@ -177,20 +178,30 @@ export default function ContractorChatPage({
   const estimatePagePath = liveRequestId
     ? `/contractor/requests/${requestId}/estimate-ready`
     : `/contractor/requests/${request?.requestId}/estimate-ready?mode=completed`
-  const showActions = !liveRequestId || (activeLiveThread !== null && activeLiveVisitState?.loading === false && !visitLookupError)
+  const showActions = !liveRequestId || (
+    request !== null
+    && liveRequest.loading === false
+    && activeLiveThread !== null
+    && activeLiveVisitState?.loading === false
+    && !visitLookupError
+  )
   const liveVisit = activeLiveVisitState?.visit
   const visitScheduleLabel = liveVisit?.visitDate
     ? `${liveVisit.visitDate.replace(/-/g, '.')} ${liveVisit.visitTime?.slice(0, 5) ?? ''}`.trim()
     : ''
-  const visitHeadline = hasCompletedVisit
-    ? '현장 확인 완료 · 견적 작성 가능'
+  const visitHeadline = hasAcceptedFinalQuote
+    ? '최종 견적 확정 완료'
+    : hasCompletedVisit
+      ? '현장 확인 완료 · 견적 작성 가능'
     : liveVisit?.status === 'CHANGE_REQUESTED'
       ? '방문 일정 변경 요청 확인 중'
       : liveVisit?.status === 'SCHEDULED'
         ? '현장 방문 일정 확정'
         : '의뢰 승인 완료 · 실시간 채팅 중'
-  const visitDescription = hasCompletedVisit
-    ? `실제 현장 방문 완료${visitScheduleLabel ? ` · ${visitScheduleLabel}` : ''}`
+  const visitDescription = hasAcceptedFinalQuote
+    ? '최종 견적이 확정되어 추가 견적서를 작성할 수 없습니다.'
+    : hasCompletedVisit
+      ? `실제 현장 방문 완료${visitScheduleLabel ? ` · ${visitScheduleLabel}` : ''}`
     : liveVisit?.status === 'CHANGE_REQUESTED'
       ? `변경 희망 일정 ${liveVisit.requestedDate?.replace(/-/g, '.') ?? ''} ${liveVisit.requestedTime?.slice(0, 5) ?? ''}`.trim()
       : visitScheduleLabel || '사용자와 현장 방문 일정을 조율해 주세요.'
@@ -238,13 +249,12 @@ export default function ContractorChatPage({
 
         {hasCompletedVisit ? (
           <div className="mt-4 rounded-xl border border-[#a7f3d0] bg-[#ecfdf5] p-3 text-xs leading-5 text-[#047857]">
-            <p className="font-bold">
-              현장 방문 완료
-            </p>
+            <p className="font-bold">{hasAcceptedFinalQuote ? '최종 견적 확정 완료' : '현장 방문 완료'}</p>
 
             <p>
-              방문일 {visitScheduleLabel || '확인 완료'} · 이제 견적서를
-              작성할 수 있습니다.
+              {hasAcceptedFinalQuote
+                ? '추가 견적서 작성은 중복 방지를 위해 비활성화되었습니다.'
+                : <>방문일 {visitScheduleLabel || '확인 완료'} · 이제 견적서를 작성할 수 있습니다.</>}
             </p>
           </div>
         ) : null}
@@ -260,7 +270,7 @@ export default function ContractorChatPage({
             : '현장 방문 일정 잡기'}
         </Link>
 
-        {hasCompletedVisit ? (
+        {hasCompletedVisit && !hasAcceptedFinalQuote ? (
           <Link
             to={estimatePagePath}
             className="flex h-11 items-center justify-center rounded-lg bg-[#2563eb] text-xs font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1d4ed8]"
@@ -274,10 +284,11 @@ export default function ContractorChatPage({
             aria-disabled="true"
             className="h-11 rounded-lg bg-[#cbd5e1] text-xs font-bold text-white disabled:cursor-not-allowed"
           >
-            견적서 작성
+            {hasAcceptedFinalQuote ? '견적서 작성 완료' : '견적서 작성'}
           </button>
         )}
         {!hasCompletedVisit ? <p className="col-span-2 text-[10px] leading-4 text-[#64748b]">실제 현장 방문 완료 처리 후 견적서를 작성할 수 있습니다.</p> : null}
+        {hasAcceptedFinalQuote ? <p className="col-span-2 text-[10px] leading-4 text-[#64748b]">최종 견적이 확정되어 추가 견적서를 작성할 수 없습니다.</p> : null}
       </div> : <div className="shrink-0 bg-[#f8fafc] px-4 py-2 text-center text-[10px] text-[#64748b]">현장방문·견적 작성 화면은 기존 흐름을 유지하며 다음 단계에서 연결합니다.</div>}
 
       <ContractorChatComposer

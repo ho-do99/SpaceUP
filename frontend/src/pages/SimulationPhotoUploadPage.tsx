@@ -15,7 +15,6 @@ import { clearSimulationResult, saveSimulationGenerationContext } from '@/utils/
 
 const acceptedImageTypes = ['image/jpeg', 'image/png']
 const maximumImageSize = 10 * 1024 * 1024
-const maximumPhotoCount = 5
 
 interface UploadedPhoto {
   file: File
@@ -53,18 +52,11 @@ export default function SimulationPhotoUploadPage() {
   }, [])
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(event.target.files ?? [])
+    const file = event.target.files?.[0]
     event.target.value = ''
-    if (selectedFiles.length === 0) return
+    if (!file) return
 
-    const availableCount = maximumPhotoCount - photos.length
-    if (availableCount <= 0) {
-      setErrorMessage(`사진은 최대 ${maximumPhotoCount}장까지 추가할 수 있습니다.`)
-      return
-    }
-
-    const files = selectedFiles.slice(0, availableCount)
-    const invalidMessage = files.map(validateSimulationImage).find(Boolean)
+    const invalidMessage = validateSimulationImage(file)
     if (invalidMessage) {
       setErrorMessage(invalidMessage)
       return
@@ -78,21 +70,13 @@ export default function SimulationPhotoUploadPage() {
 
     const abortController = new AbortController()
     abortControllerRef.current = abortController
-    setErrorMessage(selectedFiles.length > availableCount ? `최대 ${maximumPhotoCount}장까지만 추가했습니다.` : '')
+    setErrorMessage('')
     setIsUploading(true)
 
-    const uploaded: UploadedPhoto[] = []
     try {
-      for (const file of files) {
-        const linkedImage = await uploadAndAttachRequestImage(requestId, file, 'PHOTO', abortController.signal)
-        uploaded.push({ file, linkedImage, previewUrl: URL.createObjectURL(file) })
-      }
-      setPhotos((current) => [...current, ...uploaded])
+      const linkedImage = await uploadAndAttachRequestImage(requestId, file, 'PHOTO', abortController.signal)
+      setPhotos([{ file, linkedImage, previewUrl: URL.createObjectURL(file) }])
     } catch (error) {
-      await Promise.all(uploaded.map(async (photo) => {
-        URL.revokeObjectURL(photo.previewUrl)
-        await deleteRequestImage(requestId, photo.linkedImage.id).catch(() => undefined)
-      }))
       if (!abortController.signal.aborted) setErrorMessage(getImageUploadErrorMessage(error))
     } finally {
       if (!abortController.signal.aborted) setIsUploading(false)
@@ -158,7 +142,7 @@ export default function SimulationPhotoUploadPage() {
           <section className="pt-5 text-center">
             <h1 className="break-keep text-[18px] font-bold leading-[22px] text-[#15284c]">현재 집 사진을 업로드해주세요.</h1>
             <p className="mx-auto mt-2 max-w-[285px] break-keep text-[10px] leading-[17px] text-[#657187]">
-              여러 각도의 사진을 최대 {maximumPhotoCount}장까지 추가할 수 있습니다.<br />첫 번째 사진을 기준으로 AI 이미지를 생성합니다.
+              현재 공간을 잘 보여주는 사진 한 장을 업로드해주세요.<br />업로드한 사진을 기준으로 AI 이미지를 생성합니다.
             </p>
           </section>
 
@@ -168,7 +152,7 @@ export default function SimulationPhotoUploadPage() {
               <strong className="text-[14px] font-bold leading-5 text-[#0f172a]">· {selectedStyle.name}</strong>
             </div>
 
-            <input ref={fileInputRef} id="simulation-photo" type="file" multiple accept="image/jpeg,image/png,.jpg,.jpeg,.png" className="sr-only" aria-label="현재 집 사진 선택" onChange={handleFileChange} />
+            <input ref={fileInputRef} id="simulation-photo" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" className="sr-only" aria-label="현재 집 사진 선택" onChange={handleFileChange} />
             <input ref={cameraInputRef} type="file" accept="image/jpeg,image/png" capture="environment" className="sr-only" aria-label="카메라로 현재 집 사진 촬영" onChange={handleFileChange} />
 
             {photos.length === 0 ? (
@@ -183,7 +167,7 @@ export default function SimulationPhotoUploadPage() {
               </div>
             ) : (
               <div className="mt-4 rounded-[12px] border border-[#bfdbfe] bg-white p-3">
-                <div className="grid grid-cols-2 gap-3" aria-label="업로드한 집 사진">
+                <div aria-label="업로드한 집 사진">
                   {photos.map((photo, index) => (
                     <article key={photo.linkedImage.id} className="min-w-0">
                       <div className="relative overflow-hidden rounded-[9px] bg-[#f8fafc]">
@@ -196,9 +180,6 @@ export default function SimulationPhotoUploadPage() {
                   ))}
                 </div>
 
-                <button type="button" disabled={isUploading || photos.length >= maximumPhotoCount} className="mt-4 flex h-10 w-full items-center justify-center rounded-[8px] border border-[#bfdbfe] bg-[#eff6ff] text-[12px] font-bold text-[#2563eb] disabled:cursor-default disabled:opacity-50" onClick={() => fileInputRef.current?.click()}>
-                  + 사진 추가 ({photos.length}/{maximumPhotoCount})
-                </button>
               </div>
             )}
 

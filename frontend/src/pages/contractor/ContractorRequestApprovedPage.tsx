@@ -24,8 +24,8 @@ export default function ContractorRequestApprovedPage() {
           <p className="mt-1 text-xs font-bold text-[#12a66a]">현재 상태: 사용자와 채팅 가능</p>
         </section>
         <ContractorSectionCard className="mt-3 p-[14px] shadow-none" title="의뢰 정보">
-          <p className="text-[11px] leading-[17px] text-[#64748b]">{request.requestId} · {request.property.region}</p>
-          <p className="text-[11px] leading-[17px] text-[#64748b]">사용자 {request.customerName} · 연락처 계약 전 마스킹</p>
+          <p className="text-[11px] leading-[17px] text-[#64748b]">{request.customerName} · {request.property.region}</p>
+          <p className="text-[11px] leading-[17px] text-[#64748b]">연락처 계약 전 마스킹</p>
         </ContractorSectionCard>
         <ContractorSectionCard className="mt-3 border-[#d6e5f8] bg-[#eff6ff] p-[14px] shadow-none" title="7일 자동 취소 정책">
           <ul className="text-[11px] leading-[17px] text-[#64748b]">

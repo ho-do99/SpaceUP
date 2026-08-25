@@ -91,11 +91,10 @@ export default function ContractorEstimateReadyPage() {
           title="의뢰 정보"
         >
           <p className="text-sm font-bold text-[#2563eb]">
-            {request.requestId}
+            {request.customerName}
           </p>
 
           <p className="mt-2 text-xs text-[#64748b]">
-            {request.customerName} ·{' '}
             {request.property.propertyType}{' '}
             {request.property.areaLabel}
           </p>
