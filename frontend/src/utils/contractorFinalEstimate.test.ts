@@ -43,4 +43,20 @@ describe('final estimate calculation', () => {
     expect(calculateVatAmount(calculated)).toBe(475_000)
     expect(calculateEstimateTotal(calculated)).toBe(5_225_000)
   })
+
+  it('rejects a selected flooring product without a square-meter price', () => {
+    expect(() => applySelectedMaterials(createLiveContractorEstimateDraft('108'), {
+      floor: product({ normalizedPriceM2: null, coveragePerUnitM2: null }),
+      wallpaper: product({ productId: 2, workType: 'WALLPAPER', normalizedPriceM2: 10_000 }),
+      lighting: product({ productId: 3, workType: 'LIGHTING', currentPrice: 50_000 }),
+    })).toThrow('㎡당 단가가 등록되지 않았습니다.')
+  })
+
+  it('rejects a selected lighting product with a zero unit price', () => {
+    expect(() => applySelectedMaterials(createLiveContractorEstimateDraft('108'), {
+      floor: product({ normalizedPriceM2: 30_000 }),
+      wallpaper: product({ productId: 2, workType: 'WALLPAPER', normalizedPriceM2: 10_000 }),
+      lighting: product({ productId: 3, workType: 'LIGHTING', currentPrice: 0 }),
+    })).toThrow('조명 단가가 등록되지 않았습니다.')
+  })
 })

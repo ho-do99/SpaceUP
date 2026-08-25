@@ -13,11 +13,17 @@ export interface SelectedFinalEstimateMaterials {
 }
 
 function squareMeterUnitPrice(product: CatalogMaterialProduct) {
-  if (product.normalizedPriceM2 != null) return Math.round(product.normalizedPriceM2)
-  if (product.coveragePerUnitM2 != null && product.coveragePerUnitM2 > 0) {
+  if (product.normalizedPriceM2 != null && product.normalizedPriceM2 > 0) {
+    return Math.round(product.normalizedPriceM2)
+  }
+  if (
+    product.coveragePerUnitM2 != null
+    && product.coveragePerUnitM2 > 0
+    && product.currentPrice > 0
+  ) {
     return Math.round(product.currentPrice / product.coveragePerUnitM2)
   }
-  return 0
+  throw new Error(`${productLabel(product)}의 ㎡당 단가가 등록되지 않았습니다.`)
 }
 
 function productLabel(product: CatalogMaterialProduct) {
@@ -31,6 +37,9 @@ function category(
   measurementUnit: '㎡' | '개',
   unitPrice: number,
 ): ContractorEstimateCategory {
+  if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+    throw new Error(`${label} 단가가 등록되지 않았습니다.`)
+  }
   return {
     id,
     label,
