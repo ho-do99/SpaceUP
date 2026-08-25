@@ -336,14 +336,14 @@ public class ContractorQuoteService {
 				&& product.getCoveragePerUnitM2().signum() > 0 && product.getCurrentPrice() != null) {
 			normalized = product.getCurrentPrice().divide(product.getCoveragePerUnitM2(), 0, RoundingMode.HALF_UP);
 		}
-		if (normalized == null || normalized.signum() < 0) {
+		if (normalized == null || normalized.signum() <= 0) {
 			throw new InvalidStatusTransitionException(label + "의 ㎡당 단가가 등록되지 않았습니다.");
 		}
 		return normalized.setScale(0, RoundingMode.HALF_UP).longValueExact();
 	}
 
 	private long wholeUnitPrice(MaterialProduct product, String label) {
-		if (product.getCurrentPrice() == null || product.getCurrentPrice().signum() < 0) {
+		if (product.getCurrentPrice() == null || product.getCurrentPrice().signum() <= 0) {
 			throw new InvalidStatusTransitionException(label + " 단가가 등록되지 않았습니다.");
 		}
 		return product.getCurrentPrice().setScale(0, RoundingMode.HALF_UP).longValueExact();
