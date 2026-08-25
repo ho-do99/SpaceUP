@@ -125,6 +125,24 @@ describe('ContractorChatPage live threads', () => {
 
     expect(await screen.findByRole('link', { name: '견적서 작성' })).toHaveAttribute('href', '/contractor/requests/99/estimate-ready')
   })
+
+  it('disables duplicate quote writing after the final quote is accepted', async () => {
+    getVisitMock.mockResolvedValue({ id: 1, requestId: 99, contractorId: 5, status: 'COMPLETED' })
+    useContractorRequestMock.mockReturnValue({
+      ...useContractorRequestMock(),
+      request: {
+        ...useContractorRequestMock().request!,
+        acceptedQuoteAmount: 5_500_000,
+        acceptedQuotePhase: 'FINAL',
+      },
+    })
+
+    renderChat('/contractor/requests/99/chat')
+
+    expect(await screen.findByRole('button', { name: '견적서 작성 완료' })).toBeDisabled()
+    expect(screen.queryByRole('link', { name: '견적서 작성' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('최종 견적이 확정되어 추가 견적서를 작성할 수 없습니다.').length).toBeGreaterThan(0)
+  })
 function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void

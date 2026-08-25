@@ -17,10 +17,14 @@ describe('contractor request adapter', () => {
       id: 99,
       landlordName: '시연 임대인',
       participationStatus: 'APPROVED',
+      acceptedQuoteAmount: 5_500_000,
+      acceptedQuotePhase: 'FINAL',
     })
 
     expect(result.customerName).toBe('시연 임대인')
     expect(result.participationStatus).toBe('APPROVED')
+    expect(result.acceptedQuoteAmount).toBe(5_500_000)
+    expect(result.acceptedQuotePhase).toBe('FINAL')
   })
 
   it('does not inject the bundled floor plan when a live request has no image', () => {

@@ -44,6 +44,8 @@ export function requestToContractorCard(request: RequestResponse): ContractorReq
   return {
     requestId: String(request.id),
     customerName: request.landlordName || '사용자',
+    acceptedQuoteAmount: request.acceptedQuoteAmount ?? undefined,
+    acceptedQuotePhase: request.acceptedQuotePhase ?? undefined,
     maskedPhone: '계약 전 비공개',
     property: {
       region: request.region,
