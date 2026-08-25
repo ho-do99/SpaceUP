@@ -348,6 +348,8 @@ export interface AnalysisSummary {
 export interface ContractorRequest {
   requestId: string
   customerName: string
+  acceptedQuoteAmount?: number
+  acceptedQuotePhase?: 'PRELIMINARY' | 'FINAL'
   maskedPhone: string
   property: PropertySummary
   budgetLabel: string

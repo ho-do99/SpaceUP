@@ -25,4 +25,7 @@ public interface ContractorQuoteRepository extends JpaRepository<ContractorQuote
 
 	Optional<ContractorQuote> findFirstByRequestIdAndPhaseAndStatusOrderByUpdatedAtDesc(Long requestId,
 			QuotePhase phase, QuoteStatus status);
+
+	boolean existsByRequestIdAndContractorIdAndPhaseAndStatus(Long requestId, Long contractorId,
+			QuotePhase phase, QuoteStatus status);
 }

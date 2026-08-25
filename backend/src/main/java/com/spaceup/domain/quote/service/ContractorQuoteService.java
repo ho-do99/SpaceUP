@@ -63,6 +63,11 @@ public class ContractorQuoteService {
 				.findByRequestIdAndContractorId(request.getId(), contractorId)
 				.orElseThrow(() -> new ForbiddenAccessException("견적 참여를 요청받은 의뢰에만 견적을 작성할 수 있습니다."));
 		QuotePhase phase = resolveQuotePhase(participation);
+		if (phase == QuotePhase.FINAL && contractorQuoteRepository
+				.existsByRequestIdAndContractorIdAndPhaseAndStatus(request.getId(), contractorId,
+						QuotePhase.FINAL, QuoteStatus.ACCEPTED)) {
+			throw new InvalidStatusTransitionException("최종 견적이 이미 확정되어 추가 견적서를 작성할 수 없습니다.");
+		}
 		Member contractor = memberRepository.findById(contractorId)
 				.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 시공사입니다: " + contractorId));
 

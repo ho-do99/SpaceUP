@@ -54,6 +54,7 @@ describe('SimulationResultPage style regeneration', () => {
 
     renderPage()
     const styleSelect = await screen.findByRole('combobox', { name: 'AI 인테리어 스타일 선택' })
+    expect(screen.queryByRole('button', { name: '다시 생성하기' })).not.toBeInTheDocument()
     expect(Array.from((styleSelect as HTMLSelectElement).options).map((option) => option.text)).toEqual([
       '선택 스타일 · 대리석', '선택 스타일 · 우드', '선택 스타일 · 화이트', '선택 스타일 · 모던',
     ])

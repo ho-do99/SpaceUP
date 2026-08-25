@@ -50,7 +50,7 @@ export default function ContractorRequestListPage() {
     const normalizedQuery = query.trim().toLocaleLowerCase('ko-KR').replace(/\s+/g, '')
 
     return requests.filter((request) => {
-      const searchable = `${request.requestId}${request.property.region}${request.property.propertyType}`.toLocaleLowerCase('ko-KR').replace(/\s+/g, '')
+      const searchable = `${request.customerName}${request.requestId}${request.property.region}${request.property.propertyType}`.toLocaleLowerCase('ko-KR').replace(/\s+/g, '')
       const matchesSearch = !normalizedQuery || searchable.includes(normalizedQuery)
       const matchesFilter = filter === 'all'
         || (filter === 'in_progress' && ['new', 'reviewing', 'in_progress'].includes(request.status))
@@ -71,7 +71,7 @@ export default function ContractorRequestListPage() {
         <p className="text-xs text-[#64748b]">{showUnsuccessful ? unsuccessfulReason === 'contractor_rejected' ? '거절·취소·만료된 의뢰를 확인하세요.' : '미성사 의뢰의 종료 사유를 확인하세요.' : '사용자의 리모델링 의뢰를 상태별로 확인하세요.'}</p>
         {showUnsuccessful ? null : <label className="mt-2 block text-[11px] font-bold leading-4 text-[#1e293b]">
           <span>통합 검색</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} type="search" placeholder="의뢰번호, 지역, 주택 유형 검색" className="mt-1 block h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 text-sm text-[#1e293b] outline-none placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#dbeafe]" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} type="search" placeholder="사용자 이름, 의뢰번호, 지역 검색" className="mt-1 block h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 text-sm text-[#1e293b] outline-none placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#dbeafe]" />
         </label>}
         <div role="group" aria-label="의뢰 상태 필터" className="mt-3 grid grid-cols-4 gap-[10px] px-[3px]">
           {filters.map((item) => (

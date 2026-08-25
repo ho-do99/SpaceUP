@@ -163,16 +163,7 @@ export default function SimulationResultPage() {
           </section>
         </main>
 
-        <footer className="grid shrink-0 grid-cols-[1fr_1.03fr] gap-3 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
-          <Button
-            type="button"
-            disabled={isGenerating}
-            variant="outline"
-            className="h-12 w-full !rounded-[5px] !border-[#2563eb] !bg-white !px-2 !py-0 !text-[12px] !font-semibold !text-[#2563eb] !shadow-none hover:!translate-y-0 hover:!bg-white hover:!shadow-none active:!translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
-            onClick={() => navigate('/analysis/simulation/photo', { state: { styleId: selectedStyle.id } })}
-          >
-            다시 생성하기
-          </Button>
+        <footer className="shrink-0 bg-white px-[15px] pb-[calc(19px+env(safe-area-inset-bottom))]">
           <Button
             type="button"
             disabled={isGenerating}

@@ -82,7 +82,7 @@ export default function ContractorRequestDetailPage() {
             <h2 className="mt-2 text-[17px] font-bold leading-6 text-[#ef4444]">의뢰 상태가 시공사 거절로 변경되었습니다.</h2>
           </section>
           <ContractorSectionCard className="mt-3 p-[14px] shadow-none">
-            <p className="text-sm font-bold leading-5 text-[#ef4444]">{request.requestId}</p>
+            <p className="text-sm font-bold leading-5 text-[#ef4444]">{request.customerName}</p>
             <p className="text-[11px] leading-[17px] text-[#64748b]">{request.property.region} · {request.property.propertyType} {request.property.areaLabel}</p>
             <p className="text-[11px] leading-[17px] text-[#64748b]">상태: 시공사 거절</p>
           </ContractorSectionCard>
