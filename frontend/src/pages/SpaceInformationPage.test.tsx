@@ -106,6 +106,38 @@ describe('SpaceInformationPage', () => {
     expect(ceilingDefinition?.tagName).toBe('DD')
     expect(within(ceilingDefinition as HTMLElement).getByRole('button', { name: '수정' })).toBeInTheDocument()
   })
+
+  it('starts with every space unchecked and toggles every selectable space from the all checkbox', async () => {
+    renderPage()
+
+    const allCheckbox = await screen.findByRole('checkbox', { name: '전체 공간 선택' })
+    const spaceButtons = spaces.map((space) => screen.getByRole('button', { name: new RegExp(space.spaceName) }))
+
+    expect(allCheckbox).not.toBeChecked()
+    spaceButtons.forEach((button) => expect(button).toHaveAttribute('aria-pressed', 'false'))
+
+    fireEvent.click(allCheckbox)
+    expect(allCheckbox).toBeChecked()
+    spaceButtons.forEach((button) => expect(button).toHaveAttribute('aria-pressed', 'true'))
+
+    fireEvent.click(allCheckbox)
+    expect(allCheckbox).not.toBeChecked()
+    spaceButtons.forEach((button) => expect(button).toHaveAttribute('aria-pressed', 'false'))
+  })
+
+  it('keeps the all checkbox synchronized with individual space selections', async () => {
+    renderPage()
+
+    const allCheckbox = await screen.findByRole('checkbox', { name: '전체 공간 선택' })
+    for (const space of spaces) {
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(space.spaceName) }))
+    }
+
+    expect(allCheckbox).toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: /침실1/ }))
+    expect(allCheckbox).not.toBeChecked()
+  })
+
   it('uses 2.4m as the editable default when AI analysis has no ceiling height', async () => {
     api.getAnalysis.mockResolvedValueOnce({
       requestId: 77,
