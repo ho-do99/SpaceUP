@@ -75,6 +75,8 @@ export default function SpaceInformationPage() {
     () => spaces.filter((space) => isDetectedSpaceName(space.spaceName)),
     [spaces],
   )
+  const allSpacesSelected = selectableSpaces.length > 0
+    && selectableSpaces.every((space) => space.selectedForConstruction)
   const canContinue = selectableSpaces.some((space) => space.selectedForConstruction)
   const selectedTotalAreaM2 = sumSelectedSpaceAreaM2(selectableSpaces)
   const summary = createSummary(analysis, ceilingHeight)
@@ -92,6 +94,14 @@ export default function SpaceInformationPage() {
     setSpaces((current) => current.map((space) => (
       space.id === spaceId
         ? { ...space, selectedForConstruction: !space.selectedForConstruction }
+        : space
+    )))
+  }
+
+  const toggleAllSpaces = (selected: boolean) => {
+    setSpaces((current) => current.map((space) => (
+      isDetectedSpaceName(space.spaceName)
+        ? { ...space, selectedForConstruction: selected }
         : space
     )))
   }
@@ -190,7 +200,22 @@ export default function SpaceInformationPage() {
           </section>
 
           <fieldset aria-describedby="space-selection-help" className="mx-[5px] mt-[22px] min-w-0 border-0 p-0">
-            <legend className="text-[18px] font-bold leading-[26px] text-[#0f172a]">인테리어할 공간을 선택해 주세요</legend>
+            <legend className="w-full">
+              <span className="flex w-full items-center justify-between gap-3">
+                <span className="text-[18px] font-bold leading-[26px] text-[#0f172a]">인테리어할 공간을 선택해 주세요</span>
+                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] font-semibold leading-5 text-[#475569]">
+                  <input
+                    type="checkbox"
+                    aria-label="전체 공간 선택"
+                    checked={allSpacesSelected}
+                    disabled={loading || selectableSpaces.length === 0}
+                    className="size-[18px] cursor-pointer rounded-[4px] border-[#94a3b8] accent-[#2563eb] disabled:cursor-not-allowed disabled:opacity-50"
+                    onChange={(event) => toggleAllSpaces(event.target.checked)}
+                  />
+                  전체
+                </label>
+              </span>
+            </legend>
             <p id="space-selection-help" className="mt-1 text-[12px] leading-[18px] text-[#475569]">인테리어를 원하는 공간을 여러 개 선택할 수 있습니다.</p>
 
             <div className="mt-3 grid grid-cols-2 gap-2.5">
